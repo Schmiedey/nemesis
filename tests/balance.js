@@ -21,7 +21,9 @@ function run(seed, party, loadout = {}) {
   return { g, firstHit: firstHit ?? g.t, hp45: hp45 ?? 0 };
 }
 
+const ROWS = (process.argv[process.argv.indexOf('--rows') + 1] || '').split(',').filter(Boolean);   // e.g. --rows champions,veterans
 function report(label, party = [], loadout = {}) {
+  if (process.argv.includes('--rows') && !ROWS.some(r => label.includes(r))) return;
   const rs = SEEDS.map(s => run(s, party, loadout));
   const ts = rs.map(r => r.g.t).sort((a, b) => a - b), mid = ts[Math.floor(ts.length / 2)];
   const avg = f => rs.reduce((a, r) => a + f(r), 0) / rs.length;

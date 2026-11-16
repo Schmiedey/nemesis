@@ -18,8 +18,9 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 ## Commands
 - `npm run dev` → http://localhost:8791 (port 8765 belongs to another project)
 - `npm test` → simulated runs and save tests
+- `node tests/balance.js --rows "no party,runts,soldiers"` and `--rows veterans,champions` → the main table in two halves. The whole table takes over 10 minutes, so run the halves separately (the second in the background).
 - `node tests/balance.js --weapons` → solo survival per weapon and ability (add `--only rod,totem` to limit). Re-run after any weapon change.
-- `node tests/balance.js` → survival table by party strength, played by the `smart` bot (about 2 minutes). Targets are in `docs/design/Core Loop.md`; re-run after any rule change.
+- `node tests/balance.js` → survival table by party strength, played by the `smart` bot (over 10 minutes in full; use `--rows`). Targets are in `docs/design/Core Loop.md`; re-run after any rule change.
 - `npm run build` → `dist/`
 - `blender -b -P art/make_sprites.py -- bat` → re-render one creature (omit the name for all). Check the PNG by reading it before wiring it in.
 

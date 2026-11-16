@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-7 merged to main. Phase 8 built on branch `phase-8-weapons`, not merged: six weapons, five abilities (Space or touch button), gear found and kept, loadout screen. Next: user plays it, merge, Phase 9 (power-ups and charms). Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload, 10-second clip, real-phone test.
+**Status:** Phases 1-8 merged to main. Phase 9 built on branch `phase-9-powerups`, not merged: six power-ups and eight charms (third loadout slot). This completes the weapons/abilities/gear plan. Next: user plays it, merge. Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload, 10-second clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -57,8 +57,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: how you attack is a choice and every weapon is within about 20% of the Blaster in the balance table.
 
 ## Phase 9: Power-up pickups and charms
-- [ ] Six power-ups that drop in the arena
-- [ ] About 8 charms as a third loadout slot
+- [x] Six power-ups that drop in the arena
+- [x] About 8 charms as a third loadout slot
 - Done when: a run has moments of sudden power and the loadout has three meaningful choices.
 
 ## Usage rules

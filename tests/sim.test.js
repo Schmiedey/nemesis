@@ -210,6 +210,44 @@ describe('sim', () => {
     expect(g.state).toBe('won'); expect(g.loot.length).toBe(1); expect(['blaster', 'dash']).not.toContain(g.loot[0]);
     expect(createGame({ seed: 1 }).owned).toBe(null);
   });
+
+  it('power-ups: each one does its job when you walk over it', () => {
+    const use = (k, opts = {}) => { const g = quiet(opts); const e = dummy(g, 200); e.stun = 0; g.pickups.push({ x: g.P.x, y: g.P.y, k, life: 12 }); step(g, 1 / 60, still()); return { g, e }; };
+    expect(use('frenzy').g.frenzyT).toBeGreaterThan(7);
+    let r = use('bubble'); expect(r.g.P.shield).toBe(3);
+    r.g.ents[0].x = r.g.P.x + 5; r.g.ents[0].stun = 0; r.g.ents[0].dmg = 50; r.g.ents[0].cd = 0; r.g.ents[0].act = 99;
+    const hp = r.g.P.hp; for (let i = 0; i < 5; i++) step(r.g, 1 / 60, still());
+    expect(r.g.P.hp).toBe(hp); expect(r.g.P.shield).toBe(2);
+    expect(use('freeze').e.stun).toBeGreaterThan(1.9);
+    expect(use('bomb').e.hp).toBeLessThan(1e6);
+    r = quiet(); r.gems.push({ x: 100, y: 100, v: 1 }); r.pickups.push({ x: r.P.x, y: r.P.y, k: 'vortex', life: 12 }); step(r, 1 / 60, still());
+    expect(r.gems[0].pull).toBe(true);
+    const gg = createGame({ seed: 0, party: [nem(1, 'brute', 1)] }); const ally = gg.ents.find(x => x.team === 'ally'), d0 = ally.dmg;
+    gg.pickups.push({ x: gg.P.x, y: gg.P.y, k: 'giant', life: 12 }); step(gg, 1 / 60, still());
+    expect(ally.dmg).toBeCloseTo(d0 * 1.5); gg.giantT = 0.01; gg.P.hp = gg.P.maxhp = 1e6; step(gg, 1 / 60, still()); step(gg, 1 / 60, still());
+    expect(ally.dmg).toBeCloseTo(d0);
+    const old = quiet(); old.pickups.push({ x: 50, y: 50, k: 'bomb', life: 0.01 }); step(old, 1 / 60, still()); step(old, 1 / 60, still());
+    expect(old.pickups.length).toBe(0);                      // unused power-ups fade away
+  });
+
+  it('charms: thorn mail hits back, the hourglass saves you once, lucky coin doubles elites', () => {
+    let g = quiet({ loadout: { charm: 'thorn' } });
+    let e = dummy(g, 5); e.stun = 0; e.dmg = 5; e.cd = 0;
+    for (let i = 0; i < 3; i++) step(g, 1 / 60, still());
+    expect(e.hp).toBeLessThan(1e6); expect(Math.hypot(e.x - g.P.x, e.y - g.P.y)).toBeGreaterThan(30);
+
+    g = quiet({ loadout: { charm: 'hour' } });
+    e = dummy(g, 5); e.stun = 0; e.dmg = 1e5; e.cd = 0;
+    for (let i = 0; i < 3; i++) step(g, 1 / 60, still());
+    expect(g.state).toBe('play'); expect(g.hourUsed).toBe(true); expect(g.P.hp).toBeCloseTo(g.P.maxhp * 0.3, 0);
+    g.P.inv = 0; e.x = g.P.x + 5; e.y = g.P.y; e.stun = 0; e.cd = 0;
+    for (let i = 0; i < 5 && g.state === 'play'; i++) step(g, 1 / 60, still());
+    expect(g.state).toBe('dead');                            // only once
+
+    g = quiet({ loadout: { charm: 'coin' } }); g.eliteT = 0; step(g, 1 / 60, still());
+    expect(g.eliteT).toBeGreaterThan(29); expect(g.eliteT).toBeLessThan(31);
+    expect(g.ents.some(x => x.elite)).toBe(true);
+  });
 });
 
 describe('save', () => {
@@ -292,12 +330,16 @@ describe('save', () => {
 
   it('gear: old saves start with Blaster and Dash; found gear is kept and can be equipped', () => {
     const s = sanitize({ runs: 3 });
-    expect(s.gear.owned).toEqual(['blaster', 'dash']); expect(s.gear.loadout).toEqual({ weapon: 'blaster', ability: 'dash' });
+    expect(s.gear.owned).toEqual(['blaster', 'dash']); expect(s.gear.loadout).toEqual({ weapon: 'blaster', ability: 'dash', charm: null });
     expect(addGear(s, ['sword', 'sword', 'bogus', 'shock'])).toEqual(['sword', 'shock']);
     expect(equip(s, 'rod')).toBe(false);                     // not found yet
     expect(equip(s, 'sword')).toBe(true); expect(equip(s, 'shock')).toBe(true);
     const back = sanitize(JSON.parse(JSON.stringify(s)));
-    expect(back.gear.loadout).toEqual({ weapon: 'sword', ability: 'shock' }); expect(back.gear.owned.length).toBe(4);
+    expect(back.gear.loadout).toEqual({ weapon: 'sword', ability: 'shock', charm: null }); expect(back.gear.owned.length).toBe(4);
+    addGear(s, ['thorn']);
+    expect(equip(s, 'thorn')).toBe(true); expect(s.gear.loadout.charm).toBe('thorn');
+    expect(sanitize(JSON.parse(JSON.stringify(s))).gear.loadout.charm).toBe('thorn');
+    equip(s, 'thorn'); expect(s.gear.loadout.charm).toBe(null);   // clicking it again takes it off
     expect(sanitize({ gear: { owned: [], loadout: { weapon: 'rod' } } }).gear.loadout.weapon).toBe('blaster');
   });
 });

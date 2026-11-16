@@ -60,10 +60,10 @@ Each enemy shows what it is about to do, and has an answer:
 - **Slime** splits; **Wisp** blinks (unchanged).
 
 ## The boss
-A giant of the type that has killed you most. It moves at 150 or more (you move at 200), so you cannot just walk away. It summons its kind every 5s, fires a ring of 16 shots every 3.5s, and between rings fires aimed bursts of 3 every 1.6s. Regular enemies keep spawning during the fight at 80% of the normal rate. Every 5s it winds up for 0.85s with a tell and uses its type's move:
+A giant of the type that has killed you most. It moves at 150 or more (you move at 200), so you cannot just walk away. It summons its kind every 5s, fires a ring of 18 shots every 3.5s, and between rings fires aimed bursts of 3 every 1.3s. Its shots do 22. Regular enemies keep spawning during the fight at 80% of the normal rate. Every 5s it winds up for 0.85s with a tell and uses its type's move:
 - Brute and Bat: a long charge, ending in a shockwave ring. Slime: leaps onto where you stood and scatters small slimes. Archer: a wide fan of arrows. Bomber: a huge blast around itself. Wisp: blinks beside you and fires two offset rings.
-- **Enrage** below half health: 25% faster, specials every 3.2s, rings of 22, aimed bursts of 5 every 1.1s.
-- Health is 11500 x (1 + 0.6 x total party quality), so a stronger party faces a tougher nemesis.
+- **Enrage** below half health: 25% faster, specials every 3.2s, rings of 26, aimed bursts of 5 every 0.8s.
+- Health is 11500 x (1 + 0.6 x total party quality) x (1 + 0.02 x your level), so a stronger party and build face a tougher nemesis. (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
 
 ## Elites, chests and upgrades (Phase 5)
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
@@ -95,6 +95,14 @@ Lucky Shot works with every weapon. Chain Shot works with all but Flamewalker (i
 
 Solo survival by weapon (`node tests/balance.js --weapons`, 10 seeds, with Dash): Blaster 1:48, Greatsword 1:44, Boomerang 1:45, Flamewalker 1:53, Storm Rod 1:44, Totem 1:48. By ability (with Blaster): Dash 1:48, Shockwave 2:02, Time Slow 1:43, Decoy 2:25, Rally 2:02 (no party to rally).
 
+## Power-ups and charms (Phase 9)
+**Power-ups** lie on the ground for 12s (they blink for the last 3); walk over one to use it. Every elite drops one; any other enemy has a 0.5% chance, but not while the boss is alive (`POWERUPS` in `src/data.js`, `usePowerup` in `src/sim.js`).
+- **Frenzy**: every weapon timer runs twice as fast for 8s. **Bubble**: absorbs the next 3 hits. **Freeze**: every enemy but the boss frozen 2s. **Bomb**: 4x damage + 20 to everything within 600 and clears enemy shots. **Vortex**: every gem flies to you. **Giant** (only drops if you have a party): nemeses grow, heal half, hit 50% harder for 6s.
+
+**Charms** are the third, optional loadout slot, found and kept like other gear (`CHARMS` in `src/data.js`):
+- Thorn Mail (an enemy that hits you takes 2.5x damage and is thrown back), Ember Heart (0.5x damage every 0.4s within 72), Lodestone (each gem fires a 0.6x shard), Vampire Fang (heal 5 per 25 kills), Hourglass (once per run, death rewinds to 30% health with a shockwave), Afterimage (being hit leaves a 1.5s decoy, at most every 6s), Pack Banner (nemeses return twice as fast), Lucky Coin (elites every 30s instead of 60s).
+- Charms are not in the balance table.
+
 ## Reasons to return (Phase 6)
 - **Nemesis+**: unlocked by a first win, toggled on the title screen. Swarm x1.35, enemy health x1.25, enemy damage x1.15. Keeps its own best time and win count.
 - **Daily run**: one seed per UTC day (the date as a number), so the map and spawns are the same for everyone. You bring your own party. One best time per day; a quit run does not count.
@@ -112,10 +120,10 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 1:48 | 3/10 | 1 | 0:29 |
-| 3 runts | 2:32 | 1/10 | 1 | 1:17 |
-| 3 soldiers | 2:18 | 3/10 | 1 | 1:16 |
-| 3 veterans with perks | 6:25 | 6/10 | 3 | 0:56 |
-| 3 champions with perks | 5:50 | 10/10 | 8 | 3:17 |
+| None | 1:44 | 1/10 | 1 | 0:38 |
+| 3 runts | 2:49 | 3/10 | 3 | 1:57 |
+| 3 soldiers | 2:19 | 4/10 | 2 | 2:24 |
+| 3 veterans with perks | 5:54 | 6/10 | 3 | 1:38 |
+| 3 champions with perks | 6:27 | 10/10 | 6 | 5:12 |
 
-Known gaps (table uses Blaster + Dash, and the bot presses the ability when crowded): a champion party wins 8 of 10 again now that Dash exists (target about half); more boss health did not help (tried 0.85 scaling: 9 of 10), so the boss needs attacks Dash cannot simply skip. Decoy is the strongest ability (2:25 solo vs 1:48). Small number changes swing weapons wildly (Totem went 1:23 to 5:05 to 1:48), so re-run `--weapons` after any weapon change. Runts and soldiers are not separated. Evolutions, Nemesis+ and boons are not in the table.
+Known gaps (table uses Blaster + Dash, no charm; the bot presses the ability when crowded and walks to power-ups): a champion party is not hit until about 5:12, so everything before the boss is safe for it. Soldiers do worse than runts (2:19 vs 2:49), within 10-seed noise. Decoy is the strongest ability. Small number changes swing weapons and power-ups wildly, so re-run after any change. Charms, evolutions, Nemesis+ and boons are not in the table. The full table now takes over 10 minutes: run it in two halves with `--rows`.

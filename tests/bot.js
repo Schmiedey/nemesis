@@ -71,6 +71,7 @@ export function smart(g) {
       const m = Math.min(x, y, W - x, H - y);
       if (m < 130) sc -= (130 - m) * 0.03;
     }
+    for (const c of g.pickups) { const d = Math.hypot(c.x - P.x, c.y - P.y) || 1; if (d < 450) sc += 1.0 * (mx * (c.x - P.x) + my * (c.y - P.y)) / d; }
     for (const c of g.chests) { const d = Math.hypot(c.x - P.x, c.y - P.y) || 1; sc += 1.2 * (mx * (c.x - P.x) + my * (c.y - P.y)) / d; }
     if (gem) { const d = Math.sqrt(gd) || 1; sc += 0.8 * (mx * (gem.x - P.x) + my * (gem.y - P.y)) / d; }
     const cx = W / 2 - P.x, cy = H / 2 - P.y, cd = Math.hypot(cx, cy) || 1;

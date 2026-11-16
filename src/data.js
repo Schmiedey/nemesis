@@ -122,6 +122,26 @@ export const ABILITIES = {
   decoy: { n: 'Decoy', i: '☻', cd: 20, d: 'Drops a copy of you that enemies chase. Then it explodes.' },
   rally: { n: 'Rally', i: '⚑', cd: 20, d: 'Your nemeses jump to you, heal, and attack faster for 5 seconds.' },
 };
+// A charm is the third loadout slot: one odd passive effect. Optional; you start with none.
+export const CHARMS = {
+  thorn: { n: 'Thorn Mail', i: '✹', d: 'Enemies that hit you are hurt and thrown back.' },
+  ember: { n: 'Ember Heart', i: '♨', d: 'A burning aura hurts enemies that stand near you.' },
+  lode: { n: 'Lodestone', i: '◈', d: 'Every gem you collect fires a shard at the nearest enemy.' },
+  fang: { n: 'Vampire Fang', i: '♥', d: 'Heal 5 for every 25 kills.' },
+  hour: { n: 'Hourglass', i: '⧗', d: 'Once per run, death rewinds you to 30% health with a shockwave.' },
+  after: { n: 'Afterimage', i: '☻', d: 'Being hit leaves a decoy behind for enemies to chase.' },
+  banner: { n: 'Pack Banner', i: '⚑', d: 'Fallen nemeses return twice as fast.' },
+  coin: { n: 'Lucky Coin', i: '◉', d: 'Elites, and their chests, come twice as often.' },
+};
+// Power-ups lie on the ground for a few seconds. Walk over one to use it.
+export const POWERUPS = {
+  frenzy: { n: 'Frenzy', i: '⚡', c: '#ffd23f', d: 'Attack twice as fast for 8 seconds.' },
+  bubble: { n: 'Bubble', i: '◯', c: '#9fe8ff', d: 'Absorbs the next 3 hits.' },
+  freeze: { n: 'Freeze', i: '❄', c: '#4cd9ff', d: 'Every enemy is frozen for 2 seconds.' },
+  bomb: { n: 'Bomb', i: '✸', c: '#ff7a2f', d: 'Damages everything on screen.' },
+  vortex: { n: 'Vortex', i: '◎', c: '#7dffb0', d: 'Every gem flies to you.' },
+  giant: { n: 'Giant', i: '▲', c: '#b06cff', d: 'Your nemeses grow, heal half their health and hit 50% harder for 6 seconds.' },
+};
 export const START_GEAR = ['blaster', 'dash'];
-export const ALL_GEAR = [...Object.keys(WEAPONS), ...Object.keys(ABILITIES)];
-export const gearOf = id => WEAPONS[id] || ABILITIES[id] || null;
+export const ALL_GEAR = [...Object.keys(WEAPONS), ...Object.keys(ABILITIES), ...Object.keys(CHARMS)];
+export const gearOf = id => WEAPONS[id] || ABILITIES[id] || CHARMS[id] || null;

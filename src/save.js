@@ -1,16 +1,16 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, START_GEAR, ALL_GEAR } from './data.js';
+import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, START_GEAR, ALL_GEAR } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
-const VERSION = 6;
+const VERSION = 7;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
 // v5 adds: Nemesis+ (hard, bestHard, winsHard), the daily run, feats and the chosen boon.
 const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1,
   hard: false, bestHard: 0, winsHard: 0, daily: { date: '', best: 0, won: false }, feats: {}, boon: null,
   // v6: gear you have found, and what is equipped.
-  gear: { owned: [...START_GEAR], loadout: { weapon: 'blaster', ability: 'dash' } } });
+  gear: { owned: [...START_GEAR], loadout: { weapon: 'blaster', ability: 'dash', charm: null } } });   // v7 adds the charm slot
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const count = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
@@ -68,6 +68,7 @@ export function sanitize(raw) {
   const lo = raw.gear && raw.gear.loadout;
   if (lo && WEAPONS[lo.weapon] && s.gear.owned.includes(lo.weapon)) s.gear.loadout.weapon = lo.weapon;
   if (lo && ABILITIES[lo.ability] && s.gear.owned.includes(lo.ability)) s.gear.loadout.ability = lo.ability;
+  if (lo && CHARMS[lo.charm] && s.gear.owned.includes(lo.charm)) s.gear.loadout.charm = lo.charm;
   return s;
 }
 
@@ -124,7 +125,9 @@ export function addGear(save, ids) {
 }
 export function equip(save, id) {
   if (!save.gear.owned.includes(id)) return false;
-  if (WEAPONS[id]) save.gear.loadout.weapon = id; else if (ABILITIES[id]) save.gear.loadout.ability = id; else return false;
+  if (WEAPONS[id]) save.gear.loadout.weapon = id; else if (ABILITIES[id]) save.gear.loadout.ability = id;
+  else if (CHARMS[id]) save.gear.loadout.charm = save.gear.loadout.charm === id ? null : id;   // a charm can be taken off again
+  else return false;
   return true;
 }
 export const boonsOf = save => FEATS.filter(f => save.feats[f.id]).map(f => f.boon);

@@ -1,5 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, gearOf, upName, evoOf, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today } from './save.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
@@ -85,7 +85,8 @@ export function showStart(save, bossType) {
   $('bBoon').classList.toggle('hidden', !boonsOf(save).length);
   $('bBoon').querySelector('b').textContent = save.boon ? upName(save.boon) : 'none';
   $('bFeats').querySelector('b').textContent = `${got}/${FEATS.length}`;
-  $('bLoadout').querySelector('b').textContent = `${WEAPONS[save.gear.loadout.weapon].n} + ${ABILITIES[save.gear.loadout.ability].n}`;
+  const lo = save.gear.loadout;
+  $('bLoadout').querySelector('b').textContent = `${WEAPONS[lo.weapon].n} + ${ABILITIES[lo.ability].n}${lo.charm ? ' + ' + CHARMS[lo.charm].n : ''}`;
   if (save.bestHard) $('startStats').innerHTML += stat(fmt(save.bestHard), 'best N+');
   show('start');
 }
@@ -107,6 +108,7 @@ export function showLoadout(save, onEquip) {
   };
   col($('loWeapons'), WEAPONS, save.gear.loadout.weapon);
   col($('loAbilities'), ABILITIES, save.gear.loadout.ability);
+  col($('loCharms'), CHARMS, save.gear.loadout.charm);
   show('loadout');
 }
 

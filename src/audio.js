@@ -80,6 +80,7 @@ const SFX = {
   level: t => notes([69, 73, 76, 81], 0.06, 0.28, 0.1, 'triangle', t),
   pick: t => notes([76, 83], 0.05, 0.12, 0.09, 'square', t),
   ui: t => tone('sine', 620, 700, 0.04, 0.06, { at: t }),
+  power: t => notes([72, 76, 79, 84], 0.045, 0.22, 0.11, 'square', t),
   sweep: t => noise(0.12, 0.16, 'bandpass', 900, 3200, { at: t }),
   bolt: t => { noise(0.1, 0.2, 'highpass', 3000, 5000, { at: t }); tone('square', 1400, 200, 0.12, 0.07, { at: t }); },
   dash: t => noise(0.16, 0.16, 'bandpass', 500, 4000, { at: t }),

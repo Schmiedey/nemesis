@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, ALL_GEAR } from './data.js';
+import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
@@ -58,12 +58,13 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
     layout: LAYOUTS[layout % LAYOUTS.length].name, rocks: LAYOUTS[layout % LAYOUTS.length].rocks,
+    pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
     chests: [], chest: false, opened: 0, hard: !!hard, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
       weapon: WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster', ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
-      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
+      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
   g.heat = (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (g.hard ? 1.35 : 1);
@@ -136,13 +137,13 @@ function spawnBoss(g) {
   const d = T[g.bossType], a = g.rand() * 6.28;
   const e = mk(g, g.bossType, 'enemy', clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
   e.boss = true; e.spT = 4; e.aimT = 2; e.spd = Math.max(e.spd, 150); // never slow enough to simply walk away from
-   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 0.6 * g.party.reduce((a, n) => a + n.q, 0)); // a stronger party faces a tougher nemesis e.dmg = 30;
+   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 0.6 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + g.P.lvl * 0.02); // a stronger party faces a tougher nemesis e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
   g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);
 }
 
 const ring = (g, e, n, sp, off = g.rand() * 6.28) => {
-  for (let i = 0; i < n; i++) shoot(g, e.x, e.y, off + i * 6.283 / n, sp, 16, 'enemy', e.type, 0, T[e.type].color, true);
+  for (let i = 0; i < n; i++) shoot(g, e.x, e.y, off + i * 6.283 / n, sp, 22, 'enemy', e.type, 0, T[e.type].color, true);
 };
 
 // The boss walks you down, summons its kind and fires rings. Every few seconds it winds up (a visible tell)
@@ -175,13 +176,13 @@ function bossThink(g, e, dt) {
     e.summonT = 5;
     for (let i = 0; i < (e.type === 'bat' ? 6 : 3); i++) mkEnemy(g, e.type, e.x + rr(g, -60, 60), e.y + rr(g, -60, 60));
   }
-  if (e.ringT <= 0) { e.ringT = 3.5; snd(g, 'ring'); ring(g, e, e.enraged ? 22 : 16, e.enraged ? 240 : 210); }
+  if (e.ringT <= 0) { e.ringT = 3.5; snd(g, 'ring'); ring(g, e, e.enraged ? 26 : 18, e.enraged ? 250 : 215); }
   // Between rings it fires aimed bursts, so standing still is never safe.
   e.aimT -= dt;
   if (e.aimT <= 0) {
-    e.aimT = e.enraged ? 1.1 : 1.6;
+    e.aimT = e.enraged ? 0.8 : 1.3;
     const a = Math.atan2(P.y - e.y, P.x - e.x), n = e.enraged ? 5 : 3;
-    for (let i = 0; i < n; i++) shoot(g, e.x, e.y, a + (i - (n - 1) / 2) * 0.14, 300, 16, 'enemy', e.type, 0, T[e.type].color, true);
+    for (let i = 0; i < n; i++) shoot(g, e.x, e.y, a + (i - (n - 1) / 2) * 0.14, 320, 22, 'enemy', e.type, 0, T[e.type].color, true);
   }
 }
 
@@ -255,7 +256,9 @@ function contact(g, e, foe) {
   for (const o of targetsOf(g, foe)) {
     const r = e.r + o.r + 2;
     if (d2(e, o) < r * r) {
+      const hurtAt = g.P.hurtAt;
       damage(g, o, e.dmg, e.type, e.boss, e.nem); e.cd = 0.6 / e.haste;
+      if (o === g.P && g.P.charm === 'thorn' && g.P.hurtAt !== hurtAt && !e.boss) { damage(g, e, g.P.dmg * 2.5, 'player'); shove(g.P, e); }   // Thorn Mail
       if (e.team === 'ally' && e.type === 'brute') {
         // Job: a Brute nemesis knocks enemies back and stuns them. Quake hits everything close by.
         shove(e, o);
@@ -387,7 +390,12 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   const P = g.P;
   if (o === P) {
     if (P.inv > 0 || g.state !== 'play') return;
-    P.hp -= amt; P.inv = 0.25; P.flash = 0.15; shake(g, 8); snd(g, 'hurt');
+    if (P.shield > 0) { P.shield--; P.inv = 0.4; burst(g, P.x, P.y, '#9fe8ff', 10, 160); snd(g, 'thud'); return; }   // Bubble
+    P.hp -= amt; P.inv = 0.25; P.flash = 0.15; shake(g, 8); snd(g, 'hurt'); P.hurtAt = g.t;
+    if (P.charm === 'after' && !g.decoy && g.afterT <= g.t) { g.afterT = g.t + 6; g.decoy = { x: P.x, y: P.y, r: P.r, life: 1.5 }; }
+    if (P.hp <= 0 && P.charm === 'hour' && !g.hourUsed) {      // Hourglass: one rewind per run
+      g.hourUsed = true; P.hp = P.maxhp * 0.3; P.inv = 1.5; blast(g, 190, 2); snd(g, 'slowmo'); return;
+    }
     if (P.hp <= 0) { P.hp = 0; die(g, src, byBoss); }
     return;
   }
@@ -405,6 +413,7 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
 // An ally that falls comes back while it has lives left, then is gone for the run.
 function allyDown(g, e, delay, free = false) {
   if (e.small) return;
+  if (g.P.charm === 'banner') delay *= 0.5;
   if (free) g.respawnQ.push({ nem: e.nem, lives: e.lives, at: g.t + delay });
   else if (e.lives > 1) g.respawnQ.push({ nem: e.nem, lives: e.lives - 1, at: g.t + delay });
   else g.fallen.push(e.nem);
@@ -417,7 +426,10 @@ function kill(g, e) {
   if (T[e.type].split && !e.small) for (let i = 0; i < (e.evo === 'mother' ? 4 : 2); i++) {
     mk(g, 'slime', e.team, e.x + rr(g, -8, 8), e.y + rr(g, -8, 8), { small: true, hpMul: e.hpMul, dmgMul: e.dmgMul });
   }
-  if (e.team === 'enemy') { g.kills++; g.gems.push({ x: e.x, y: e.y, v: e.small ? 1 : T[e.type].xp }); if (e.elite) g.chests.push({ x: e.x, y: e.y }); }
+  if (e.team === 'enemy') { g.kills++; g.gems.push({ x: e.x, y: e.y, v: e.small ? 1 : T[e.type].xp }); if (e.elite) g.chests.push({ x: e.x, y: e.y });
+    if (g.P.charm === 'fang' && g.kills % 25 === 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 5);
+    // Power-ups: always from an elite, rarely from anything else.
+    if (e.elite || (!e.small && !g.boss && g.rand() < 0.005)) dropPowerup(g, e.x + (e.elite ? 26 : 0), e.y); }
   else allyDown(g, e, 6);
 }
 
@@ -579,6 +591,35 @@ function fireWeapon(g, dt) {
   if (g.totems.length) g.totems = g.totems.filter(t => t.life > 0);
 }
 
+// ---------- power-ups ----------
+export const EMBER_R = 72, PICKUP_LIFE = 12;
+function dropPowerup(g, x, y) {
+  const kinds = Object.keys(POWERUPS).filter(k => k !== 'giant' || g.party.length);   // Giant needs nemeses
+  g.pickups.push({ x: clamp(x, 20, ARENA.w - 20), y: clamp(y, 20, ARENA.h - 20), k: kinds[Math.floor(g.rand() * kinds.length)], life: PICKUP_LIFE });
+}
+// A blast around the player: damage, knockback, stun.
+function blast(g, r, mult) {
+  const P = g.P;
+  g.fx.push({ k: 'nova', x: P.x, y: P.y, r }); shake(g, 8);
+  for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, P) < (r + o.r) ** 2) { damage(g, o, P.dmg * mult, 'player'); shove(P, o); shove(P, o); o.stun = 1.2; }
+}
+function usePowerup(g, k) {
+  const P = g.P;
+  g.powerups++; g.fx.push({ k: 'power', id: k }); snd(g, 'power'); burst(g, P.x, P.y, POWERUPS[k].c, 18, 220);
+  if (k === 'frenzy') g.frenzyT = 8;
+  else if (k === 'bubble') P.shield = 3;
+  else if (k === 'freeze') { for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !o.boss) o.stun = Math.max(o.stun || 0, 2); }
+  else if (k === 'bomb') {
+    g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 560 }); shake(g, 16); snd(g, 'boom');
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, P) < 600 * 600) damage(g, o, P.dmg * 4 + 20, 'player');
+    for (const b of g.bullets) if (b.team === 'enemy') b.life = 0;
+  } else if (k === 'vortex') { for (const gem of g.gems) gem.pull = true; }
+  else {                                                // giant
+    for (const e of g.ents) if (e.team === 'ally' && !e.dead) { e.hp = Math.min(e.maxhp, e.hp + e.maxhp * 0.5); if (!e.giant) { e.giant = true; e.dmg *= 1.5; e.r *= 1.3; } }
+    g.giantT = 6;
+  }
+}
+
 // ---------- abilities ----------
 function useAbility(g) {
   const P = g.P, a = P.ability;
@@ -645,8 +686,12 @@ export function step(g, dt, input) {
   unstick(g, P);
   P.x = clamp(P.x, P.r, ARENA.w - P.r); P.y = clamp(P.y, P.r, ARENA.h - P.r);
   P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * dt);
-  P.fireT -= dt;
-  fireWeapon(g, dt);
+  const wdt = g.frenzyT > 0 ? dt * 2 : dt;              // Frenzy: every weapon timer runs twice as fast
+  g.frenzyT -= dt;
+  P.fireT -= wdt;
+  fireWeapon(g, wdt);
+  if (P.charm === 'ember') for (const o of g.ents) if (o.team === 'enemy' && !o.dead && (o.emberT || 0) <= g.t && d2(o, P) < (EMBER_R + o.r) ** 2) { o.emberT = g.t + 0.4; damage(g, o, P.dmg * 0.5, 'player'); }
+  if (g.giantT > 0 && (g.giantT -= dt) <= 0) for (const e of g.ents) if (e.giant) { e.giant = false; e.dmg /= 1.5; e.r /= 1.3; }
   if (!g.boss && !g.bossAt && g.t >= BOSS_TIME) spawnBoss(g);
   g.spawnT -= dt;
   if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.42, 0.85 - g.t * 0.003) * (g.boss ? 1.25 : 1) / g.heat; }
@@ -658,7 +703,7 @@ export function step(g, dt, input) {
     g.fx.push({ k: 'surge', a }); snd(g, 'surge');
   }
   g.eliteT -= dt;
-  if (g.eliteT <= 0 && !g.boss) { g.eliteT = 60; spawnElite(g); }
+  if (g.eliteT <= 0 && !g.boss) { g.eliteT = P.charm === 'coin' ? 30 : 60; spawnElite(g); }
   for (const q of g.respawnQ) if (!q.done && g.t >= q.at) { q.done = true; spawnAlly(g, q.nem, q.lives); }
   g.respawnQ = g.respawnQ.filter(q => !q.done);
   const edt = g.slowT > 0 ? dt * 0.3 : dt;             // Time Slow: enemies and their shots crawl
@@ -731,7 +776,9 @@ export function step(g, dt, input) {
   for (const gem of g.gems) {
     const dd = Math.sqrt(d2(gem, P)) || 0.01;
     if (dd < P.magnet || gem.pull) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
-    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v; snd(g, 'gem'); }
+    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v; snd(g, 'gem');
+      if (P.charm === 'lode') { const tg = nearest(g, P, 'enemy', 420); if (tg) shoot(g, P.x, P.y, Math.atan2(tg.y - P.y, tg.x - P.x), 560, P.dmg * 0.6, 'ally', 'player', 0, '#7dffb0'); }
+    }
   }
   g.gems = g.gems.filter(x => !x.got);
   for (const c of g.chests) if (!c.got && d2(c, P) < (P.r + 16) ** 2 && g.state === 'play') {
@@ -740,6 +787,11 @@ export function step(g, dt, input) {
     g.chest = true; g.state = 'lvl'; snd(g, 'level'); rollChoices(g);
   }
   g.chests = g.chests.filter(c => !c.got);
+  for (const u of g.pickups) {
+    u.life -= dt;
+    if (d2(u, P) < (P.r + 18) ** 2) { u.life = 0; usePowerup(g, u.k); }
+  }
+  if (g.pickups.length) g.pickups = g.pickups.filter(u => u.life > 0);
   g.ents = g.ents.filter(e => !e.dead);
   if (P.xp >= P.next && g.state === 'play') levelUp(g);
 }

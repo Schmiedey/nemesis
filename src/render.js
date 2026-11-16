@@ -1,6 +1,6 @@
 // Draws the game. Fixed 960x600 view scaled to the window, camera follows the player.
-import { T, BOSS_TIME, ABILITIES, gearOf } from './data.js';
-import { ARENA, VIEW, BOSS_BLAST, BLADE_R } from './sim.js';
+import { T, BOSS_TIME, ABILITIES, POWERUPS, gearOf } from './data.js';
+import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R } from './sim.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a); // cosmetic only
@@ -65,6 +65,7 @@ export function consumeFx(g) {
     else if (f.k === 'bolt') bolts.push({ pts: f.pts, life: 0.14 });
     else if (f.k === 'gear') banner = { text: 'NEW GEAR: ' + gearOf(f.id).n, life: 3.5 };
     else if (f.k === 'act') continue;
+    else if (f.k === 'power') banner = { text: POWERUPS[f.id].n.toUpperCase() + '!', life: 1.6, c: POWERUPS[f.id].c };
     else if (f.k === 'num') { if (nums.length < 50) nums.push({ x: f.x + rnd(-6, 6), y: f.y - 8, v: Math.round(f.v), life: 0.6 }); }
     else if (f.k === 'nova') rings.push({ x: f.x, y: f.y, r: f.r, life: 0.35 });
     else for (let i = 0; i < f.n; i++) {
@@ -249,6 +250,7 @@ function minimap(cx, g, camX, camY, H) {
     cx.fillStyle = e.team === 'ally' ? '#7dffb0' : e.elite ? '#ffd23f' : '#ff3b5c'; cx.fillRect(x0 + e.x * k - q, y0 + e.y * k - q, q * 2, q * 2);
   }
   cx.fillStyle = '#ffd23f'; for (const c of g.chests) cx.fillRect(x0 + c.x * k - 2, y0 + c.y * k - 2, 4, 4);
+  for (const u of g.pickups) { cx.fillStyle = POWERUPS[u.k].c; cx.beginPath(); cx.arc(x0 + u.x * k, y0 + u.y * k, 2.5, 0, 7); cx.fill(); }
   if (g.boss) {
     const p = 4 + Math.sin(g.t * 6);
     cx.fillStyle = '#ff3b5c'; cx.beginPath(); cx.arc(x0 + g.boss.x * k, y0 + g.boss.y * k, p, 0, 7); cx.fill();
@@ -294,6 +296,18 @@ export function draw(cv, cx, g) {
     cx.globalAlpha = 1; cx.strokeStyle = '#fff'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, 12 + 98 * (d.life / 2.5), 0, 7); cx.stroke();
     cx.restore();
   }
+  for (const u of g.pickups) {                           // Power-ups: a glowing badge that blinks before it goes
+    if (u.life < 3 && Math.sin(g.t * 16) > 0.3) continue;
+    const pu = POWERUPS[u.k], bob = Math.sin(g.t * 4 + u.x) * 3;
+    cx.fillStyle = pu.c + '33'; cx.beginPath(); cx.arc(u.x, u.y + bob, 22, 0, 7); cx.fill();
+    cx.fillStyle = '#0b0b10'; cx.beginPath(); cx.arc(u.x, u.y + bob, 13, 0, 7); cx.fill();
+    cx.strokeStyle = pu.c; cx.lineWidth = 2.5; cx.stroke();
+    cx.fillStyle = pu.c; cx.font = '15px ui-monospace,Menlo,monospace'; cx.textAlign = 'center'; cx.fillText(pu.i, u.x, u.y + bob + 5);
+  }
+  if (P.charm === 'ember' && g.state !== 'dead') {       // Ember Heart aura
+    cx.fillStyle = `rgba(255,120,30,${0.07 + 0.03 * Math.sin(g.t * 9)})`; cx.beginPath(); cx.arc(P.x, P.y, EMBER_R, 0, 7); cx.fill();
+    cx.strokeStyle = 'rgba(255,150,60,.35)'; cx.lineWidth = 1.5; cx.stroke();
+  }
   for (const c of g.chests) {
     const b = Math.sin(g.t * 5) * 2;
     cx.fillStyle = 'rgba(255,210,63,.18)'; cx.beginPath(); cx.arc(c.x, c.y, 22 + b, 0, 7); cx.fill();
@@ -302,6 +316,10 @@ export function draw(cv, cx, g) {
     cx.strokeStyle = '#3a2408'; cx.lineWidth = 1.5; cx.strokeRect(c.x - 11, c.y - 8, 22, 16);
   }
   for (const e of g.ents) drawEnt(cx, g, e);
+  if (P.shield > 0 && g.state !== 'dead') {              // Bubble: one arc per hit it can still absorb
+    cx.strokeStyle = '#9fe8ff'; cx.lineWidth = 2.5;
+    for (let i = 0; i < P.shield; i++) { const a = g.t * 2 + i * 2.094; cx.beginPath(); cx.arc(P.x, P.y - 4, P.r + 12, a, a + 1.6); cx.stroke(); }
+  }
   for (const r of g.rangs) {                             // Boomerangs
     cx.save(); cx.translate(r.x, r.y); cx.rotate(g.t * 22); cx.strokeStyle = '#e8f6ff'; cx.lineWidth = 4; cx.lineCap = 'round';
     cx.beginPath(); cx.moveTo(-r.r, -r.r * 0.5); cx.lineTo(0, r.r * 0.4); cx.lineTo(r.r, -r.r * 0.5); cx.stroke(); cx.restore();
@@ -374,9 +392,19 @@ export function draw(cv, cx, g) {
     cx.textAlign = 'center'; cx.fillStyle = ready ? '#fff' : '#888'; cx.font = '22px ' + font; cx.fillText(ab.i, ax, ay + 8);
     cx.font = '10px ' + font; cx.fillStyle = ready ? '#7dffb0' : '#888'; cx.fillText(ready ? ab.n.toUpperCase() : Math.ceil(left) + 's', ax, ay + 40);
   }
+  // Timed effects, listed above the ability icon.
+  {
+    const eff = [];
+    if (g.frenzyT > 0) eff.push(['FRENZY ' + Math.ceil(g.frenzyT) + 's', POWERUPS.frenzy.c]);
+    if (g.giantT > 0) eff.push(['GIANT ' + Math.ceil(g.giantT) + 's', POWERUPS.giant.c]);
+    if (P.shield > 0) eff.push(['BUBBLE x' + P.shield, POWERUPS.bubble.c]);
+    if (g.slowT > 0) eff.push(['SLOW ' + Math.ceil(g.slowT) + 's', '#9ab8ff']);
+    cx.textAlign = 'right'; cx.font = 'bold 12px ' + font;
+    eff.forEach(([t, c], i) => { cx.fillStyle = c; cx.fillText(t, W - 14, H - 96 - i * 16); });
+  }
   if (banner) {
     cx.globalAlpha = Math.min(1, banner.life); cx.textAlign = 'center'; cx.font = 'bold 22px ' + font;
-    cx.fillStyle = '#000'; cx.fillText(banner.text, W / 2 + 1, 101); cx.fillStyle = '#ffd23f'; cx.fillText(banner.text, W / 2, 100); cx.globalAlpha = 1;
+    cx.fillStyle = '#000'; cx.fillText(banner.text, W / 2 + 1, 101); cx.fillStyle = banner.c || '#ffd23f'; cx.fillText(banner.text, W / 2, 100); cx.globalAlpha = 1;
   }
   // Surge warning: a red arc on the side the wave is coming from.
   if (surge) {
