@@ -6,7 +6,10 @@ import * as ui from './ui.js';
 import * as audio from './audio.js';
 
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
-addEventListener('resize', () => resize(cv)); resize(cv);
+const hud = document.getElementById('hud'), hx = hud.getContext('2d');   // sharp layer for the HUD, over the pixel-art world
+addEventListener('resize', () => resize(cv, hud)); resize(cv, hud);
+// Canvas text needs the pixel fonts loaded before it can use them.
+if (document.fonts) for (const f of ['16px Silkscreen', 'bold 16px Silkscreen', '16px "Pixelify Sans"']) document.fonts.load(f);
 
 let save = loadSave();
 let g = null;
@@ -129,7 +132,7 @@ const JOY_R = 48, JOY_DEAD = 8;
 const endJoy = () => { joy = null; joyEl.classList.add('hidden'); };
 // Listens on the page, not just the canvas, so a thumb on the black bars beside the game still steers.
 addEventListener('pointerdown', e => {
-  if (e.target !== cv && e.target !== document.body && e.target !== document.documentElement) return;
+  if (e.target !== cv && e.target !== hud && e.target !== document.body && e.target !== document.documentElement) return;
   if (e.pointerType === 'mouse' || mode !== 'play' || joy) return;
   joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
   joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px';
@@ -166,8 +169,8 @@ let last = performance.now(), hitStop = 0;
 // Performance: if frames stay slow, draw fewer pixels; at the lowest step also drop the lighting and shadows.
 let qStep = 0, slowFor = 0, frameMs = 16.7, workMs = 0, showPerf = false;
 const perfEl = document.getElementById('perf');
-function applyQuality(i) { qStep = Math.max(0, Math.min(QUALITY_STEPS.length - 1, i)); slowFor = 0; setQuality(QUALITY_STEPS[qStep], cv, qStep === QUALITY_STEPS.length - 1); }
-const perf = () => ({ fps: Math.round(1000 / frameMs), frameMs: +frameMs.toFixed(1), workMs: +workMs.toFixed(2), canvas: cv.width + 'x' + cv.height, quality: QUALITY_STEPS[qStep], lowDetail: qStep === QUALITY_STEPS.length - 1 });
+function applyQuality(i) { qStep = Math.max(0, Math.min(QUALITY_STEPS.length - 1, i)); slowFor = 0; setQuality(QUALITY_STEPS[qStep], cv, false, hud); }
+const perf = () => ({ fps: Math.round(1000 / frameMs), frameMs: +frameMs.toFixed(1), workMs: +workMs.toFixed(2), canvas: cv.width + 'x' + cv.height, quality: QUALITY_STEPS[qStep], lowDetail: false });
 addEventListener('keydown', e => { if (e.code === 'Backquote') { showPerf = !showPerf; perfEl.classList.toggle('hidden', !showPerf); } });
 let perfTick = 0;
 function loop(now) {
@@ -193,7 +196,7 @@ function loop(now) {
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
   audio.scene(mode, g);
-  draw(cv, cx, g);
+  draw(cv, cx, g, hud, hx);
   workMs += (performance.now() - w0 - workMs) * 0.05;
   if (showPerf && now - perfTick > 400) { perfTick = now; const p = perf(); perfEl.textContent = `${p.fps} fps · ${p.workMs} ms work · ${p.canvas} · quality ${p.quality}${p.lowDetail ? ' low detail' : ''}`; }
   requestAnimationFrame(loop);

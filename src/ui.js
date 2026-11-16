@@ -1,6 +1,7 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
 import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today } from './save.js';
+import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
 
@@ -11,7 +12,12 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 const perkText = perks => Object.keys(perks).map(k => `${PERKS[k].label}${perks[k] > 1 ? ' ×' + perks[k] : ''}`).join(', ');
 
-const spr = (type, px = 48) => `<i class="spr" style="--s:${px}px;background-image:url(sprites/${type}.png)"></i>`;
+// A sprite from the sheet as an HTML element, k screen pixels per art pixel. Two-frame sprites animate.
+const pix = (name, k = 3, anim = false) => {
+  const a = ATLAS[name]; if (!a) return '';
+  return `<i class="px${anim && a.n > 1 ? ' a2' : ''}" style="width:${a.w * k}px;height:${a.h * k}px;background-size:${ATLAS_SIZE.w * k}px ${ATLAS_SIZE.h * k}px;background-position:${-a.x * k}px ${-a.y * k}px;--x1:${-(a.x + a.w) * k}px"></i>`;
+};
+const spr = (type, px = 48) => pix('c_' + type, Math.max(2, Math.round(px / 20)), true);
 const stat = (v, label, cls = '') => `<div class="stat ${cls}"><b>${v}</b><span>${label}</span></div>`;
 
 function nemCard(n, picked) {
@@ -21,7 +27,7 @@ function nemCard(n, picked) {
     `<span class="job">${evoOf(n) ? evoOf(n).d + '. ' : ''}${JOB[n.type]}</span>` +
     `<span class="perks">${perkText(n.perks) || 'no inherited powers'}</span>` +
     (n.runs ? `<span class="hist">${n.runs} run${n.runs > 1 ? 's' : ''} · ${n.kills} kill${n.kills === 1 ? '' : 's'}${n.wins ? ' · ' + n.wins + ' win' + (n.wins > 1 ? 's' : '') : ''}</span>` : '') +
-    (picked === undefined ? '' : `<span class="pick">${picked ? '✓ IN PARTY' : 'click to add'}</span>`) + '</div>';
+    (picked === undefined ? '' : `<span class="pick">${picked ? 'IN PARTY' : 'click to add'}</span>`) + '</div>';
 }
 
 function slots(save) {
@@ -48,9 +54,9 @@ function growthCards(rows) {
 }
 
 export function hideAll() { ['start', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
-const gearLines = ids => ids.map(id => `<div class="nem on show gear"><i class="ico">${gearOf(id).i}</i><div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
+const gearLines = ids => ids.map(id => `<div class="nem on show gear">${pix('i_' + id, 3)}<div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
 
-const featLines = feats => feats.map(f => `<div class="feat got"><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div>`).join('');
+const featLines = feats => feats.map(f => `<div class="feat got">${pix('i_trophy', 2)}<div><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div></div>`).join('');
 const KIND = { hard: 'Nemesis+', daily: 'Daily' };
 
 // Wire every menu button once. h: { play, roster, menu, resume, reset }
@@ -69,6 +75,7 @@ export function bindMenus(h) {
 export function showStart(save, bossType) {
   hideAll();
   $('startParty').innerHTML = save.nemeses.length ? slots(save) : '';
+  $('parade').innerHTML = pix('c_bat', 3, true) + pix('c_slime', 3, true) + pix('c_archer', 3, true) + pix('c_player', 3, true) + pix('c_brute', 3, true) + pix('c_bomber', 3, true) + pix('c_wisp', 3, true);
   const b = T[bossType], n = save.deaths[bossType] || 0;
   $('startBoss').innerHTML = !save.nemeses.length && !n
     ? 'No nemeses yet. Go die to something. The longer you last, the stronger it joins.'
@@ -100,8 +107,8 @@ export function showLoadout(save, onEquip) {
       const have = save.gear.owned.includes(id), it = table[id];
       const c = document.createElement('div');
       c.className = 'nem gearcard' + (id === cur ? ' on' : '') + (have ? '' : ' locked');
-      c.innerHTML = `<i class="ico">${have ? it.i : '?'}</i><div><b>${have ? it.n : 'Not found yet'}</b><span>${have ? it.d : 'Dropped by your nemesis and by elite chests.'}</span>` +
-        (have ? `<span class="pick">${id === cur ? '✓ EQUIPPED' : 'click to equip'}</span>` : '') + '</div>';
+      c.innerHTML = `${pix(have ? 'i_' + id : 'i_lock', 3)}<div><b>${have ? it.n : 'Not found yet'}</b><span>${have ? it.d : 'Dropped by your nemesis and by elite chests.'}</span>` +
+        (have ? `<span class="pick">${id === cur ? 'EQUIPPED' : 'click to equip'}</span>` : '') + '</div>';
       if (have) c.onclick = () => onEquip(id);
       el.appendChild(c);
     }
@@ -117,7 +124,7 @@ export function showFeats(save) {
   hideAll();
   $('featList').innerHTML = FEATS.map(f => {
     const got = save.feats[f.id];
-    return `<div class="feat${got ? ' got' : ''}"><b>${got ? '✓ ' : ''}${f.n}</b><span>${f.d}</span><em>Boon: ${upName(f.boon)}</em></div>`;
+    return `<div class="feat${got ? ' got' : ''}">${pix(got ? 'i_trophy' : 'i_lock', 2)}<div><b>${f.n}</b><span>${f.d}</span><em>Boon: ${upName(f.boon)}</em></div></div>`;
   }).join('');
   show('feats');
 }
@@ -194,7 +201,7 @@ export function showLevel(g, onPick) {
     const c = document.createElement('div'); c.className = 'card' + (u.ally ? ' ally' : '') + (g.chest ? ' chest' : '');
     const have = g.picks[u.id] || 0;
     const d = (WEAPONS[g.P.weapon].up || {})[u.id] || u.d;   // some upgrades mean something different per weapon
-    c.innerHTML = `<i class="ico">${u.i || '•'}</i><b>${u.n}</b><span>${d}</span>` +
+    c.innerHTML = `${pix('i_' + u.id, 4)}<b>${u.n}</b><span>${d}</span>` +
       `<em>${u.ally ? 'for your nemeses' : have ? 'you have ' + have : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
     el.appendChild(c);
