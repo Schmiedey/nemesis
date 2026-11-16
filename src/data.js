@@ -11,6 +11,9 @@ export const T = {
   hawk:     { name: 'Hawk',     color: '#feae34', r: 7, hp: 30, spd: 300, dmg: 9,  unlock: Infinity, w: 0, xp: 0, shape: 'tri', fly: true, minion: true },
   imp:      { name: 'Imp',      color: '#e43b44', r: 8, hp: 30, spd: 150, dmg: 6,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', ranged: true, minion: true },
   skeleton: { name: 'Skeleton', color: '#f4f1e8', r: 8, hp: 20, spd: 150, dmg: 7,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', minion: true },
+  wolf:     { name: 'Wolf',     color: '#8b8696', r: 9, hp: 46, spd: 235, dmg: 9,  unlock: Infinity, w: 0, xp: 0, shape: 'tri', minion: true },
+  drone:    { name: 'Drone',    color: '#2ce8f5', r: 6, hp: 30, spd: 280, dmg: 6,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', fly: true, minion: true },
+  golem:    { name: 'Golem',    color: '#8b8696', r: 16, hp: 110, spd: 120, dmg: 6, unlock: Infinity, w: 0, xp: 0, shape: 'square', minion: true },
 };
 
 export const ALLY_LINE = {
@@ -161,4 +164,35 @@ export const CLASSES = {
     md: 'Hawk: cannot be hurt. Dives at the toughest enemy and marks it; marked enemies take 20% more damage.' },
   necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 12th kill raises a Skeleton to fight for you (up to 5).', minion: 'imp',
     md: 'Imp: throws fireballs that set enemies burning.' },
+  // Locked classes. `lock.need(save)` returns [have, want]; unlocked for good once have >= want.
+  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', minion: 'wolf',
+    md: 'Wolf: fast and savage. Its howl sends you into a frenzy, attacking twice as fast for a moment.',
+    lock: { text: 'Kill 1,000 enemies in total', need: s => [s.stats.kills, 1000] } },
+  engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', minion: 'drone',
+    md: 'Drone: cannot be hurt. Circles you, shooting the nearest enemy.',
+    lock: { text: 'Open 8 chests in total', need: s => [s.stats.chests, 8] } },
+  warden: { n: 'Warden', sprite: 'c_warden', d: 'You regenerate 0.5 health a second.', minion: 'golem',
+    md: 'Golem: a wall of stone. Slams the ground to stun everything close, and for a moment enemies turn on it instead of you.',
+    lock: { text: 'Slay your nemesis once', need: s => [Math.min(1, s.wins), 1] } },
 };
+export const START_CLASSES = ['knight', 'ranger', 'necro'];
+// Class mastery: time survived as a class (plus a bonus for winning) raises its level. Each level makes its
+// minion 15% stronger and you 2% stronger. Thresholds in seconds for levels 2..5.
+export const MASTERY = [240, 720, 1500, 3000];
+export const masteryLevel = xp => MASTERY.filter(v => xp >= v).length;   // 0..4, shown as level 1..5
+
+// ---------- the Shrine: permanent upgrades bought with souls ----------
+// Souls are earned by every run, win or lose. cost[i] is the price of rank i + 1.
+export const META = [
+  { id: 'vit', n: 'Vitality', i: 'i_tough', d: '+8 max health', cost: [30, 60, 110, 180, 280] },
+  { id: 'might', n: 'Might', i: 'i_dmg', d: '+5% damage', cost: [40, 80, 140, 220, 340] },
+  { id: 'haste', n: 'Quickness', i: 'i_haste', d: '+4% attack speed', cost: [40, 80, 140, 220, 340] },
+  { id: 'swift', n: 'Swiftness', i: 'i_spd', d: '+3% move speed', cost: [30, 60, 110, 180, 280] },
+  { id: 'wisdom', n: 'Wisdom', i: 'i_magnet', d: '+8% experience from gems', cost: [40, 80, 140, 220, 340] },
+  { id: 'greed', n: 'Greed', i: 'i_coin', d: '+10% souls from every run', cost: [50, 100, 170, 260, 380] },
+  { id: 'kin', n: 'Kinship', i: 'i_rally', d: '+8% strength for nemeses and minions', cost: [40, 80, 140, 220, 340] },
+  { id: 'reroll', n: 'Second Thoughts', i: 'i_wind', d: '+1 reroll of your level-up choices each run', cost: [80, 200, 400] },
+];
+// Nemesis+: a ladder of difficulty tiers. Winning at your highest tier unlocks the next.
+export const MAX_TIER = 5;
+

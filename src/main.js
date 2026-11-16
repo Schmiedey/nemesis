@@ -1,6 +1,7 @@
 // Glue: input, game loop, saves, overlays.
-import { createGame, step, pick } from './sim.js';
-import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, PARTY_SIZE } from './save.js';
+import { createGame, step, pick, reroll } from './sim.js';
+import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
+import { masteryLevel } from './data.js';
 import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites, levelFx, pickFx } from './render.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
@@ -21,9 +22,11 @@ function toStart() { mode = 'start'; g = null; ui.showStart(save, bossTypeFor(sa
 function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
 function pickEvo(id, evoId) { if (evolve(save, id, evoId)) { audio.sfx('level'); checkFeats(save); writeSave(save); } ui.showRoster(save, toggleParty, pickEvo); }
 function toFeats() { mode = 'feats'; ui.showFeats(save); }
-function toClasses() { mode = 'classes'; ui.showClasses(save, id => { save.cls = id; writeSave(save); audio.sfx('pick'); toClasses(); }); }
+function toClasses() { mode = 'classes'; ui.showClasses(save, id => { if (!save.classes.includes(id)) return; save.cls = id; writeSave(save); audio.sfx('pick'); toClasses(); }); }
 function toLoadout() { mode = 'loadout'; ui.showLoadout(save, id => { if (equip(save, id)) writeSave(save); toLoadout(); }); }
-function flipHard() { if (save.wins > 0) { save.hard = !save.hard; writeSave(save); toStart(); } }
+// Nemesis+ steps through the tiers you have unlocked: 0 (off), 1, 2 ...
+function flipHard() { if (save.tierMax > 0) { save.tier = (save.tier + 1) % (save.tierMax + 1); save.hard = save.tier > 0; writeSave(save); toStart(); } }
+function toShrine() { mode = 'shrine'; ui.showShrine(save, id => { if (buyMeta(save, id)) { audio.sfx('level'); writeSave(save); } toShrine(); }); }
 // The boon button steps through: none, then each boon you have unlocked.
 function nextBoon() {
   const list = [null, ...boonsOf(save)];
@@ -41,17 +44,18 @@ function toggleParty(id) {
 // k: 'normal' (or 'hard' if Nemesis+ is switched on), or 'daily' for today's fixed seed.
 function begin(k = 'normal') {
   ui.hideAll(); resetFx();
-  kind = k === 'daily' ? 'daily' : save.hard && save.wins > 0 ? 'hard' : 'normal';
+  kind = k === 'daily' ? 'daily' : save.tier > 0 ? 'hard' : 'normal';
   g = createGame({
     seed: kind === 'daily' ? dailySeed(today()) : (Math.random() * 2 ** 32) >>> 0,
     party: partyOf(save).map(n => ({ ...n, perks: { ...n.perks } })),
-    bossType: bossTypeFor(save), hard: kind === 'hard', boon: save.boon,
+    bossType: bossTypeFor(save), tier: kind === 'hard' ? save.tier : 0, boon: save.boon, meta: save.meta, mastery: masteryLevel(save.mastery[save.cls] || 0),
     loadout: save.gear.loadout, owned: save.gear.owned, cls: save.cls,
   });
   mode = 'play'; audio.sfx('start');
   if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again
 }
 
+function doReroll() { if (mode === 'lvl' && lvlWait <= 0 && !picking && reroll(g)) { audio.sfx('ui'); ui.showLevel(g, choose); } }
 // Levelling up is a moment: the game freezes, a beam and sparks play, then the cards are dealt.
 let lvlWait = 0, picking = false;
 function startLevel(wait = 0.75) { mode = 'lvl'; lvlWait = wait; picking = false; ui.hideLevel(); levelFx(g); }
@@ -78,8 +82,8 @@ function endRun(won) {
   if (won) save.wins++;
   const growth = growParty(save, g.party, won);
   const run = { t: g.t, kills: g.kills, won, dead: !won, party: g.party.length, runts: g.party.length === 3 && g.party.every(n => n.q < 0.7),
-    hard: kind === 'hard', daily: kind === 'daily', opened: g.opened };
-  return { newBest: g.t > prev, best: Math.max(prev, g.t), growth, run, kind, gear: addGear(save, g.loot) };
+    hard: kind === 'hard', daily: kind === 'daily', opened: g.opened, tier: g.tier, boss: !!g.bossAt, cls: g.cls };
+  return { newBest: g.t > prev, best: Math.max(prev, g.t), growth, run, kind, gear: addGear(save, g.loot), prog: progress(save, run) };
 }
 
 function onDeath() {
@@ -120,8 +124,10 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyF' && mode === 'start') toFeats();
   else if (e.code === 'KeyL' && mode === 'start') toLoadout();
   else if (e.code === 'KeyC' && mode === 'start') toClasses();
+  else if (e.code === 'KeyU' && mode === 'start') toShrine();
+  else if (e.code === 'KeyR' && mode === 'lvl') doReroll();
   else if (e.code === 'KeyR' && (mode === 'start' || over)) toRoster();
-  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || over)) toStart();
+  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || mode === 'shrine' || over)) toStart();
   else if (e.code === 'KeyQ' && mode === 'pause') toStart();
   else if ((e.code === 'Escape' || e.code === 'KeyP') && (mode === 'play' || mode === 'pause')) {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
@@ -130,7 +136,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.code] = false);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses,
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, reroll: () => doReroll(),
   roster: toRoster, menu: toStart, resume,
   reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
 });

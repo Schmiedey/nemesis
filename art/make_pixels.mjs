@@ -247,6 +247,28 @@ const necro = st => { const g = G(18, 21);
   g.rect(12, 10, 3, 2, 'v'); return g.outline(); };
 add('c_necro', ...cycle(necro(false), necro(true)));
 
+// The three locked classes.
+const berserker = st => { const g = G(20, 21);
+  g.rect(5, 9, 7, 6, 'br').rect(5, 9, 2, 6, 'o2').rect(10, 9, 2, 6, 'br2').rect(5, 14, 7, 2, 'r2').rect(7, 10, 1, 3, 'br2');        // bare chest, red kilt
+  g.disc(8, 5, 4, ['br2', 'br', 'o2']).rect(5, 6, 7, 3, 'o').rect(6, 8, 5, 2, 'o').px(7, 4, 'k').px(10, 4, 'k').rect(5, 1, 7, 2, 'g2').px(4, 0, 'w').px(12, 0, 'w');   // head, big orange beard, horned helm
+  g.line(15, 3, 15, 15, 'br').poly([[15, 2], [19, 3], [19, 8], [15, 8]], 'g1').line(18, 3, 18, 8, 'w').rect(12, 10, 3, 2, 'br');          // great axe
+  g.rect(st ? 5 : 6, 16, 2, st ? 4 : 3, 'br2').rect(st ? 10 : 9, 16, 2, st ? 3 : 4, 'br2'); return g.outline(); };
+add('c_berserker', ...cycle(berserker(false), berserker(true)));
+
+const engineer = st => { const g = G(18, 21);
+  g.rect(5, 9, 7, 7, 'o').rect(5, 9, 2, 7, 'o2').rect(10, 9, 2, 7, 'br').rect(6, 11, 5, 4, 'br2').rect(7, 12, 3, 1, 'y');                // overalls, tool belt
+  g.disc(8, 5, 4, ['br', 'o2', 'y']).rect(5, 4, 7, 2, 'g3').rect(6, 4, 2, 2, 'c').rect(9, 4, 2, 2, 'c').rect(5, 0, 7, 2, 'y').rect(4, 2, 9, 1, 'gold2');   // goggles, hard hat
+  g.line(14, 6, 14, 13, 'g1').rect(13, 4, 3, 2, 'g2').px(14, 4, null).rect(12, 10, 2, 2, 'o2');                                          // wrench
+  g.rect(st ? 5 : 6, 16, 2, st ? 4 : 3, 'g3').rect(st ? 10 : 9, 16, 2, st ? 3 : 4, 'g3'); return g.outline(); };
+add('c_engineer', ...cycle(engineer(false), engineer(true)));
+
+const warden = st => { const g = G(18, 22);
+  g.poly([[4, 10], [12, 10], [13, 20], [3, 20]], 'gr3').rect(4, 10, 2, 10, 'gr2').rect(8, 11, 1, 9, 'br').rect(st ? 2 : 3, 20, st ? 12 : 10, 1, 'gr3');   // moss-green robe
+  g.disc(8, 6, 4, ['br2', 'br', 'o2']).rect(6, 7, 5, 3, 'w').px(7, 5, 'k').px(10, 5, 'k');                                               // face, white beard
+  g.line(5, 3, 3, 0, 'br').line(4, 1, 2, 1, 'br').line(11, 3, 13, 0, 'br').line(12, 1, 14, 1, 'br');                                     // antlers
+  g.line(15, 5, 15, 20, 'br2').disc(15, 3, 2, ['gr2', 'gr', 'mint']).px(16, 6, 'gr').rect(12, 11, 3, 2, 'gr2'); return g.outline(); };   // living staff
+add('c_warden', ...cycle(warden(false), warden(true)));
+
 // Starter minions.
 const squire = st => { const g = G(16, 17);
   g.rect(4, 7, 6, 6, 'g2').rect(4, 7, 2, 6, 'g1').rect(5, 8, 3, 4, 'c2');                                                // body, tabard
@@ -276,6 +298,32 @@ const skel = st => { const g = G(14, 18);
   g.line(4, 9, 2, st ? 12 : 13, 'w').line(9, 9, 12, st ? 11 : 10, 'w').line(12, st ? 11 : 10, 12, st ? 6 : 5, 'g1');        // arms; a bone club
   g.line(6, 14, st ? 4 : 5, 17, 'w').line(8, 14, st ? 10 : 9, 17, 'w'); return g.outline(); };
 add('c_skeleton', ...cycle(skel(false), skel(true)));
+
+const wolf = st => { const g = G(20, 13);
+  g.rect(4, 5, 10, 4, 'g2').rect(4, 5, 10, 1, 'g1').rect(4, 8, 10, 1, 'g3');                                                             // body
+  g.poly([[13, 3], [18, 5], [18, 8], [13, 8]], 'g2').px(13, 2, 'g2').px(15, 2, 'g2').px(16, 5, 'y').px(18, 6, 'k').rect(15, 8, 3, 1, 'w');   // head, ears, eye, teeth
+  g.line(4, 5, 1, st ? 3 : 6, 'g2').px(0, st ? 2 : 7, 'g1');                                                                             // tail
+  g.rect(st ? 4 : 5, 9, 2, 3, 'g3').rect(st ? 8 : 7, 9, 2, 3, 'g3').rect(st ? 11 : 12, 9, 2, 3, 'g3'); return g.outline(); };
+add('c_wolf', ...cycle(wolf(false), wolf(true)));
+
+const drone = st => { const g = G(14, 12);
+  g.rect(3, 5, 8, 4, 'g2').rect(3, 5, 8, 1, 'g1').rect(3, 8, 8, 1, 'g3').rect(5, 6, 4, 2, 'c').px(6, 6, 'w').rect(6, 9, 2, 2, 'g3');     // body, eye, gun
+  g.rect(st ? 0 : 2, 2, st ? 6 : 3, 1, 'ice').rect(st ? 8 : 9, 2, st ? 6 : 3, 1, 'ice').rect(3, 3, 1, 2, 'g3').rect(10, 3, 1, 2, 'g3');   // rotors
+  return g.outline(); };
+add('c_drone', lift(drone(false), 0), lift(drone(true), 0), lift(drone(false), 1), lift(drone(true), 1));
+
+const golem = st => { const g = G(30, 30);
+  g.disc(15, 17, 9, ['g3', 'g2', 'g1']).rect(9, 22, 12, 3, 'g3');                                                                        // boulder body
+  g.rect(10, 4, 10, 8, 'g2').rect(10, 4, 3, 8, 'g1').rect(18, 4, 2, 8, 'g3').rect(12, 7, 2, 2, 'c').rect(16, 7, 2, 2, 'c').rect(13, 10, 4, 1, 'k');   // head, glowing eyes
+  g.disc(4, 17 + (st ? 1 : 0), 4, ['g3', 'g2', 'g1']).disc(26, 17 - (st ? 1 : 0), 4, ['g3', 'g2', 'g1']);                                // fists
+  g.px(11, 15, 'gr2').px(12, 14, 'gr').px(18, 20, 'gr2').px(19, 13, 'gr3').line(13, 16, 16, 19, 'g3').line(17, 14, 19, 16, 'g3');        // moss, cracks
+  g.rect(st ? 9 : 10, 25, 5, 3, 'g3').rect(st ? 17 : 16, 25, 5, 3, 'g3'); return g.outline(); };
+add('c_golem', ...cycle(golem(false), golem(true)));
+
+// Icons for progression: a soul (the currency) and a mastery star.
+add('i_soul', G(16).poly([[8, 1], [12, 6], [13, 10], [10, 14], [6, 14], [3, 10], [4, 6]], 'c').poly([[8, 5], [10, 9], [9, 12], [7, 12], [6, 9]], 'ice').px(7, 9, 'k').px(9, 9, 'k').outline());
+add('i_star', G(9).poly([[4.5, 0], [6, 3], [9, 3.5], [6.5, 5.5], [7.5, 9], [4.5, 7], [1.5, 9], [2.5, 5.5], [0, 3.5], [3, 3]], 'y').outline('gold2'));
+add('i_star0', G(9).poly([[4.5, 0], [6, 3], [9, 3.5], [6.5, 5.5], [7.5, 9], [4.5, 7], [1.5, 9], [2.5, 5.5], [0, 3.5], [3, 3]], 'g4').outline('g5'));
 
 // Small markers drawn over enemies: the Hawk's mark, and burning.
 add('mark', G(9).ring(4, 4, 4, 'r', 1).px(4, 0, null).px(4, 8, null).px(0, 4, null).px(8, 4, null).px(4, 4, 'r3').outline());

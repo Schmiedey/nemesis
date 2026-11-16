@@ -158,7 +158,7 @@ button.quiet:hover{color:var(--w)}
 .pfoot{display:flex;gap:16px;align-items:center;justify-content:center}
 .locol{display:flex;flex-direction:column;gap:10px}
 /* Class cards */
-.cls{width:270px;padding:0 0 14px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.3;color:var(--txt);background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo)}
+.cls{width:270px;padding:0 0 12px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.3;color:var(--txt);background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo)}
 .cls:hover{background:#2e2940}
 .cls .scene{height:128px;padding-bottom:22px;background:linear-gradient(var(--k) 0 calc(100% - 34px),#2a2639 0 calc(100% - 32px),#221e30 0)}
 .cls h3{font:700 20px var(--t);color:var(--w);margin:4px 14px 0;letter-spacing:0}
@@ -167,6 +167,26 @@ button.quiet:hover{color:var(--w)}
 .cls.on{background:#22382d;box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--green),inset -2px -2px 0 var(--green2)}
 .cls.on .pick{color:var(--mint)}
 @media (max-width:760px){.home{grid-template-columns:1fr;gap:16px}.side{align-items:center;text-align:center}}
+
+/* Progression: the Shrine, souls, mastery, locked classes */
+.purse{display:flex;align-items:center;gap:8px;font:700 20px var(--t);color:var(--cyan);flex:none}
+.mcard{width:292px;padding:10px 12px 12px;text-align:left;display:flex;gap:12px;align-items:center;font-size:15px;line-height:1.25;color:var(--txt);background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);box-sizing:border-box}
+.mcard>div{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.mcard b{font:400 12px var(--t);color:var(--w)}
+.pips{display:flex;gap:3px;margin:2px 0}.pips i{width:10px;height:8px;background:var(--k)}.pips i.on{background:var(--y)}
+.mcard button{flex:none;font-size:10px;padding:6px 8px 9px;display:flex;align-items:center;gap:4px}
+.mcard button:disabled{background:#201b2d;color:var(--dim);box-shadow:0 0 0 2px var(--bg2);cursor:default}
+.mcard.max{box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--y),inset -2px -2px 0 var(--gold)}
+.stars{display:flex;gap:2px;margin:0 14px}
+.cls .bar{margin:0 14px}
+.cls.locked{cursor:default;background:#201b2d;box-shadow:0 0 0 2px var(--bg2)}
+.cls.locked:hover{background:#201b2d}
+.cls.locked .scene .px{filter:brightness(0);opacity:.75;animation:none}
+.cls.locked h3,.cls.locked p{color:var(--dim)}
+.cls .need{display:flex;align-items:center;gap:8px;margin:2px 14px 0;font:400 10px var(--t);color:var(--y)}
+#classList{max-width:900px}
+.soul b{color:var(--cyan)!important}
+#bReroll{font-size:12px}#bReroll b{color:var(--y);font-weight:400;margin:0 6px}
 
 /* In-run controls */
 #perf{position:fixed;left:8px;top:8px;z-index:9;font:400 10px var(--t);color:var(--mint);background:var(--k);padding:4px 6px;pointer-events:none}
@@ -211,6 +231,7 @@ button.quiet:hover{color:var(--w)}
         <button class="mi" id="bClass"><span>CLASS</span><b></b><span class="key">C</span></button>
         <button class="mi" id="bLoadout"><span>LOADOUT</span><b></b><span class="key">L</span></button>
         <button class="mi" id="bRoster"><span>ROSTER</span><b></b><span class="key">R</span></button>
+        <button class="mi" id="bShrine"><span>SHRINE</span><b></b><span class="key">U</span></button>
         <button class="mi" id="bFeats"><span>FEATS</span><b>0/13</b><span class="key">F</span></button>
         <button class="mi" id="bBoon"><span>BOON</span><b>none</b></button>
         <button class="mi" id="bHard"><span>NEMESIS+</span><b>OFF</b></button>
@@ -230,6 +251,11 @@ button.quiet:hover{color:var(--w)}
 <div id="classes" class="ov menu page hidden">
   <div class="phead"><h1 class="logo sm">CLASS</h1><div class="sub">Each class has a bonus and a minion with its own ability. Any class can use any gear.</div><button id="bClassBack">BACK <span class="key">Esc</span></button></div>
   <div class="pbody"><div class="cards" id="classList"></div></div>
+</div>
+
+<div id="shrine" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">SHRINE</h1><div class="sub">Every run earns souls, win or lose. Spend them here on upgrades that last forever.</div><div class="purse" id="shrineSouls"></div><button id="bShrineBack">BACK <span class="key">Esc</span></button></div>
+  <div class="pbody"><div class="roster" id="shrineList"></div></div>
 </div>
 
 <div id="roster" class="ov menu page hidden">
@@ -259,6 +285,7 @@ button.quiet:hover{color:var(--w)}
   <div class="roster" id="dCard"></div>
   <div class="sub big" id="dJoin"></div>
   <div class="stats" id="dStats"></div>
+  <div class="roster" id="dProg"></div>
   <div class="roster" id="dFeats"></div>
   <div class="sub" id="dTease"></div>
   <div class="btns">
@@ -273,6 +300,7 @@ button.quiet:hover{color:var(--w)}
   <div class="stats" id="wStats"></div>
   <div class="sub big" id="wNote"></div>
   <div class="roster" id="wParty"></div>
+  <div class="roster" id="wProg"></div>
   <div class="roster" id="wFeats"></div>
   <div class="btns">
     <button class="go" id="bWonAgain">GO AGAIN <span class="key">SPACE</span></button>
@@ -285,6 +313,7 @@ button.quiet:hover{color:var(--w)}
   <h2 id="lvlTitle" style="color:var(--y)">LEVEL UP</h2>
   <div class="cards" id="cards"></div>
   <div class="sub mouse-only">Click or press <span class="key">1</span> <span class="key">2</span> <span class="key">3</span></div><div class="sub touch-only">Tap one</div>
+  <button id="bReroll" class="hidden">REROLL <b></b><span class="key">R</span></button>
 </div>
 
 <div id="pause" class="ov soft hidden">

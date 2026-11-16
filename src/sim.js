@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES } from './data.js';
+import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
@@ -51,24 +51,30 @@ export function recruitQuality(t, lvl, byBoss = false) {
 // party: up to 3 nemeses { id, type, name, title, q, perks }. bossType: enemy type of the 5:00 boss.
 // hard: Nemesis+ (bigger swarm, tougher enemies). boon: an upgrade id to start the run with.
 // loadout: { weapon, ability } ids from src/data.js. owned: gear ids the player already has; gear only drops when this is given.
-export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null, loadout = {}, owned = null, cls = null } = {}) {
+export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null, loadout = {}, owned = null, cls = null, tier = 0, meta = {}, mastery = 0 } = {}) {
+  // tier: Nemesis+ level 0..5 (`hard` means tier 2). meta: Shrine ranks by id. mastery: class level 0..4.
+  const tr = clamp(hard ? Math.max(2, tier) : tier, 0, MAX_TIER), mr = id => Math.max(0, meta[id] | 0);
   const g = {
     rand: mulberry32(seed), party: party.filter(n => T[n.type]).slice(0, 3), bossType: T[bossType] ? bossType : 'brute',
     state: 'play', t: 0, kills: 0, spawnT: 0.2, surgeT: 20, allyBuff: 1, allyHaste: 1, secondWind: false,
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
     layout: LAYOUTS[layout % LAYOUTS.length].name, rocks: LAYOUTS[layout % LAYOUTS.length].rocks,
-    cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0,
+    cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
-    chests: [], chest: false, opened: 0, hard: !!hard, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
+    chests: [], chest: false, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
       weapon: WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster', ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
       actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (g.hard ? 1.35 : 1);
+  g.heat = (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);
+  // Shrine upgrades and class mastery.
+  const P0 = g.P;
+  P0.maxhp += 8 * mr('vit'); P0.hp = P0.maxhp; P0.dmg *= (1 + 0.05 * mr('might')) * (1 + 0.02 * clamp(mastery, 0, 4));
+  P0.fire /= 1 + 0.04 * mr('haste'); P0.spd *= 1 + 0.03 * mr('swift'); g.allyBuff *= 1 + 0.08 * mr('kin');
   for (const nem of g.party) {
     const lives = nem.type === 'bomber' ? BOMBER_LIVES : ALLY_LIVES;
     const n = nem.evo === 'brood' ? 5 : nem.evo === 'storm' ? 2 : T[nem.type].pack || 1;
@@ -78,6 +84,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
   // Class: a passive bonus and a starter minion. With no class (tests, the balance bot's baseline) nothing changes.
   if (g.cls === 'knight') { g.P.maxhp += 30; g.P.hp += 30; g.armor = 0.85; }
   else if (g.cls === 'ranger') { g.P.spd *= 1.1; g.P.fire *= 0.92; }
+  else if (g.cls === 'warden') g.P.regen += 0.5;
   if (g.cls) spawnMinion(g, CLASSES[g.cls].minion);
   const b = boon && UP.find(u => u.id === boon);
   if (b) { b.f(g); g.picks[b.id] = 1; }
@@ -100,15 +107,16 @@ function mk(g, type, team, x, y, { small = false, hpMul = 1, dmgMul = 1, spdMul 
   e.maxhp = e.hp; g.ents.push(e); return e;
 }
 
-const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: (1 + g.t / 160) * (g.hard ? 1.25 : 1), dmgMul: (1.25 + g.t / 320) * (g.hard ? 1.15 : 1), spdMul: Math.min(1.15, 1 + g.t / 1400) });
+const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: (1 + g.t / 160) * (1 + 0.1 * g.tier), dmgMul: (1.25 + g.t / 320) * (1 + 0.06 * g.tier), spdMul: Math.min(1.15, 1 + g.t / 1400) });
 
 // A class minion (or a raised Skeleton). Not a nemesis: no rank, no perks. It returns a few seconds after it falls.
 function spawnMinion(g, type, x = g.P.x + rr(g, -40, 40), y = g.P.y + rr(g, -40, 40)) {
-  const k = g.allyBuff * (1 + g.t / 150);
+  const k = g.allyBuff * g.minionBuff * (1 + g.t / 150);
   const e = mk(g, type, 'ally', x, y, { hpMul: 1.6 * k, dmgMul: 1.4 * k });
   e.minion = true; e.pk = {}; e.nem = null; e.shotT = 1; e.haste = g.allyHaste; e.act = 2;
-  if (type === 'hawk') e.ghost = true;                 // nothing can target the Hawk
+  if (type === 'hawk' || type === 'drone') e.ghost = true;   // nothing can target the Hawk or the Drone
   if (type === 'skeleton') e.ttl = 15;
+  if (type === 'golem') e.haste *= 0.45;                 // slow, heavy fists: it holds the line, it does not clear it
   burst(g, e.x, e.y, type === 'skeleton' ? '#f4f1e8' : '#7dffb0', 8);
   return e;
 }
@@ -320,13 +328,35 @@ function minionThink(g, e, dt) {
     }
     return true;
   }
+  if (e.type === 'wolf') {
+    // Fights like any melee ally. Every 9 seconds, if enemies are near you, it howls and you go into a short frenzy.
+    if (e.act <= 0 && nearest(g, P, 'enemy', 260)) { e.act = 9 / e.haste; g.frenzyT = Math.max(g.frenzyT, 2.5); g.fx.push({ k: 'nova', x: e.x, y: e.y, r: 60 }); burst(g, e.x, e.y, '#c9c4b8', 8, 140); snd(g, 'windup'); }
+    return false;
+  }
+  if (e.type === 'drone') {
+    // Circles you and shoots the nearest enemy.
+    e.orb = (e.orb || 0) + dt * 2;
+    moveTo(e, P.x + Math.cos(e.orb) * 54, P.y + Math.sin(e.orb) * 40 - 16, dt);
+    if (e.act <= 0) { const tg = nearest(g, e, 'enemy', 360); if (tg) { e.act = 0.85 / e.haste; shoot(g, e.x, e.y, Math.atan2(tg.y - e.y, tg.x - e.x), 480, e.dmg, 'ally', 'player', 0, '#9fe8ff'); } }
+    return true;
+  }
+  if (e.type === 'golem') {
+    // Every 6 seconds it slams the ground: damage and a stun for everything close, and for 2.5 seconds after,
+    // walking enemies nearby go for the Golem instead of you (see taunter).
+    if (e.act <= 0 && nearest(g, e, 'enemy', 90)) {
+      e.act = 6; e.tauntT = g.t + 2.5; g.fx.push({ k: 'nova', x: e.x, y: e.y, r: 95 }); shake(g, 6); snd(g, 'thud');
+      for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !o.boss && d2(o, e) < (95 + o.r) ** 2) o.stun = Math.max(o.stun || 0, 1);
+    }
+    if (d2(e, P) > 130 * 130) { moveTo(e, P.x, P.y, dt); return true; }   // stays by your side
+    return false;
+  }
   return false;                                         // imp and skeleton use the normal ranged and melee behaviour
 }
 
 // Job: a Slime nemesis draws walking enemies onto itself.
 function taunter(g, e) {
   if (T[e.type].fly || T[e.type].ranged) return null;
-  for (const o of g.ents) if (o.team === 'ally' && o.type === 'slime' && !o.small && !o.dead && d2(e, o) < 150 * 150) return o;
+  for (const o of g.ents) if (o.team === 'ally' && (o.type === 'slime' || (o.type === 'golem' && o.tauntT > g.t)) && !o.small && !o.dead && d2(e, o) < 150 * 150) return o;
   return null;
 }
 
@@ -454,6 +484,7 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   // Job: a Slime nemesis is a shield. It shrugs off 40% of damage (70% as a Bulwark).
   if (o.team === 'ally') amt *= g.allyArmor;
   if (o.mark > g.t) amt *= 1.2;                          // marked by the Hawk
+  if (src === 'player' && g.cls === 'berserker') amt *= 1 + 0.6 * (1 - g.P.hp / g.P.maxhp);   // Berserker: hurt means angry
   if (o.team === 'ally' && o.type === 'slime') amt *= o.evo === 'bulwark' ? 0.3 : 0.6;
   o.hp -= amt; o.flash = 0.08;
   if (o.team === 'enemy' && amt >= 1) g.fx.push({ k: 'num', x: o.x, y: o.y - o.r, v: amt });
@@ -485,7 +516,7 @@ function kill(g, e) {
     if (g.cls === 'necro' && ++g.raiseC >= 12 && g.ents.filter(x => x.type === 'skeleton' && !x.dead).length < 5) { g.raiseC = 0; spawnMinion(g, 'skeleton', e.x, e.y); }
     if (g.P.charm === 'fang' && g.kills % 25 === 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 5);
     // Power-ups: always from an elite, rarely from anything else.
-    if (e.elite || (!e.small && !g.boss && g.rand() < 0.005)) dropPowerup(g, e.x + (e.elite ? 26 : 0), e.y); }
+    if (e.elite || (!e.small && !g.boss && g.rand() < (g.cls === 'engineer' ? 0.012 : 0.005))) dropPowerup(g, e.x + (e.elite ? 26 : 0), e.y); }
   else allyDown(g, e, 6);
 }
 
@@ -662,7 +693,8 @@ function blast(g, r, mult) {
 function usePowerup(g, k) {
   const P = g.P;
   g.powerups++; g.fx.push({ k: 'power', id: k }); snd(g, 'power'); burst(g, P.x, P.y, POWERUPS[k].c, 18, 220);
-  if (k === 'frenzy') g.frenzyT = 8;
+  const long = g.cls === 'engineer' ? 1.5 : 1;
+  if (k === 'frenzy') g.frenzyT = 8 * long;
   else if (k === 'bubble') P.shield = 3;
   else if (k === 'freeze') { for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !o.boss) o.stun = Math.max(o.stun || 0, 2); }
   else if (k === 'bomb') {
@@ -672,7 +704,7 @@ function usePowerup(g, k) {
   } else if (k === 'vortex') { for (const gem of g.gems) gem.pull = true; }
   else {                                                // giant
     for (const e of g.ents) if (e.team === 'ally' && !e.dead) { e.hp = Math.min(e.maxhp, e.hp + e.maxhp * 0.5); if (!e.giant) { e.giant = true; e.dmg *= 1.5; e.r *= 1.3; } }
-    g.giantT = 6;
+    g.giantT = 6 * long;
   }
 }
 
@@ -705,6 +737,12 @@ function dropGear(g) {
   const id = left[Math.floor(g.rand() * left.length)];
   g.loot.push(id); g.fx.push({ k: 'gear', id }); snd(g, 'level');
   return true;
+}
+
+// Swap the three level-up choices for new ones, if you have a reroll left (bought at the Shrine).
+export function reroll(g) {
+  if (g.state !== 'lvl' || g.rerolls <= 0) return false;
+  g.rerolls--; rollChoices(g); return true;
 }
 
 export function pick(g, i) {
@@ -833,7 +871,7 @@ export function step(g, dt, input) {
   for (const gem of g.gems) {
     const dd = Math.sqrt(d2(gem, P)) || 0.01;
     if (dd < P.magnet || gem.pull) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
-    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v; snd(g, 'gem');
+    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v * g.xpMul; snd(g, 'gem');
       if (P.charm === 'lode') { const tg = nearest(g, P, 'enemy', 420); if (tg) shoot(g, P.x, P.y, Math.atan2(tg.y - P.y, tg.x - P.x), 560, P.dmg * 0.6, 'ally', 'player', 0, '#7dffb0'); }
     }
   }

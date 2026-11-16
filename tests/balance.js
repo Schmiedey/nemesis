@@ -35,7 +35,7 @@ function report(label, party = [], loadout = {}) {
 // `node tests/balance.js --weapons`: solo survival per weapon and per ability, to keep them close to the Blaster and Dash.
 // `node tests/balance.js --classes`: solo survival per class, against no class.
 if (process.argv.includes('--classes')) {
-  for (const c of [null, 'knight', 'ranger', 'necro']) report('solo ' + (c || 'no class'), [], { cls: c });
+  for (const c of [null, 'knight', 'ranger', 'necro', 'berserker', 'engineer', 'warden']) report('solo ' + (c || 'no class'), [], { cls: c });
   process.exit(0);
 }
 if (process.argv.includes('--weapons')) {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, step, pick, recruitQuality, ARENA } from '../src/sim.js';
+import { createGame, step, pick, reroll, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME } from '../src/data.js';
-import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip } from '../src/save.js';
+import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -285,6 +285,42 @@ describe('sim', () => {
     const sk = g.ents.find(e => e.type === 'skeleton');
     expect(sk && sk.team).toBe('ally'); expect(sk.ttl).toBeGreaterThan(10);
   });
+
+  it('shrine ranks, mastery, tiers and rerolls change a run', () => {
+    const base = createGame({ seed: 1 });
+    const g = createGame({ seed: 1, meta: { vit: 2, might: 1, haste: 1, swift: 1, wisdom: 2, reroll: 2, kin: 1 }, mastery: 2, tier: 3 });
+    expect(g.P.maxhp).toBe(base.P.maxhp + 16); expect(g.P.hp).toBe(g.P.maxhp);
+    expect(g.P.dmg).toBeCloseTo(base.P.dmg * 1.05 * 1.04); expect(g.P.fire).toBeCloseTo(base.P.fire / 1.04);
+    expect(g.P.spd).toBeCloseTo(base.P.spd * 1.03); expect(g.xpMul).toBeCloseTo(1.16); expect(g.rerolls).toBe(2);
+    expect(g.heat).toBeGreaterThan(base.heat); expect(g.tier).toBe(3); expect(g.hard).toBe(true); expect(g.minionBuff).toBeCloseTo(1.3);
+    g.P.xp = g.P.next; step(g, 1 / 60, still());
+    expect(g.state).toBe('lvl');
+    const first = g.choices.map(u => u.id).join();
+    let changed = false; for (let i = 0; i < 2; i++) { expect(reroll(g)).toBe(true); if (g.choices.map(u => u.id).join() !== first) changed = true; }
+    expect(changed).toBe(true); expect(reroll(g)).toBe(false);             // only two rerolls were bought
+  });
+
+  it('locked classes: berserker hits harder when hurt, the golem draws enemies, the drone shoots and cannot be targeted', () => {
+    let g = quiet({ cls: 'berserker' }); g.ents.length = 0;
+    let e = dummy(g, 70); g.P.weapon = 'rod';
+    g.P.fireT = 0; step(g, 1 / 60, still()); const full = 1e6 - e.hp;
+    e.hp = 1e6; g.P.hp = g.P.maxhp * 0.5; g.P.fireT = 0; step(g, 1 / 60, still());
+    expect((1e6 - e.hp) / full).toBeCloseTo(1.3, 1);                         // half health: +30%
+
+    g = createGame({ seed: 0, cls: 'warden' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
+    expect(g.P.regen).toBeCloseTo(0.5);
+    const golem = g.ents.find(x => x.type === 'golem'); golem.spd = 0; golem.tauntT = 1e9; golem.act = 1e9;   // as if it had just slammed
+    e = dummy(g, 0); e.x = golem.x + 80; e.y = golem.y; e.type = 'brute'; e.r = 20; e.stun = 0; e.spd = 60; e.ang = Math.PI; e.act = 99;
+    g.P.x = e.x + 300; g.P.y = e.y; g.P.fire = 1e9; g.P.fireT = 1e9;
+    const x0 = e.x; for (let i = 0; i < 60; i++) step(g, 1 / 60, still());
+    expect(e.x).toBeLessThan(x0);                                            // walked toward the golem, away from the player
+
+    g = createGame({ seed: 0, cls: 'engineer' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
+    const drone = g.ents.find(x => x.type === 'drone'); expect(drone.ghost).toBe(true);
+    e = dummy(g, 150); g.P.fire = 1e9; g.P.fireT = 1e9;
+    for (let i = 0; i < 180 && e.hp === 1e6; i++) step(g, 1 / 60, still());
+    expect(e.hp).toBeLessThan(1e6);
+  });
 });
 
 describe('save', () => {
@@ -351,7 +387,7 @@ describe('save', () => {
     expect(got.map(f => f.id).sort()).toEqual(['first', 'two']);
     expect(checkFeats(s, { t: 130, dead: true }).length).toBe(0);            // only once
     expect(boonsOf(s).sort()).toEqual(['magnet', 'tough']);
-    s.boon = 'tough'; s.wins = 1; s.hard = true; s.daily = { date: '2026-11-15', best: 99, won: false };
+    s.boon = 'tough'; s.wins = 1; s.tier = 1; s.daily = { date: '2026-11-15', best: 99, won: false };
     const back = sanitize(JSON.parse(JSON.stringify(s)));
     expect([back.boon, back.hard, back.daily.best, back.feats.two]).toEqual(['tough', true, 99, true]);
     expect(sanitize({ boon: 'nova', hard: true }).boon).toBe(null);          // a boon you have not earned is dropped
@@ -384,5 +420,30 @@ describe('save', () => {
     expect(sanitize({ runs: 1 }).cls).toBe('knight');
     expect(sanitize({ cls: 'necro' }).cls).toBe('necro');
     expect(sanitize({ cls: 'wizard' }).cls).toBe('knight');
+  });
+
+  it('progression: souls, shrine purchases, class unlocks, mastery and Nemesis+ tiers', () => {
+    const s = sanitize({});
+    expect([s.souls, s.tier, s.tierMax]).toEqual([0, 0, 0]); expect(s.classes).toEqual(['knight', 'ranger', 'necro']);
+    const run = { t: 200, kills: 300, opened: 2, boss: false, won: false, tier: 0, cls: 'knight', daily: false };
+    expect(soulsFor(run, s)).toBe(Math.floor(300 * 0.12 + 200 * 0.2 + 8));
+    expect(soulsFor({ ...run, tier: 2 }, s)).toBe(Math.floor(84 * 1.5));
+    let p = progress(s, run);
+    expect(s.souls).toBe(84); expect(s.stats.kills).toBe(300); expect(s.mastery.knight).toBe(200); expect(p.classes).toEqual([]);
+    expect(metaCost(s, 'vit')).toBe(30); expect(buyMeta(s, 'vit')).toBe(true); expect(s.souls).toBe(54); expect(s.meta.vit).toBe(1);
+    expect(buyMeta(s, 'reroll')).toBe(false);                                // cannot afford 80
+    p = progress(s, { ...run, kills: 800, opened: 7, t: 100 });
+    expect(p.classes.sort()).toEqual(['berserker', 'engineer']); expect(p.levelUp).toBe(true);   // 1,100 kills, 9 chests, 300s as Knight
+    s.wins = 1; p = progress(s, { ...run, won: true, boss: true });
+    expect(p.tierUp).toBe(1); expect(s.tierMax).toBe(1); expect(p.classes).toEqual(['warden']);
+    p = progress(s, { ...run, won: true, boss: true, tier: 0 });
+    expect(p.tierUp).toBe(0);                                                // winning below your top tier unlocks nothing
+    s.tier = 1; s.cls = 'warden';
+    const back = sanitize(JSON.parse(JSON.stringify(s)));
+    expect([back.souls, back.meta.vit, back.tier, back.tierMax, back.cls, back.hard]).toEqual([s.souls, 1, 1, 1, 'warden', true]);
+    expect(back.classes.length).toBe(6); expect(completion(back)).toBeGreaterThan(0);
+    expect(sanitize({ cls: 'warden' }).cls).toBe('knight');                  // a class you have not unlocked is dropped
+    const old = sanitize({ wins: 2, winsHard: 1, hard: true, runs: 9 });     // a save from before tiers
+    expect([old.tierMax, old.tier, old.classes.includes('warden')]).toEqual([2, 1, true]);
   });
 });

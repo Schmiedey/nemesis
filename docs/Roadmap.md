@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main. Not merged, stacked on branches `phase-11-polish` then `phase-12-classes`: the pixel polish pass, three classes with starter minions, a level-up moment with card animations, a near-silent shot sound, and the title screen rebuilt as a side menu with a stage (other pages get a header row with Back). Next: user review, merge both. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main. Not merged, stacked on branches `phase-11-polish` → `phase-12-classes` → `phase-13-progression`: pixel polish; classes, level-up moment, new menu; and progression (souls, the Shrine, rerolls, three locked classes, class mastery, a five-tier Nemesis+ ladder). Next: user review, merge all three. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -74,6 +74,12 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Shooting sound reduced to a faint tick
 - [x] Title screen as a side menu with a stage; class screen; other pages with a header row
 - Done when: the user is happy with the menu structure and the feel of levelling up.
+
+## Phase 13: Progression and replay value
+- [x] Souls from every run; the Shrine with eight permanent upgrades; rerolls
+- [x] Three locked classes (Berserker, Engineer, Warden) with minions and unlock goals
+- [x] Class mastery levels; five-tier Nemesis+ ladder; completion %
+- Done when: there is always a next unlock in reach and a reason to replay each class.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

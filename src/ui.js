@@ -1,6 +1,6 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, gearOf, upName, evoOf, rankName } from './data.js';
-import { canEvolve, boonsOf, today } from './save.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
+import { canEvolve, boonsOf, today, metaCost, completion } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
@@ -53,7 +53,7 @@ function growthCards(rows) {
   }).join('');
 }
 
-export function hideAll() { ['start', 'classes', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+export function hideAll() { ['start', 'classes', 'shrine', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
 const gearLines = ids => ids.map(id => `<div class="nem on show gear">${pix('i_' + id, 3)}<div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
 
 const featLines = feats => feats.map(f => `<div class="feat got">${pix('i_trophy', 2)}<div><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div></div>`).join('');
@@ -64,9 +64,9 @@ export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
   on(['bPlay', 'bRosterPlay'], h.play);
   on(['bAgain', 'bWonAgain'], h.again);
-  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes);
+  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
-  on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bClassBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
+  on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bClassBack', 'bShrineBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
   on(['bResume'], h.resume);
   on(['reset'], h.reset);
 }
@@ -89,11 +89,51 @@ export function showStart(save, bossType) {
   set('bLoadout', WEAPONS[lo.weapon].n + ' + ' + ABILITIES[lo.ability].n);
   set('bRoster', save.nemeses.length ? `${party.length}/${PARTY_SIZE} of ${save.nemeses.length}` : 'empty');
   set('bFeats', `${got}/${FEATS.length}`);
-  $('bHard').classList.toggle('hidden', !save.wins); $('bHard').classList.toggle('lit', save.hard); set('bHard', save.hard ? 'ON' : 'OFF');
+  $('bHard').classList.toggle('hidden', !save.tierMax); $('bHard').classList.toggle('lit', save.tier > 0); set('bHard', save.tier ? `TIER ${save.tier} OF ${save.tierMax}` : 'OFF');
+  set('bShrine', save.souls + ' souls');
   $('bBoon').classList.toggle('hidden', !boonsOf(save).length); set('bBoon', save.boon ? upName(save.boon) : 'none');
   $('startStats').innerHTML = save.runs
-    ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + (save.bestHard ? stat(fmt(save.bestHard), 'best N+') : '') : '';
+    ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + (save.bestHard ? stat(fmt(save.bestHard), 'best N+') : '') + stat(completion(save) + '%', 'complete') : '';
   show('start');
+}
+
+// Mastery: five stars and a bar toward the next level.
+const stars = lvl => `<div class="stars">${[0, 1, 2, 3, 4].map(i => pix(i <= lvl ? 'i_star' : 'i_star0', 2)).join('')}</div>`;
+const masteryBar = (before, after) => {
+  const L = masteryLevel(after), lo = L ? MASTERY[L - 1] : 0, hi = MASTERY[L];
+  if (hi === undefined) return '<span class="bar"><i style="width:100%"></i></span>';
+  const pct = v => Math.round(Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100);
+  return `<span class="bar"><i style="width:${pct(before)}%"></i><i class="gain" style="left:${pct(before)}%;width:${pct(after) - pct(before)}%"></i></span>`;
+};
+
+// What a run earned: souls, class mastery, anything newly unlocked.
+function progLines(p, save) {
+  if (!p) return '';
+  const c = CLASSES[p.cls];
+  let h = `<div class="nem on show gear soul">${pix('i_soul', 3)}<div><b>+${p.souls} SOULS</b><span>You now have ${save.souls}. Spend them at the Shrine.</span></div></div>`;
+  if (c) h += `<div class="nem on show grow">${pix(c.sprite, 2, true)}<div><b>${c.n.toUpperCase()} MASTERY ${masteryLevel(p.after) + 1}</b>` +
+    `<span>${masteryLevel(p.after) >= 4 ? 'Mastered.' : 'Each level makes your minion 15% stronger.'}</span>${masteryBar(p.before, p.after)}</div>${p.levelUp ? '<span class="stamp">LEVEL UP</span>' : ''}</div>`;
+  for (const id of p.classes) h += `<div class="nem on show gear">${pix(CLASSES[id].sprite, 2, true)}<div><b>${CLASSES[id].n.toUpperCase()}</b><span>${CLASSES[id].d}</span></div><span class="stamp">CLASS UNLOCKED</span></div>`;
+  if (p.tierUp) h += `<div class="nem on show gear">${pix('i_skull', 3)}<div><b>NEMESIS+ TIER ${p.tierUp}</b><span>A harder run with ${25 * p.tierUp}% more souls. Switch it on from the menu.</span></div><span class="stamp">UNLOCKED</span></div>`;
+  return h;
+}
+
+// The Shrine: permanent upgrades bought with souls.
+export function showShrine(save, onBuy) {
+  hideAll();
+  $('shrineSouls').innerHTML = pix('i_soul', 2) + save.souls;
+  const el = $('shrineList'); el.innerHTML = '';
+  for (const m of META) {
+    const r = save.meta[m.id] || 0, cost = metaCost(save, m.id), c = document.createElement('div');
+    c.className = 'mcard' + (cost === null ? ' max' : '');
+    c.innerHTML = `${pix(m.i, 3)}<div><b>${m.n.toUpperCase()}</b><span>${m.d}</span><div class="pips">${m.cost.map((_, i) => `<i class="${i < r ? 'on' : ''}"></i>`).join('')}</div></div>`;
+    const b = document.createElement('button');
+    b.innerHTML = cost === null ? 'MAX' : pix('i_soul', 1) + cost;
+    b.disabled = cost === null || save.souls < cost;
+    b.onclick = () => onBuy(m.id);
+    c.appendChild(b); el.appendChild(c);
+  }
+  show('shrine');
 }
 
 // Class: three cards; each shows the hero, its minion and what they do.
@@ -101,11 +141,14 @@ export function showClasses(save, onPick) {
   hideAll();
   const el = $('classList'); el.innerHTML = '';
   for (const id in CLASSES) {
-    const c = CLASSES[id], card = document.createElement('div');
-    card.className = 'cls' + (id === save.cls ? ' on' : '');
-    card.innerHTML = `<div class="scene">${pix(c.sprite, 5, true)}${pix('c_' + c.minion, 4, true)}${id === 'necro' ? pix('c_skeleton', 3, true) : ''}</div>` +
-      `<h3>${c.n.toUpperCase()}</h3><p>${c.d}</p><p class="min">${c.md}</p><span class="pick">${id === save.cls ? 'PLAYING' : 'click to choose'}</span>`;
-    card.onclick = () => onPick(id);
+    const c = CLASSES[id], card = document.createElement('div'), have = save.classes.includes(id), xp = save.mastery[id] || 0;
+    card.className = 'cls' + (id === save.cls ? ' on' : '') + (have ? '' : ' locked');
+    const [got, want] = c.lock ? c.lock.need(save) : [1, 1];
+    card.innerHTML = `<div class="scene">${pix(c.sprite, 5, true)}${pix('c_' + c.minion, c.minion === 'golem' ? 3 : 4, true)}${id === 'necro' ? pix('c_skeleton', 3, true) : ''}</div>` +
+      `<h3>${c.n.toUpperCase()}</h3>` +
+      (have ? `${stars(masteryLevel(xp))}${masteryBar(xp, xp)}<p>${c.d}</p><p class="min">${c.md}</p><span class="pick">${id === save.cls ? 'PLAYING' : 'click to choose'}</span>`
+        : `<p>${c.d}</p><p class="min">${c.md}</p><div class="need">${pix('i_lock', 1)}${c.lock.text.toUpperCase()}</div><span class="bar"><i style="width:${Math.round(Math.min(1, got / want) * 100)}%"></i></span><span class="pick">${Math.min(got, want).toLocaleString()} / ${want.toLocaleString()}</span>`);
+    if (have) card.onclick = () => onPick(id);
     el.appendChild(card);
   }
   show('classes');
@@ -191,6 +234,7 @@ export function showDead(g, save, res, end) {
   $('dCard').innerHTML += growthCards(growth.filter(r => r.nem !== res.old));
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
     stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(best), 'best')) + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
+  $('dProg').innerHTML = progLines(end.prog, save);
   $('dFeats').innerHTML = gearLines(end.gear || []) + featLines(feats);
   const nxt = Object.values(T).filter(x => !x.minion && x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
   $('dTease').innerHTML = nxt ? `Something new shows up at <b>${fmt(nxt.unlock)}</b>...`
@@ -200,6 +244,7 @@ export function showDead(g, save, res, end) {
 
 export function showWon(g, save, end) {
   const { growth = [], feats = [], kind } = end;
+  $('wProg').innerHTML = progLines(end.prog, save);
   $('wFeats').innerHTML = gearLines(end.gear || []) + featLines(feats);
   $('wStats').innerHTML = stat(fmt(g.t), 'time', 'best') + stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + stat(save.wins, 'wins') + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
   $('wParty').innerHTML = growthCards(growth);
@@ -210,6 +255,7 @@ export function showWon(g, save, end) {
 export function showLevel(g, onPick) {
   const el = $('cards'); el.innerHTML = '';
   $('lvlTitle').textContent = g.chest ? 'CHEST: DOUBLE STRENGTH' : 'LEVEL UP';
+  $('bReroll').classList.toggle('hidden', !(g.rerolls > 0)); $('bReroll').querySelector('b').textContent = g.rerolls || '';
   g.choices.forEach((u, i) => {
     const c = document.createElement('div'); c.className = 'card' + (u.ally ? ' ally' : '') + (g.chest ? ' chest' : '');
     const have = g.picks[u.id] || 0;

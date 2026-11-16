@@ -1,9 +1,9 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_GEAR, ALL_GEAR } from './data.js';
+import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_CLASSES, META, MAX_TIER, masteryLevel, START_GEAR, ALL_GEAR } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
-const VERSION = 8;
+const VERSION = 9;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
 // v5 adds: Nemesis+ (hard, bestHard, winsHard), the daily run, feats and the chosen boon.
@@ -11,6 +11,9 @@ const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, win
   hard: false, bestHard: 0, winsHard: 0, daily: { date: '', best: 0, won: false }, feats: {}, boon: null,
   // v6: gear you have found, and what is equipped.
   cls: 'knight',   // v8: the class you play
+  // v9: progression. Souls buy Shrine ranks (meta); lifetime stats unlock classes; each class has mastery xp;
+  // tier is the Nemesis+ level you play at, tierMax the highest you have unlocked.
+  souls: 0, meta: {}, stats: { kills: 0, chests: 0, time: 0, bosses: 0 }, classes: [...START_CLASSES], mastery: {}, tier: 0, tierMax: 0,
   gear: { owned: [...START_GEAR], loadout: { weapon: 'blaster', ability: 'dash', charm: null } } });   // v7 adds the charm slot
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -65,7 +68,17 @@ export function sanitize(raw) {
   }
   if (raw.feats && typeof raw.feats === 'object') for (const f of FEATS) if (raw.feats[f.id] === true) s.feats[f.id] = true;
   if (FEATS.some(f => f.boon === raw.boon && s.feats[f.id])) s.boon = raw.boon;
-  if (CLASSES[raw.cls]) s.cls = raw.cls;
+  s.souls = count(raw.souls);
+  if (raw.meta && typeof raw.meta === 'object') for (const m of META) { const r = Math.min(m.cost.length, count(raw.meta[m.id])); if (r) s.meta[m.id] = r; }
+  if (raw.stats && typeof raw.stats === 'object') for (const k in s.stats) s.stats[k] = count(raw.stats[k]);
+  if (Array.isArray(raw.classes)) for (const id in CLASSES) if (raw.classes.includes(id) && !s.classes.includes(id)) s.classes.push(id);
+  if (raw.mastery && typeof raw.mastery === 'object') for (const id in CLASSES) { const v = count(raw.mastery[id]); if (v) s.mastery[id] = v; }
+  // Older saves had Nemesis+ as on/off: a first win opens tier 1, a Nemesis+ win opens tier 2.
+  s.tierMax = Math.min(MAX_TIER, Math.max(count(raw.tierMax), s.winsHard > 0 ? 2 : s.wins > 0 ? 1 : 0));
+  s.tier = Math.min(s.tierMax, raw.tier === undefined ? (s.hard ? 1 : 0) : count(raw.tier));
+  s.hard = s.tier > 0;
+  unlockClasses(s);
+  if (CLASSES[raw.cls] && s.classes.includes(raw.cls)) s.cls = raw.cls;
   if (raw.gear && Array.isArray(raw.gear.owned)) for (const id of ALL_GEAR) if (raw.gear.owned.includes(id) && !s.gear.owned.includes(id)) s.gear.owned.push(id);
   const lo = raw.gear && raw.gear.loadout;
   if (lo && WEAPONS[lo.weapon] && s.gear.owned.includes(lo.weapon)) s.gear.loadout.weapon = lo.weapon;
@@ -119,6 +132,48 @@ export function checkFeats(save, run = {}) {
   for (const f of FEATS) if (!save.feats[f.id] && f.test(save, run)) { save.feats[f.id] = true; got.push(f); }
   return got;
 }
+// ---------- progression ----------
+// Souls for a run: you always earn some, more for lasting, killing, opening chests, reaching and slaying the boss.
+export function soulsFor(run, save) {
+  const base = run.kills * 0.12 + run.t * 0.2 + (run.opened || 0) * 4 + (run.boss ? 15 : 0) + (run.won ? 60 : 0);
+  return Math.floor(base * (1 + 0.25 * (run.tier || 0)) * (1 + 0.1 * (save.meta.greed || 0)));
+}
+// Classes whose requirement is now met are unlocked for good. Returns the newly unlocked ids.
+export function unlockClasses(save) {
+  const got = [];
+  for (const id in CLASSES) {
+    const c = CLASSES[id];
+    if (save.classes.includes(id) || !c.lock) continue;
+    const [have, want] = c.lock.need(save);
+    if (have >= want) { save.classes.push(id); got.push(id); }
+  }
+  return got;
+}
+// Record a finished run: lifetime stats, souls, class mastery, class unlocks, and the next Nemesis+ tier on a win.
+export function progress(save, run) {
+  const out = { souls: soulsFor(run, save), cls: run.cls, before: save.mastery[run.cls] || 0 };
+  save.souls += out.souls;
+  save.stats.kills += run.kills; save.stats.chests += run.opened || 0; save.stats.time += Math.floor(run.t); if (run.won) save.stats.bosses++;
+  if (CLASSES[run.cls]) save.mastery[run.cls] = out.before + Math.floor(run.t) + (run.won ? 120 : 0);
+  out.after = save.mastery[run.cls] || 0;
+  out.levelUp = masteryLevel(out.after) > masteryLevel(out.before);
+  out.tierUp = run.won && !run.daily && run.tier >= save.tierMax && save.tierMax < MAX_TIER ? ++save.tierMax : 0;
+  out.classes = unlockClasses(save);
+  return out;
+}
+export const metaCost = (save, id) => { const m = META.find(x => x.id === id), r = save.meta[id] || 0; return m && r < m.cost.length ? m.cost[r] : null; };
+export function buyMeta(save, id) {
+  const c = metaCost(save, id);
+  if (c === null || save.souls < c) return false;
+  save.souls -= c; save.meta[id] = (save.meta[id] || 0) + 1; return true;
+}
+// How much of everything you have: classes, gear, feats and Shrine ranks, as a percentage.
+export function completion(save) {
+  const ranks = META.reduce((a, m) => a + m.cost.length, 0), have = META.reduce((a, m) => a + (save.meta[m.id] || 0), 0);
+  const parts = [save.classes.length / Object.keys(CLASSES).length, save.gear.owned.length / ALL_GEAR.length, Object.keys(save.feats).length / FEATS.length, have / ranks, save.tierMax / MAX_TIER];
+  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length * 100);
+}
+
 // Gear found in a run is kept. Returns the ids that were new.
 export function addGear(save, ids) {
   const got = [];

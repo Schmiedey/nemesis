@@ -69,6 +69,17 @@ A giant of the type that has killed you most. It moves at 150 or more (you move 
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
 - Six new upgrades: Orbiting Blade, Chain Shot, Nova, Lucky Shot, and for nemeses Blood Bond and Iron Guard. A choice never offers more than one nemesis upgrade.
 
+## Progression (Phase 13)
+What carries over between runs, and why there is always something to work toward:
+- **Souls.** Every run pays souls, win or lose: 0.12 per kill + 0.2 per second + 4 per chest + 15 for reaching the boss + 60 for a win, then +25% per Nemesis+ tier and +10% per rank of Greed (`soulsFor` in `src/save.js`).
+- **The Shrine** (`META` in `src/data.js`; key U): eight permanent upgrades bought with souls. Vitality +8 health, Might +5% damage, Quickness +4% attack speed, Swiftness +3% move speed, Wisdom +8% experience, Greed +10% souls, Kinship +8% nemesis and minion strength (five ranks each, 30-380 souls a rank), and Second Thoughts: +1 reroll of your level-up choices per run (three ranks, 80/200/400).
+- **Locked classes.** Three of the six classes are locked: Berserker (kill 1,000 enemies in total), Engineer (open 8 chests in total), Warden (slay your nemesis once). The class screen shows progress toward each.
+- **Class mastery.** Time survived as a class (plus 120s for a win) raises its mastery, levels 1-5 at 240/720/1500/3000 seconds. Each level makes that class's minion 15% stronger and you 2% stronger.
+- **Nemesis+ ladder.** Five tiers instead of on/off. Each tier: +14% swarm, +10% enemy health, +6% enemy damage, +25% souls. Winning at your highest tier unlocks the next. (Old saves: a win opens tier 1, an old Nemesis+ win opens tier 2.)
+- **Completion %** on the title screen: classes, gear, feats, Shrine ranks and tiers.
+- Already there from earlier phases: nemeses that rank up and evolve, gear found and kept, feats and boons, the daily run.
+- Save version 9. The balance table runs with no Shrine ranks, mastery or tier.
+
 ## Classes and minions (Phase 12)
 You pick one of three classes on the title screen (`CLASSES` in `src/data.js`; saved as `cls`, default Knight). A class is a passive bonus plus a starter minion with its own ability; weapon, ability and charm stay a free choice. Minions are not nemeses: no rank, no perks, and they return 8s after they fall.
 
@@ -77,8 +88,11 @@ You pick one of three classes on the title screen (`CLASSES` in `src/data.js`; s
 | Knight | +30 health; 15% less damage taken | **Squire**: stays within 120 of you; his shield destroys enemy shots within 30; every 4s bashes the nearest enemy in reach (2.5x damage, knockback, 1.4s stun) |
 | Ranger | +10% move speed; +8% attack speed | **Hawk**: cannot be targeted; dives at the toughest enemy within 520 every 2.6s and marks it for 5s; marked enemies take 20% more damage |
 | Necromancer | every 12th kill rises as a **Skeleton** for 15s (up to 5) | **Imp**: ranged; its fireballs set enemies burning for 3s (45% of the hit, twice a second) |
+| Berserker (locked) | up to +60% damage as your health falls | **Wolf**: fast melee; every 9s its howl gives you a 2.5s frenzy (attacks twice as fast) |
+| Engineer (locked) | power-ups drop 2.4x as often; Frenzy and Giant last 50% longer | **Drone**: cannot be targeted; circles you and shoots the nearest enemy |
+| Warden (locked) | regenerate 0.5 health a second | **Golem**: stays within 130 of you; every 6s slams the ground, stunning everything within 95 for 1s, and for 2.5s walkers nearby go for it instead of you |
 
-Solo survival by class (`node tests/balance.js --classes`, 10 seeds, Blaster + Dash): no class 1:44, Knight 2:16, Ranger 2:40, Necromancer 2:08. The main balance table is run with no class, so real runs are about 25-50% longer than its solo row. The Ranger was 5:15 before the Hawk was toned down and is still the strongest.
+Solo survival by class (`node tests/balance.js --classes`, 10 seeds, Blaster + Dash): no class 1:44, Knight 2:16, Ranger 2:40, Necromancer 2:08, Berserker 2:08, Engineer 2:28, Warden 2:08. A minion that roams into the swarm and kills freely breaks the game (a roaming Golem gave 5:20 even with 5 damage; kept beside the player with a stun-only slam it is 2:08), so keep tanky minions leashed. The main balance table is run with no class, so real runs are about 25-50% longer than its solo row. The Ranger was 5:15 before the Hawk was toned down and is still the strongest.
 
 **Level-up moment.** Levelling up (or opening a chest) freezes the game for 0.75s: a beam of light on the player, two rings, a shower of sparks and LEVEL UP! in large text; then the cards are dealt (they drop in edge-on and flip open). The chosen card flashes and the others fall away before play resumes, and a banner names what you took.
 
