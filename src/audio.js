@@ -137,8 +137,11 @@ export function scene(mode, g) {
   cur = { scene: s, level, muffle };
 }
 
+// Music is switched off for now: the user disliked both attempts. Sound effects still play.
+const MUSIC_ON = false;
+
 function tick() {
-  if (!ac || ac.state !== 'running') return;
+  if (!MUSIC_ON || !ac || ac.state !== 'running') return;
   if (nextTime < ac.currentTime) nextTime = ac.currentTime + 0.05; // tab was asleep
   while (nextTime < ac.currentTime + 0.15) {
     const want = cur.scene === 'boss' ? 'boss' : 'main';

@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 built on branch `phase-2-art`, not yet merged: sprites, menus, sound effects and a chiptune soundtrack (`src/audio.js`). Enemies slowed and given a turn rate after playtest feedback. Waiting on the user's verdict on the new music and enemy speed, then merge. Next: Phase 3.
+**Status:** Phase 2 built on branch `phase-2-art`, not yet merged: sprites, menus and sound effects. Music is on hold: the user disliked both soundtrack attempts, so it is switched off (`MUSIC_ON` in `src/audio.js`); do not work on it until asked. Enemies slowed and given a turn rate after playtest feedback. Next: confirm enemy speed feels right, merge, Phase 3.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -15,7 +15,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Blender script that renders a creature to a sprite sheet (`art/make_sprites.py`), proven on the Bat
 - [x] Slime, Archer, Brute, Bomber, Wisp, player; boss = giant sprite of its type with a red aura
 - [x] Menus, roster screen, death screen, logo
-- [x] Sound effects and soundtrack made in code (needs a listening pass)
+- [x] Sound effects made in code
+- [ ] Soundtrack: on hold, switched off (two attempts rejected)
 - Done when: no placeholder shapes or silent actions remain.
 
 ## Phase 3: Ship it
