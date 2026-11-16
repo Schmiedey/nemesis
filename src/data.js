@@ -25,32 +25,62 @@ export const ALLY_LINE = {
   wisp: 'The Wisp now orbits you, burning anything it touches.',
 };
 
-// Upgrades get the game state `g`. `id` is what a recruit inherits as a perk.
+// ---------- upgrades ----------
+// Every level-up offers three of these, each at a rarity. Rarity sets the strength `s` passed to f(g, s) and d(s):
+// a Common is a little weaker than the old flat upgrade, a Legendary about three times as strong.
+// Upgrades that add a whole thing (a projectile, a blade) add k(s) of them: 1, 1, 2 or 3.
+// `id` is what a recruit inherits as a perk. `ic` names the icon when it is not i_<id>.
+export const RARITY = {
+  common: { n: 'Common', s: 0.65, w: 64 },
+  rare: { n: 'Rare', s: 1.05, w: 25 },
+  epic: { n: 'Epic', s: 1.6, w: 9 },
+  legendary: { n: 'Legendary', s: 2.5, w: 2 },
+};
+export const RARITIES = Object.keys(RARITY);
+const pc = v => Math.round(v * 100) + '%', k = s => Math.max(1, Math.round(s)), plus = (s, one, many) => `+${k(s)} ${k(s) > 1 ? many : one}`;
 export const UP = [
-  { id: 'dmg', i: '⚔', n: 'Sharper', d: '+30% damage', f: g => g.P.dmg *= 1.3 },
-  { id: 'haste', i: '⚡', n: 'Trigger Happy', d: '+22% fire rate', f: g => g.P.fire *= 0.82 },
-  { id: 'spd', i: '➤', n: 'Swift', d: '+12% move speed', f: g => g.P.spd *= 1.12 },
-  { id: 'tough', i: '♥', n: 'Thick Skin', d: '+25 max HP, heal 25', f: g => { g.P.maxhp += 25; g.P.hp = Math.min(g.P.maxhp, g.P.hp + 25); } },
-  { id: 'shots', i: '⋔', n: 'Split Shot', d: '+1 projectile', f: g => g.P.multi++ },
-  { id: 'pierce', i: '➶', n: 'Piercing', d: 'Shots pass through +1 enemy', f: g => g.P.pierce++ },
-  { id: 'magnet', i: '◎', n: 'Magnet', d: '+60% pickup range', f: g => g.P.magnet *= 1.6 },
-  { id: 'regen', i: '✚', n: 'Regrowth', d: '+1.5 HP per second', f: g => g.P.regen += 1.5 },
-  { id: 'rally', i: '⚑', n: 'Rally', d: 'Your nemeses get +25% damage and HP', ally: true, f: g => {
-    g.allyBuff *= 1.25;
-    for (const e of g.ents) if (e.team === 'ally') { e.dmg *= 1.25; e.hp *= 1.25; e.maxhp *= 1.25; }
+  { id: 'dmg', n: 'Sharper', d: s => `+${pc(0.3 * s)} damage`, f: (g, s = 1) => g.P.dmg *= 1 + 0.3 * s },
+  { id: 'haste', n: 'Trigger Happy', d: s => `+${pc(0.22 * s)} attack speed`, f: (g, s = 1) => g.P.fire /= 1 + 0.22 * s },
+  { id: 'spd', n: 'Swift', d: s => `+${pc(0.12 * s)} move speed`, f: (g, s = 1) => g.P.spd *= 1 + 0.12 * s },
+  { id: 'tough', n: 'Thick Skin', d: s => `+${Math.round(25 * s)} max health, and heal that much`, f: (g, s = 1) => { const v = Math.round(25 * s); g.P.maxhp += v; g.P.hp = Math.min(g.P.maxhp, g.P.hp + v); } },
+  { id: 'shots', n: 'Split Shot', d: s => plus(s, 'projectile', 'projectiles'), f: (g, s = 1) => g.P.multi += k(s) },
+  { id: 'pierce', n: 'Piercing', d: s => `Shots pass through +${k(s)} ${k(s) > 1 ? 'enemies' : 'enemy'}`, f: (g, s = 1) => g.P.pierce += k(s) },
+  { id: 'magnet', n: 'Magnet', d: s => `+${pc(0.6 * s)} pickup range`, f: (g, s = 1) => g.P.magnet *= 1 + 0.6 * s },
+  { id: 'regen', n: 'Regrowth', d: s => `+${(1.5 * s).toFixed(1)} health per second`, f: (g, s = 1) => g.P.regen += 1.5 * s },
+  { id: 'rally', n: 'Rally', d: s => `Your nemeses and minions get +${pc(0.25 * s)} damage and health`, ally: true, f: (g, s = 1) => {
+    const m = 1 + 0.25 * s; g.allyBuff *= m;
+    for (const e of g.ents) if (e.team === 'ally') { e.dmg *= m; e.hp *= m; e.maxhp *= m; }
   } },
-  { id: 'pack', i: '☰', n: 'Pack Tactics', d: 'Your nemeses attack 20% faster', ally: true, f: g => {
-    g.allyHaste *= 1.2;
-    for (const e of g.ents) if (e.team === 'ally') e.haste *= 1.2;
+  { id: 'pack', n: 'Pack Tactics', d: s => `Your nemeses and minions attack ${pc(0.2 * s)} faster`, ally: true, f: (g, s = 1) => {
+    const m = 1 + 0.2 * s; g.allyHaste *= m;
+    for (const e of g.ents) if (e.team === 'ally') e.haste *= m;
   } },
-  { id: 'blade', i: '✦', n: 'Orbiting Blade', d: '+1 blade circling you that cuts what it touches', f: g => g.P.blades++ },
-  { id: 'chain', i: '∞', n: 'Chain Shot', d: 'Shots jump to +1 more enemy nearby', f: g => g.P.chain++ },
-  { id: 'nova', i: '✺', n: 'Nova', d: 'A blast around you throws enemies back; more picks, more often', f: g => g.P.nova++ },
-  { id: 'crit', i: '★', n: 'Lucky Shot', d: '+15% chance for a shot to hit three times as hard', f: g => g.P.crit++ },
-  { id: 'bond', i: '❤', n: 'Blood Bond', d: 'Your nemeses heal 3% of their health each second', ally: true, f: g => g.allyRegen += 0.03 },
-  { id: 'guard', i: '⛨', n: 'Iron Guard', d: 'Your nemeses take 25% less damage', ally: true, f: g => g.allyArmor *= 0.75 },
-  { id: 'wind', i: '↺', n: 'Second Wind', d: 'Fallen nemeses return; all get +1 life', ally: true, f: g => g.secondWind = true },
+  { id: 'wind', n: 'Second Wind', d: () => 'Fallen nemeses return; all get +1 life', ally: true, fixed: 'rare', f: g => g.secondWind = true },
+  { id: 'blade', n: 'Orbiting Blade', d: s => `${plus(s, 'blade', 'blades')} circling you`, f: (g, s = 1) => g.P.blades += k(s) },
+  { id: 'chain', n: 'Chain Shot', d: s => `Hits jump to +${k(s)} more ${k(s) > 1 ? 'enemies' : 'enemy'} nearby`, f: (g, s = 1) => g.P.chain += k(s) },
+  { id: 'nova', n: 'Nova', d: s => `A blast around you throws enemies back${k(s) > 1 ? ', ' + k(s) + ' times as often' : ''}`, f: (g, s = 1) => g.P.nova += k(s) },
+  { id: 'crit', n: 'Lucky Shot', d: s => `+${15 * k(s)}% chance to hit three times as hard`, f: (g, s = 1) => g.P.crit += k(s) },
+  { id: 'bond', n: 'Blood Bond', d: s => `Your nemeses and minions heal ${(3 * s).toFixed(1)}% of their health a second`, ally: true, f: (g, s = 1) => g.allyRegen += 0.03 * s },
+  { id: 'guard', n: 'Iron Guard', d: s => `Your nemeses and minions take ${pc(1 - 0.75 ** s)} less damage`, ally: true, f: (g, s = 1) => g.allyArmor *= 0.75 ** s },
+  // Added with rarities, for variety.
+  { id: 'armor', n: 'Plating', d: s => `Take ${pc(1 - 0.9 ** s)} less damage`, f: (g, s = 1) => g.armor *= 0.9 ** s },
+  { id: 'scholar', n: 'Scholar', ic: 'i_book', d: s => `+${pc(0.15 * s)} experience from gems`, f: (g, s = 1) => g.xpMul *= 1 + 0.15 * s },
+  { id: 'focus', n: 'Focus', ic: 'i_slow', d: s => `Your ability recharges ${pc(1 - 0.85 ** s)} faster`, f: (g, s = 1) => g.P.cdMul *= 0.85 ** s },
+  { id: 'frost', n: 'Frostbite', ic: 'i_frost', d: s => `Your hits slow enemies for ${(1.2 + 0.6 * s).toFixed(1)} seconds`, f: (g, s = 1) => g.P.frost += s },
+  { id: 'ember', n: 'Wildfire', ic: 'i_flame', d: s => `Your hits set enemies burning for ${pc(0.2 * s)} of the hit`, f: (g, s = 1) => g.P.ember += s },
+  { id: 'exec', n: 'Executioner', ic: 'i_skull', d: s => `+${pc(0.35 * s)} damage to enemies below a third of their health`, f: (g, s = 1) => g.P.exec += 0.35 * s },
+  { id: 'dodge', n: 'Evasion', ic: 'i_dash', d: s => `${pc(1 - 0.92 ** s)} chance to avoid a hit completely`, f: (g, s = 1) => g.P.dodge = 1 - (1 - g.P.dodge) * 0.92 ** s },
+  { id: 'harvest', n: 'Soul Harvest', ic: 'i_soul', d: s => `+${pc(0.2 * s)} souls from this run`, f: (g, s = 1) => g.soulMul *= 1 + 0.2 * s },
+  { id: 'leech', n: 'Leech', ic: 'i_fang', d: s => `Heal 1 health every ${Math.max(2, Math.round(10 / s))} kills`, f: (g, s = 1) => g.P.leech += s },
+  // Legendary only: one-of-a-kind powers. They can be offered once each per run.
+  { id: 'storm', n: 'Thunderstorm', ic: 'i_rod', leg: true, d: () => 'Lightning strikes a random enemy every second', f: g => g.storm = true },
+  { id: 'phoenix', n: 'Phoenix', ic: 'i_hour', leg: true, d: () => 'The next time you would die, you rise at half health with a shockwave', f: g => g.phoenix = true },
+  { id: 'midas', n: 'Midas Touch', ic: 'i_coin', leg: true, d: () => 'Every gem is worth double', f: g => g.xpMul *= 2 },
+  { id: 'titan', n: 'Titan', ic: 'i_tough', leg: true, d: () => 'Double your max health and heal to full', f: g => { g.P.maxhp *= 2; g.P.hp = g.P.maxhp; } },
+  { id: 'twin', n: 'Twin Soul', ic: 'i_decoy', leg: true, minion: true, d: () => 'A second copy of your class minion joins you', f: g => g.twin = true },
 ];
+// The text on a card. Some upgrades mean something different for the equipped weapon (see WEAPONS[...].up).
+export const upText = (u, s = 1, weaponUp) => (weaponUp && weaponUp[u.id] && k(s) === 1 ? weaponUp[u.id] : weaponUp && weaponUp[u.id] ? weaponUp[u.id] + ' (x' + k(s) + ')' : u.d(s));
 
 // Perks a recruit can inherit from the build you died with, and the title each one earns.
 export const PERKS = {
@@ -191,8 +221,31 @@ export const META = [
   { id: 'wisdom', n: 'Wisdom', i: 'i_magnet', d: '+8% experience from gems', cost: [40, 80, 140, 220, 340] },
   { id: 'greed', n: 'Greed', i: 'i_coin', d: '+10% souls from every run', cost: [50, 100, 170, 260, 380] },
   { id: 'kin', n: 'Kinship', i: 'i_rally', d: '+8% strength for nemeses and minions', cost: [40, 80, 140, 220, 340] },
+  { id: 'luck', n: 'Fortune', i: 'i_crit', d: 'Rare, Epic and Legendary upgrades turn up 12% more often', cost: [60, 120, 200, 300, 420] },
   { id: 'reroll', n: 'Second Thoughts', i: 'i_wind', d: '+1 reroll of your level-up choices each run', cost: [80, 200, 400] },
 ];
 // Nemesis+: a ladder of difficulty tiers. Winning at your highest tier unlocks the next.
 export const MAX_TIER = 5;
 
+
+// ---------- missions ----------
+// Three are active at a time; finishing one pays souls and deals a new one. `stat` names a number from the run
+// (see runStats in src/main.js). sum: progress adds up across runs; otherwise it must be reached in a single run.
+// n: targets, growing as you play more.
+const mmss = v => Math.floor(v / 60) + ':' + String(v % 60).padStart(2, '0');
+export const MISSIONS = [
+  { id: 'kills', stat: 'kills', sum: true, n: [150, 250, 400], pay: 25, text: n => `Kill ${n} enemies` },
+  { id: 'bats', stat: 'k_bat', sum: true, n: [80, 140], pay: 25, text: n => `Kill ${n} Bats` },
+  { id: 'slimes', stat: 'k_slime', sum: true, n: [30, 60], pay: 25, text: n => `Kill ${n} Slimes` },
+  { id: 'archers', stat: 'k_archer', sum: true, n: [20, 40], pay: 25, text: n => `Kill ${n} Archers` },
+  { id: 'brutes', stat: 'k_brute', sum: true, n: [8, 15], pay: 30, text: n => `Kill ${n} Brutes` },
+  { id: 'bombers', stat: 'k_bomber', sum: true, n: [12, 25], pay: 30, text: n => `Kill ${n} Bombers` },
+  { id: 'survive', stat: 't', n: [150, 210, 270], pay: 30, text: n => `Survive ${mmss(n)} in one run` },
+  { id: 'level', stat: 'lvl', n: [10, 14, 18], pay: 30, text: n => `Reach level ${n} in one run` },
+  { id: 'streak', stat: 'streak', n: [25, 50, 100], pay: 35, text: n => `Get a kill streak of ${n}` },
+  { id: 'chests', stat: 'opened', sum: true, n: [2, 4], pay: 30, text: n => `Open ${n} chests` },
+  { id: 'powerups', stat: 'powerups', sum: true, n: [4, 8], pay: 25, text: n => `Use ${n} power-ups` },
+  { id: 'elites', stat: 'elites', sum: true, n: [3, 6], pay: 30, text: n => `Kill ${n} elites` },
+  { id: 'ability', stat: 'acts', sum: true, n: [15, 30], pay: 20, text: n => `Use your ability ${n} times` },
+  { id: 'epic', stat: 'epics', sum: true, n: [2, 4], pay: 35, text: n => `Pick ${n} Epic or Legendary upgrades` },
+];

@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER } from './data.js';
+import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
@@ -60,6 +60,9 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
     layout: LAYOUTS[layout % LAYOUTS.length].name, rocks: LAYOUTS[layout % LAYOUTS.length].rocks,
+    // Things the run keeps count of, for the HUD, missions and the end screen.
+    streak: 0, streakT: 0, bestStreak: 0, killsBy: {}, elites: 0, acts: 0, epics: 0, bonusSouls: 0, minute: 0,
+    rar: [], luck: 1 + 0.12 * mr('luck'), soulMul: 1, storm: false, stormT: 0, phoenix: false, twin: false, leechC: 0,
     cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
@@ -67,10 +70,10 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
       weapon: WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster', ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
-      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
+      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);
+  g.heat = 1.14 * (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
   // Shrine upgrades and class mastery.
   const P0 = g.P;
   P0.maxhp += 8 * mr('vit'); P0.hp = P0.maxhp; P0.dmg *= (1 + 0.05 * mr('might')) * (1 + 0.02 * clamp(mastery, 0, 4));
@@ -154,6 +157,8 @@ function spawnEnemy(g, ang) {
   const y = clamp(g.P.y + Math.sin(a) * dist, -30, ARENA.h + 30);
   const n = type === 'bat' ? 4 + Math.floor(g.t / 100) : type === 'slime' && g.t > 90 ? 2 : 1;
   for (let i = 0; i < n; i++) mkEnemy(g, type, x + rr(g, -20, 20), y + rr(g, -20, 20));
+  // Now and then a golden one turns up: twice as tough, and it pays out when it dies.
+  if (g.t > 20 && !g.boss && g.rand() < 0.035) { const e = g.ents[g.ents.length - 1]; e.gold = true; e.hp = e.maxhp = e.hp * 2.5; }
 }
 
 // The boss is a giant version of the enemy type that has killed you most.
@@ -367,7 +372,7 @@ function think(g, e, dt) {
   if (e.slowT > 0) e.slowT -= dt;
   if (e.fireT > 0) {                                    // burning: damage twice a second
     e.fireT -= dt; e.fireTick = (e.fireTick || 0) - dt;
-    if (e.fireTick <= 0) { e.fireTick = 0.5; damage(g, e, e.fireD, 'player'); if (e.dead) return; }
+    if (e.fireTick <= 0) { e.fireTick = 0.5; damage(g, e, e.fireD, 'burn'); if (e.dead) return; }
   }
   if (e.ttl > 0 && (e.ttl -= dt) <= 0) { e.dead = true; burst(g, e.x, e.y, '#f4f1e8', 8, 120); return; }   // a raised Skeleton crumbles
   if (e.minion && minionThink(g, e, dt)) return;
@@ -472,9 +477,11 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   if (o === P) {
     if (P.inv > 0 || g.state !== 'play') return;
     amt *= g.armor;
+    if (P.dodge > 0 && g.rand() < P.dodge) { P.inv = 0.25; burst(g, P.x, P.y, '#c0f4ff', 6, 120); return; }   // Evasion
     if (P.shield > 0) { P.shield--; P.inv = 0.4; burst(g, P.x, P.y, '#9fe8ff', 10, 160); snd(g, 'thud'); return; }   // Bubble
     P.hp -= amt; P.inv = 0.25; P.flash = 0.15; shake(g, 8); snd(g, 'hurt'); P.hurtAt = g.t;
     if (P.charm === 'after' && !g.decoy && g.afterT <= g.t) { g.afterT = g.t + 6; g.decoy = { x: P.x, y: P.y, r: P.r, life: 1.5 }; }
+    if (P.hp <= 0 && g.phoenix) { g.phoenix = false; P.hp = P.maxhp * 0.5; P.inv = 1.5; blast(g, 220, 3); snd(g, 'level'); return; }   // Phoenix
     if (P.hp <= 0 && P.charm === 'hour' && !g.hourUsed) {      // Hourglass: one rewind per run
       g.hourUsed = true; P.hp = P.maxhp * 0.3; P.inv = 1.5; blast(g, 190, 2); snd(g, 'slowmo'); return;
     }
@@ -485,6 +492,12 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   if (o.team === 'ally') amt *= g.allyArmor;
   if (o.mark > g.t) amt *= 1.2;                          // marked by the Hawk
   if (src === 'player' && g.cls === 'berserker') amt *= 1 + 0.6 * (1 - g.P.hp / g.P.maxhp);   // Berserker: hurt means angry
+  if (src === 'player' && o.team === 'enemy') {
+    const P = g.P;
+    if (P.exec && o.hp < o.maxhp * 0.34) amt *= 1 + P.exec;                                    // Executioner
+    if (P.frost && !o.boss) { o.slowT = Math.max(o.slowT || 0, 1.2 + 0.6 * P.frost); o.slowK = 0.65; }   // Frostbite
+    if (P.ember) { o.fireT = 3; o.fireD = Math.max(o.fireD || 0, amt * 0.2 * P.ember / 6); }   // Wildfire: a share of the hit, over 6 ticks
+  }
   if (o.team === 'ally' && o.type === 'slime') amt *= o.evo === 'bulwark' ? 0.3 : 0.6;
   o.hp -= amt; o.flash = 0.08;
   if (o.team === 'enemy' && amt >= 1) g.fx.push({ k: 'num', x: o.x, y: o.y - o.r, v: amt });
@@ -511,9 +524,18 @@ function kill(g, e) {
   if (T[e.type].split && !e.small) for (let i = 0; i < (e.evo === 'mother' ? 4 : 2); i++) {
     mk(g, 'slime', e.team, e.x + rr(g, -8, 8), e.y + rr(g, -8, 8), { small: true, hpMul: e.hpMul, dmgMul: e.dmgMul });
   }
+  if (e.team === 'enemy') {
+    // Kill streak: kills in quick succession build a count; it lapses after 2.5 seconds without one.
+    g.streak++; g.streakT = 2.5; if (g.streak > g.bestStreak) g.bestStreak = g.streak;
+    if ([10, 25, 50, 100, 150, 200, 300].includes(g.streak)) { g.fx.push({ k: 'streak', n: g.streak }); g.bonusSouls += Math.round(g.streak / 10); snd(g, 'streak'); }
+    g.killsBy[e.type] = (g.killsBy[e.type] || 0) + 1; if (e.elite) g.elites++;
+    g.fx.push({ k: 'die', x: e.x, y: e.y, t: e.type, s: e.r / T[e.type].r, a: e.ang });
+    if (e.gold) { g.bonusSouls += 5; g.fx.push({ k: 'gold', x: e.x, y: e.y }); snd(g, 'power'); for (let i = 0; i < 3; i++) g.gems.push({ x: e.x + rr(g, -14, 14), y: e.y + rr(g, -14, 14), v: 5 }); }
+  }
   if (e.team === 'enemy') { g.kills++; g.gems.push({ x: e.x, y: e.y, v: e.small ? 1 : T[e.type].xp }); if (e.elite) g.chests.push({ x: e.x, y: e.y });
     // Necromancer: every 12th kill gets back up as a Skeleton, on your side, for a while.
     if (g.cls === 'necro' && ++g.raiseC >= 12 && g.ents.filter(x => x.type === 'skeleton' && !x.dead).length < 5) { g.raiseC = 0; spawnMinion(g, 'skeleton', e.x, e.y); }
+    if (g.P.leech && (g.leechC += g.P.leech) >= 10) { g.leechC -= 10; g.P.hp = Math.min(g.P.maxhp, g.P.hp + 1); }   // Leech
     if (g.P.charm === 'fang' && g.kills % 25 === 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 5);
     // Power-ups: always from an elite, rarely from anything else.
     if (e.elite || (!e.small && !g.boss && g.rand() < (g.cls === 'engineer' ? 0.012 : 0.005))) dropPowerup(g, e.x + (e.elite ? 26 : 0), e.y); }
@@ -561,14 +583,26 @@ function levelUp(g) {
 }
 
 // Three different upgrades, at most one of them for your nemeses.
+// g.choices[i] is the upgrade, g.rar[i] its rarity. Chests never roll Common and are luckier.
+function rollRarity(g) {
+  const w = g.chest ? { common: 0, rare: 50, epic: 38, legendary: 12 } : { common: RARITY.common.w, rare: RARITY.rare.w * g.luck, epic: RARITY.epic.w * g.luck, legendary: RARITY.legendary.w * g.luck };
+  let r = g.rand() * RARITIES.reduce((a, id) => a + w[id], 0);
+  for (const id of RARITIES) { r -= w[id]; if (r <= 0) return id; }
+  return 'common';
+}
 function rollChoices(g) {
-  const no = WEAPONS[g.P.weapon].no || [];
-  const pool = UP.filter(u => (!u.ally || g.party.length) && !no.includes(u.id));
-  g.choices = [];
+  const no = WEAPONS[g.P.weapon].no || [], hasAllies = g.party.length > 0 || !!g.cls;
+  const ok = u => (!u.ally || hasAllies) && (!u.minion || g.cls) && !no.includes(u.id);
+  const pool = UP.filter(u => !u.leg && ok(u)), legs = UP.filter(u => u.leg && ok(u) && !g.picks[u.id]);
+  g.choices = []; g.rar = [];
   while (g.choices.length < 3) {
-    const u = pool[Math.floor(g.rand() * pool.length)];
+    let rar = rollRarity(g), u;
+    // A Legendary roll is usually one of the one-of-a-kind powers, while any are left.
+    if (rar === 'legendary' && legs.length && g.rand() < 0.7) u = legs[Math.floor(g.rand() * legs.length)];
+    else u = pool[Math.floor(g.rand() * pool.length)];
     if (g.choices.includes(u) || (u.ally && g.choices.some(c => c.ally))) continue;
-    g.choices.push(u);
+    if (u.fixed) rar = u.fixed;
+    g.choices.push(u); g.rar.push(rar);
   }
 }
 
@@ -711,7 +745,7 @@ function usePowerup(g, k) {
 // ---------- abilities ----------
 function useAbility(g) {
   const P = g.P, a = P.ability;
-  P.actT = P.actMax = ABILITIES[a].cd; g.fx.push({ k: 'act', id: a });
+  P.actT = P.actMax = ABILITIES[a].cd * P.cdMul; g.acts++; g.fx.push({ k: 'act', id: a });
   if (a === 'dash') { P.dashT = 0.18; P.inv = Math.max(P.inv, 0.3); burst(g, P.x, P.y, '#fff', 8, 160); snd(g, 'dash'); }
   else if (a === 'shock') {
     g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 170 }); shake(g, 8); snd(g, 'ring');
@@ -748,8 +782,10 @@ export function reroll(g) {
 export function pick(g, i) {
   if (g.state !== 'lvl' || !g.choices[i]) return;
   const u = g.choices[i];
-  const times = g.chest ? 2 : 1; g.chest = false;        // a chest applies the pick twice
-  for (let k = 0; k < times; k++) { u.f(g); g.picks[u.id] = (g.picks[u.id] || 0) + 1; }
+  const rar = g.rar[i] || 'common';
+  u.f(g, u.leg ? 1 : RARITY[rar].s); g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false;
+  g.lastPick = { id: u.id, rar }; if (rar === 'epic' || rar === 'legendary') g.epics++;
+  if (g.twin && g.cls) { g.twin = false; spawnMinion(g, CLASSES[g.cls].minion); }   // Twin Soul
   g.state = 'play';
   if (g.secondWind) {
     g.secondWind = false;
@@ -767,6 +803,8 @@ export function step(g, dt, input) {
   if (g.state !== 'play') return;
   const P = g.P;
   g.t += dt;
+  if (g.streakT > 0 && (g.streakT -= dt) <= 0) g.streak = 0;
+  if (Math.floor(g.t / 60) > g.minute) { g.minute = Math.floor(g.t / 60); g.fx.push({ k: 'minute', n: g.minute }); }
   const ml = Math.hypot(input.mx, input.my) || 1, moving = input.mx !== 0 || input.my !== 0;
   if (moving) { P.fx = input.mx / ml; P.fy = input.my / ml; }
   const x0 = P.x, y0 = P.y;
@@ -784,6 +822,11 @@ export function step(g, dt, input) {
   g.frenzyT -= dt;
   P.fireT -= wdt;
   fireWeapon(g, wdt);
+  if (g.storm && (g.stormT -= dt) <= 0) {                // Thunderstorm: a bolt from the sky every second
+    g.stormT = 1;
+    const near = g.ents.filter(o => o.team === 'enemy' && !o.dead && d2(o, P) < 440 * 440);
+    if (near.length) { const o = near[Math.floor(g.rand() * near.length)]; g.fx.push({ k: 'bolt', pts: [{ x: o.x + 30, y: o.y - 320 }, { x: o.x, y: o.y }] }); snd(g, 'bolt'); damage(g, o, P.dmg * 3, 'player'); }
+  }
   if (P.charm === 'ember') for (const o of g.ents) if (o.team === 'enemy' && !o.dead && (o.emberT || 0) <= g.t && d2(o, P) < (EMBER_R + o.r) ** 2) { o.emberT = g.t + 0.4; damage(g, o, P.dmg * 0.5, 'player'); }
   if (g.giantT > 0 && (g.giantT -= dt) <= 0) for (const e of g.ents) if (e.giant) { e.giant = false; e.dmg /= 1.5; e.r /= 1.3; }
   if (!g.boss && !g.bossAt && g.t >= BOSS_TIME) spawnBoss(g);
@@ -871,7 +914,7 @@ export function step(g, dt, input) {
   for (const gem of g.gems) {
     const dd = Math.sqrt(d2(gem, P)) || 0.01;
     if (dd < P.magnet || gem.pull) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
-    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v * g.xpMul; snd(g, 'gem');
+    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v * g.xpMul; snd(g, 'gem'); g.fx.push({ k: 'gem', x: gem.x, y: gem.y, big: gem.v >= 5 });
       if (P.charm === 'lode') { const tg = nearest(g, P, 'enemy', 420); if (tg) shoot(g, P.x, P.y, Math.atan2(tg.y - P.y, tg.x - P.x), 560, P.dmg * 0.6, 'ally', 'player', 0, '#7dffb0'); }
     }
   }

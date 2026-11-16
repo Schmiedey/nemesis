@@ -30,6 +30,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 ## Testing
 - Balance questions: use `simulate(seed, { party, bot, choose })` from `tests/bot.js`; do not play in the browser.
 - Performance: the world canvas is always 480x300; never size it to the window. Backquote toggles a frame counter; `window.__game.perf` returns the same numbers.
+- A thrown error inside a frame is caught and logged so the game never freezes; `window.__game.frameErrors` counts them and should be 0 after any browser check. (Canvas `arc()` throws on a negative radius: clamp radii.)
 - Browser checks: `window.__game` exposes `g`, `mode`, `save`, `begin()`, `choose(i)`, `audio` (use `audio.debugState()`; a dynamic `import()` gets a different module copy).
 
 ## Working style

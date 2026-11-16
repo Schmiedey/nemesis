@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main. Not merged, stacked on branches `phase-11-polish` → `phase-12-classes` → `phase-13-progression`: pixel polish; classes, level-up moment, new menu; and progression (souls, the Shrine, rerolls, three locked classes, class mastery, a five-tier Nemesis+ ladder). Next: user review, merge all three. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (which also holds Phase 14: level-up rarities, 14 new upgrades, kill streaks, golden enemies, animated HUD, missions, daily bonus, next-unlock goals, confetti and count-ups). Next: user review, merge everything. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -80,6 +80,12 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Three locked classes (Berserker, Engineer, Warden) with minions and unlock goals
 - [x] Class mastery levels; five-tier Nemesis+ ladder; completion %
 - Done when: there is always a next unlock in reach and a reason to replay each class.
+
+## Phase 14: Rarities, feel and reward loops
+- [x] Level-up cards in four rarities; 31 upgrades including five Legendary-only powers
+- [x] Kill streaks with callouts, golden enemies, death pops, squash on hit, eased HUD bars, low-health frame
+- [x] Missions, daily bonus and day streak, next-unlock goal, "so close" line, copy result, confetti and count-ups
+- Done when: levelling up and ending a run both feel like a payoff, and there is always a short goal in reach.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

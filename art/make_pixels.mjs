@@ -160,6 +160,10 @@ const ic = {
   ember: flameIcon(), lode: I().poly([[8, 1], [14, 7], [8, 15], [2, 7]], 'c2').poly([[8, 3], [11, 7], [8, 12]], 'c').line(5, 6, 8, 3, 'ice'),
   fang: I().poly([[3, 2], [13, 2], [11, 8], [8, 15], [5, 8]], 'w').line(4, 3, 7, 12, 'g1').rect(3, 1, 10, 2, 'r'),
   hour: hourglass('gold', 'y'), after: ghost('c'), banner: flag('r', 'r3'), coin: I().disc(8, 8, 6, ['gold2', 'gold', 'y']).rect(7, 4, 2, 8, 'gold2').px(5, 5, 'w'),
+  // more upgrades
+  armor: I().poly([[3, 2], [13, 2], [13, 9], [8, 14], [3, 9]], 'g2').poly([[5, 4], [8, 4], [8, 11], [5, 8]], 'g1').rect(7, 3, 2, 10, 'g3').px(4, 3, 'w').px(12, 3, 'g1'),
+  book: I().rect(2, 3, 12, 10, 'br2').rect(3, 4, 5, 8, 'w').rect(8, 4, 5, 8, 'g1').rect(7, 3, 2, 10, 'br').line(4, 6, 6, 6, 'g2').line(4, 8, 6, 8, 'g2').line(9, 6, 11, 6, 'g3').line(9, 8, 11, 8, 'g3'),
+  frost: I().line(8, 1, 8, 14, 'ice').line(2, 8, 14, 8, 'ice').line(3, 3, 13, 13, 'c').line(13, 3, 3, 13, 'c').px(8, 8, 'w').px(8, 0, 'w').px(8, 15, 'w').px(1, 8, 'w').px(15, 8, 'w'),
   // misc UI
   trophy: I().rect(4, 2, 8, 6, 'gold').rect(4, 2, 2, 6, 'y').rect(1, 3, 3, 3, 'gold2').rect(12, 3, 3, 3, 'gold2').rect(7, 8, 2, 4, 'gold2').rect(4, 12, 8, 2, 'gold'),
   lock: I().ring(8, 6, 4, 'g2', 2).rect(0, 7, 16, 9, null).rect(3, 7, 10, 8, 'g3').rect(3, 7, 10, 1, 'g2').rect(7, 10, 2, 3, 'k'),

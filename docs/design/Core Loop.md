@@ -69,6 +69,33 @@ A giant of the type that has killed you most. It moves at 150 or more (you move 
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
 - Six new upgrades: Orbiting Blade, Chain Shot, Nova, Lucky Shot, and for nemeses Blood Bond and Iron Guard. A choice never offers more than one nemesis upgrade.
 
+## Level-up rarities (Phase 14)
+Every level-up still offers three cards, but each card has a rarity (`RARITY` in `src/data.js`), rolled per card:
+
+| Rarity | Chance | Strength |
+|---|---|---|
+| Common | 64% | 0.65x |
+| Rare | 25% | 1.05x |
+| Epic | 9% | 1.6x |
+| Legendary | 2% | 2.5x |
+
+- Strength scales the upgrade (`f(g, s)`, text from `d(s)`): Sharper is +20% damage as a Common and +75% as a Legendary. Upgrades that add a whole thing (projectile, blade, pierce, chain) add 1, 1, 2 or 3.
+- The pool is 31 upgrades: the original 17, nine added for variety (Plating, Scholar, Focus, Frostbite, Wildfire, Executioner, Evasion, Soul Harvest, Leech), and five **Legendary-only** powers offered at most once per run (Thunderstorm, Phoenix, Midas Touch, Titan, Twin Soul). A Legendary roll is one of those 70% of the time while any are left.
+- Chests never roll Common (Rare 50%, Epic 38%, Legendary 12%). The Shrine's Fortune raises Rare-and-better odds 12% a rank.
+- The best rarity on offer colours the level-up beam, sets how big the moment is, and picks the sound when the cards land.
+- The base swarm was raised 14% to offset the stronger upgrades.
+
+## Feel and reward loops (Phase 14)
+Built on a few well-established findings about why games are satisfying; each is used to reward playing, none to punish stopping.
+- **Immediate feedback (game feel).** Enemies pop in, squash when hit, and die with a white flash and a spark; gems sparkle when collected; a dash leaves afterimages; the health bar shows what you just lost as a white chunk that drains; bars ease instead of jumping; numbers bump when they change.
+- **Escalation and variable reward.** Kill streaks (lapse after 2.5s) grow on the HUD and call out at 10/25/50/100/150/200/300 with bonus souls; about 1 spawn in 30 is a golden enemy that pays out; rarities and chests vary each level-up.
+- **Goal gradient: effort rises near a goal.** The experience bar pulses in its last 15%; the title screen shows the nearest unlock with a bar; the end screen says "so close" when a goal is over halfway.
+- **Short goals always open.** Three missions at a time (`MISSIONS` in `src/data.js`), each paying 20-35 souls, replaced as they finish.
+- **End on a gain (peak-end).** Dying still shows souls counting up, mastery, missions and anything unlocked, with confetti for records and unlocks.
+- **A reason to come back, without a penalty for not.** The first run of each UTC day pays a bonus (20 souls, +15% per consecutive day up to a week). Missing a day only resets the bonus to its base.
+- **Sharing.** "Copy result" puts a one-line summary on the clipboard; the daily run is the same for everyone, so results compare.
+- Deliberately left out: timers that lock play, lives or energy, fake scarcity, and anything that takes away what you earned.
+
 ## Progression (Phase 13)
 What carries over between runs, and why there is always something to work toward:
 - **Souls.** Every run pays souls, win or lose: 0.12 per kill + 0.2 per second + 4 per chest + 15 for reaching the boss + 60 for a win, then +25% per Nemesis+ tier and +10% per rank of Greed (`soulsFor` in `src/save.js`).
@@ -147,10 +174,10 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 1:44 | 1/10 | 1 | 0:38 |
-| 3 runts | 2:49 | 3/10 | 3 | 1:57 |
-| 3 soldiers | 2:19 | 4/10 | 2 | 2:24 |
-| 3 veterans with perks | 5:54 | 6/10 | 3 | 1:38 |
-| 3 champions with perks | 6:27 | 10/10 | 6 | 5:12 |
+| None | 1:37 | 0/10 | 0 | 0:21 |
+| 3 runts | 1:55 | 1/10 | 0 | 0:56 |
+| 3 soldiers | 2:13 | 2/10 | 0 | 1:22 |
+| 3 veterans with perks | not re-run since rarities (was 5:54, 3 wins) | | | |
+| 3 champions with perks | not re-run since rarities (was 6:27, 6 wins) | | | |
 
 Known gaps (table uses Blaster + Dash, no charm; the bot presses the ability when crowded and walks to power-ups): a champion party is not hit until about 5:12, so everything before the boss is safe for it. Soldiers do worse than runts (2:19 vs 2:49), within 10-seed noise. Decoy is the strongest ability. Small number changes swing weapons and power-ups wildly, so re-run after any change. Charms, evolutions, Nemesis+ and boons are not in the table. The full table now takes over 10 minutes: run it in two halves with `--rows`.

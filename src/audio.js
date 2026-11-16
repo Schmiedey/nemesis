@@ -81,6 +81,11 @@ const SFX = {
   pick: t => notes([76, 83], 0.05, 0.12, 0.09, 'square', t),
   ui: t => tone('sine', 620, 700, 0.04, 0.06, { at: t }),
   power: t => notes([72, 76, 79, 84], 0.045, 0.22, 0.11, 'square', t),
+  // What you hear when the cards land, by the best rarity on offer.
+  rare: t => notes([76, 83], 0.07, 0.3, 0.09, 'triangle', t),
+  epic: t => { notes([72, 79, 84, 91], 0.06, 0.35, 0.1, 'triangle', t); noise(0.3, 0.05, 'highpass', 5000, 9000, { at: t }); },
+  legendary: t => { notes([60, 67, 72, 76, 79, 84, 88, 96], 0.07, 0.6, 0.12, 'square', t); notes([48, 55, 60], 0.2, 1.2, 0.16, 'sawtooth', t); noise(0.9, 0.08, 'highpass', 3000, 10000, { at: t }); },
+  streak: t => notes([81, 88, 93], 0.045, 0.2, 0.1, 'square', t),
   sweep: t => noise(0.12, 0.16, 'bandpass', 900, 3200, { at: t }),
   bolt: t => { noise(0.1, 0.2, 'highpass', 3000, 5000, { at: t }); tone('square', 1400, 200, 0.12, 0.07, { at: t }); },
   dash: t => noise(0.16, 0.16, 'bandpass', 500, 4000, { at: t }),

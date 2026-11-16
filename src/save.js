@@ -1,9 +1,9 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_CLASSES, META, MAX_TIER, masteryLevel, START_GEAR, ALL_GEAR } from './data.js';
+import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_CLASSES, META, MAX_TIER, MASTERY, MISSIONS, masteryLevel, START_GEAR, ALL_GEAR } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
-const VERSION = 9;
+const VERSION = 10;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
 // v5 adds: Nemesis+ (hard, bestHard, winsHard), the daily run, feats and the chosen boon.
@@ -13,6 +13,8 @@ const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, win
   cls: 'knight',   // v8: the class you play
   // v9: progression. Souls buy Shrine ranks (meta); lifetime stats unlock classes; each class has mastery xp;
   // tier is the Nemesis+ level you play at, tierMax the highest you have unlocked.
+  // v10: three active missions, and the day streak that pays a bonus on the first run of each day.
+  missions: [], day: { date: '', streak: 0 },
   souls: 0, meta: {}, stats: { kills: 0, chests: 0, time: 0, bosses: 0 }, classes: [...START_CLASSES], mastery: {}, tier: 0, tierMax: 0,
   gear: { owned: [...START_GEAR], loadout: { weapon: 'blaster', ability: 'dash', charm: null } } });   // v7 adds the charm slot
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -79,6 +81,12 @@ export function sanitize(raw) {
   s.hard = s.tier > 0;
   unlockClasses(s);
   if (CLASSES[raw.cls] && s.classes.includes(raw.cls)) s.cls = raw.cls;
+  if (raw.day && typeof raw.day.date === 'string') s.day = { date: raw.day.date.slice(0, 10), streak: count(raw.day.streak) };
+  if (Array.isArray(raw.missions)) for (const m of raw.missions) {
+    const t = m && MISSIONS.find(x => x.id === m.id);
+    if (t && t.n.includes(m.n) && s.missions.length < 3 && !s.missions.some(x => x.id === m.id)) s.missions.push({ id: m.id, n: m.n, have: Math.min(m.n, count(m.have)) });
+  }
+  dealMissions(s);
   if (raw.gear && Array.isArray(raw.gear.owned)) for (const id of ALL_GEAR) if (raw.gear.owned.includes(id) && !s.gear.owned.includes(id)) s.gear.owned.push(id);
   const lo = raw.gear && raw.gear.loadout;
   if (lo && WEAPONS[lo.weapon] && s.gear.owned.includes(lo.weapon)) s.gear.loadout.weapon = lo.weapon;
@@ -132,11 +140,45 @@ export function checkFeats(save, run = {}) {
   for (const f of FEATS) if (!save.feats[f.id] && f.test(save, run)) { save.feats[f.id] = true; got.push(f); }
   return got;
 }
+// ---------- missions and the daily bonus ----------
+// Keep three missions active. Which one comes next depends only on how much you have played, so it is repeatable.
+export function dealMissions(save) {
+  let i = save.runs * 7 + save.missions.length * 3 + save.stats.kills;
+  while (save.missions.length < 3) {
+    const t = MISSIONS[i++ % MISSIONS.length];
+    if (save.missions.some(m => m.id === t.id)) continue;
+    save.missions.push({ id: t.id, n: t.n[Math.min(t.n.length - 1, Math.floor(save.runs / 8))], have: 0 });
+  }
+}
+// Apply a run's numbers to the missions. Finished ones pay out and are replaced. Returns rows for the end screen.
+function runMissions(save, ms) {
+  const rows = [];
+  for (const m of save.missions) {
+    const t = MISSIONS.find(x => x.id === m.id), v = Math.floor(ms[t.stat] || 0), before = m.have;
+    m.have = Math.min(m.n, t.sum ? m.have + v : Math.max(m.have, v));
+    rows.push({ text: t.text(m.n), before, after: m.have, n: m.n, done: m.have >= m.n, pay: t.pay });
+  }
+  save.missions = save.missions.filter(m => m.have < m.n);
+  return rows;
+}
+const dayBefore = d => new Date(Date.parse(d + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10);
+// What to chase next: the unfinished goals closest to done, nearest first. { text, have, want }.
+export function nextGoals(save) {
+  const out = [];
+  for (const id in CLASSES) { const c = CLASSES[id]; if (c.lock && !save.classes.includes(id)) { const [have, want] = c.lock.need(save); out.push({ text: 'Unlock the ' + c.n + ': ' + c.lock.text.toLowerCase(), have, want }); } }
+  const L = masteryLevel(save.mastery[save.cls] || 0);
+  if (L < 4) out.push({ text: `${CLASSES[save.cls].n} mastery ${L + 2}`, have: (save.mastery[save.cls] || 0) - (L ? MASTERY[L - 1] : 0), want: MASTERY[L] - (L ? MASTERY[L - 1] : 0) });
+  let cheap = null;
+  for (const m of META) { const c = metaCost(save, m.id); if (c !== null && (!cheap || c < cheap.want)) cheap = { text: `${m.n} rank ${(save.meta[m.id] || 0) + 1} at the Shrine`, have: Math.min(save.souls, c), want: c }; }
+  if (cheap) out.push(cheap);
+  return out.filter(g => g.have < g.want).sort((a, b) => b.have / b.want - a.have / a.want);
+}
+
 // ---------- progression ----------
 // Souls for a run: you always earn some, more for lasting, killing, opening chests, reaching and slaying the boss.
 export function soulsFor(run, save) {
-  const base = run.kills * 0.12 + run.t * 0.2 + (run.opened || 0) * 4 + (run.boss ? 15 : 0) + (run.won ? 60 : 0);
-  return Math.floor(base * (1 + 0.25 * (run.tier || 0)) * (1 + 0.1 * (save.meta.greed || 0)));
+  const base = run.kills * 0.12 + run.t * 0.2 + (run.opened || 0) * 4 + (run.boss ? 15 : 0) + (run.won ? 60 : 0) + (run.bonus || 0);   // bonus: streaks and golden enemies
+  return Math.floor(base * (1 + 0.25 * (run.tier || 0)) * (1 + 0.1 * (save.meta.greed || 0)) * (run.soulMul || 1));
 }
 // Classes whose requirement is now met are unlocked for good. Returns the newly unlocked ids.
 export function unlockClasses(save) {
@@ -150,15 +192,25 @@ export function unlockClasses(save) {
   return got;
 }
 // Record a finished run: lifetime stats, souls, class mastery, class unlocks, and the next Nemesis+ tier on a win.
-export function progress(save, run) {
-  const out = { souls: soulsFor(run, save), cls: run.cls, before: save.mastery[run.cls] || 0 };
-  save.souls += out.souls;
+export function progress(save, run, date = today()) {
+  const out = { souls: soulsFor(run, save), cls: run.cls, before: save.mastery[run.cls] || 0, daily: 0, dayStreak: 0, missions: [] };
+  // The first run of each day pays a bonus that grows with how many days in a row you have played (up to a week).
+  if (save.day.date !== date) {
+    save.day = { date, streak: save.day.date === dayBefore(date) ? save.day.streak + 1 : 1 };
+    out.daily = Math.round(20 * (1 + 0.15 * Math.min(6, save.day.streak - 1))); out.dayStreak = save.day.streak;
+  }
+  out.missions = runMissions(save, run.ms || {});
+  out.missionPay = out.missions.reduce((a, m) => a + (m.done ? m.pay : 0), 0);
+  out.near = nextGoals(save)[0] || null;               // measured before this run's totals land, for the 'so close' line
+  save.souls += out.souls + out.daily + out.missionPay;
   save.stats.kills += run.kills; save.stats.chests += run.opened || 0; save.stats.time += Math.floor(run.t); if (run.won) save.stats.bosses++;
   if (CLASSES[run.cls]) save.mastery[run.cls] = out.before + Math.floor(run.t) + (run.won ? 120 : 0);
   out.after = save.mastery[run.cls] || 0;
   out.levelUp = masteryLevel(out.after) > masteryLevel(out.before);
   out.tierUp = run.won && !run.daily && run.tier >= save.tierMax && save.tierMax < MAX_TIER ? ++save.tierMax : 0;
   out.classes = unlockClasses(save);
+  dealMissions(save);
+  out.next = nextGoals(save)[0] || null;
   return out;
 }
 export const metaCost = (save, id) => { const m = META.find(x => x.id === id), r = save.meta[id] || 0; return m && r < m.cost.length ? m.cost[r] : null; };

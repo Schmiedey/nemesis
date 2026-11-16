@@ -26,7 +26,15 @@ function toClasses() { mode = 'classes'; ui.showClasses(save, id => { if (!save.
 function toLoadout() { mode = 'loadout'; ui.showLoadout(save, id => { if (equip(save, id)) writeSave(save); toLoadout(); }); }
 // Nemesis+ steps through the tiers you have unlocked: 0 (off), 1, 2 ...
 function flipHard() { if (save.tierMax > 0) { save.tier = (save.tier + 1) % (save.tierMax + 1); save.hard = save.tier > 0; writeSave(save); toStart(); } }
-function toShrine() { mode = 'shrine'; ui.showShrine(save, id => { if (buyMeta(save, id)) { audio.sfx('level'); writeSave(save); } toShrine(); }); }
+function toShrine() { mode = 'shrine'; ui.showShrine(save, id => { if (buyMeta(save, id)) { audio.sfx('level'); writeSave(save); ui.confetti(14); } toShrine(); }); }
+// Copy a one-line result to the clipboard, to send to a friend (the daily run has the same map and spawns for everyone).
+let lastResult = '';
+function share() {
+  if (!lastResult) return;
+  const done = () => ui.toast('RESULT COPIED');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(lastResult).then(done, () => ui.toast('COULD NOT COPY'));
+  else ui.toast('COULD NOT COPY');
+}
 // The boon button steps through: none, then each boon you have unlocked.
 function nextBoon() {
   const list = [null, ...boonsOf(save)];
@@ -65,7 +73,7 @@ function choose(i) {
   const run = g;
   setTimeout(() => {                                   // let the chosen card flash before the game resumes
     if (g !== run || mode !== 'lvl') return;
-    pickFx(g, g.choices[i].n); pick(g, i);
+    pickFx(g, g.choices[i].n, g.rar[i]); pick(g, i);
     if (g.state === 'lvl') startLevel(0.5); else { ui.hideLevel(); mode = 'play'; picking = false; }
   }, 320);
 }
@@ -82,7 +90,12 @@ function endRun(won) {
   if (won) save.wins++;
   const growth = growParty(save, g.party, won);
   const run = { t: g.t, kills: g.kills, won, dead: !won, party: g.party.length, runts: g.party.length === 3 && g.party.every(n => n.q < 0.7),
-    hard: kind === 'hard', daily: kind === 'daily', opened: g.opened, tier: g.tier, boss: !!g.bossAt, cls: g.cls };
+    hard: kind === 'hard', daily: kind === 'daily', opened: g.opened, tier: g.tier, boss: !!g.bossAt, cls: g.cls, bonus: g.bonusSouls, soulMul: g.soulMul, streak: g.bestStreak,
+    // the numbers missions are measured against
+    ms: { kills: g.kills, t: g.t, lvl: g.P.lvl, opened: g.opened, powerups: g.powerups, elites: g.elites, streak: g.bestStreak, acts: g.acts, epics: g.epics,
+      ...Object.fromEntries(Object.entries(g.killsBy).map(([k, v]) => ['k_' + k, v])) } };
+  const mm = Math.floor(g.t / 60) + ':' + String(Math.floor(g.t % 60)).padStart(2, '0');
+  lastResult = `NEMESIS${kind === 'daily' ? ' daily ' + today() : kind === 'hard' ? ' N+' + g.tier : ''} | ${g.cls || 'no class'} | ${won ? 'NEMESIS SLAIN in ' : 'survived '}${mm} | ${g.kills} kills | best streak ${g.bestStreak}`;
   return { newBest: g.t > prev, best: Math.max(prev, g.t), growth, run, kind, gear: addGear(save, g.loot), prog: progress(save, run) };
 }
 
@@ -136,7 +149,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.code] = false);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, reroll: () => doReroll(),
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, reroll: () => doReroll(), share,
   roster: toRoster, menu: toStart, resume,
   reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
 });
@@ -189,7 +202,14 @@ function applyQuality(i) { qStep = Math.max(0, Math.min(QUALITY_STEPS.length - 1
 const perf = () => ({ fps: Math.round(1000 / frameMs), frameMs: +frameMs.toFixed(1), workMs: +workMs.toFixed(2), canvas: cv.width + 'x' + cv.height, quality: QUALITY_STEPS[qStep], lowDetail: false });
 addEventListener('keydown', e => { if (e.code === 'Backquote') { showPerf = !showPerf; perfEl.classList.toggle('hidden', !showPerf); } });
 let perfTick = 0;
+// One frame. If anything in it throws, the error is logged and the next frame still runs: a drawing bug must
+// never freeze the game.
+let frameErrors = 0;
 function loop(now) {
+  try { frame(now); } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); }
+  requestAnimationFrame(loop);
+}
+function frame(now) {
   const w0 = performance.now(), gap = now - last; last = now;
   frameMs += (Math.min(gap, 200) - frameMs) * 0.05;
   const total = Math.min(0.1, gap / 1000);                                // real time since the last frame
@@ -208,7 +228,7 @@ function loop(now) {
     else if (g.state === 'dead') onDeath();
     else if (g.state === 'won') onWin();
   }
-  if (mode === 'lvl' && lvlWait > 0 && (lvlWait -= total) <= 0) ui.showLevel(g, choose);
+  if (mode === 'lvl' && lvlWait > 0 && (lvlWait -= total) <= 0) { ui.showLevel(g, choose); const top = ui.topRarity(g); if (top !== 'common') audio.sfx(top, top === 'legendary' ? 0.25 : 0.15); }
   if (mode === 'play' || mode === 'dead' || mode === 'won' || mode === 'lvl') updateFx(total);
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
@@ -217,7 +237,6 @@ function loop(now) {
   draw(cv, cx, g, hud, hx);
   workMs += (performance.now() - w0 - workMs) * 0.05;
   if (showPerf && now - perfTick > 400) { perfTick = now; const p = perf(); perfEl.textContent = `${p.fps} fps · ${p.workMs} ms work · ${p.canvas} · quality ${p.quality}${p.lowDetail ? ' low detail' : ''}`; }
-  requestAnimationFrame(loop);
 }
 
 loadSprites();
@@ -225,4 +244,4 @@ toStart();
 requestAnimationFrame(loop);
 
 // Debug hook for automated tests (Playwright).
-window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster, audio, get perf() { return perf(); }, applyQuality };
+window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster, audio, get perf() { return perf(); }, applyQuality, get frameErrors() { return frameErrors; } };

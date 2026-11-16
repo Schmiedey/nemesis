@@ -1,7 +1,7 @@
 // Draws the game in pixel art.
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
-import { T, BOSS_TIME, ABILITIES, POWERUPS, gearOf } from './data.js';
+import { T, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, gearOf } from './data.js';
 import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
@@ -49,19 +49,28 @@ let pFlip = false, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 400;
 let rings = [], nums = [], sweeps = [], bolts = [], booms = [], banner = null;
 let lvl = null, glints = [];                      // the level-up moment
-export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; booms = []; glints = []; lvl = null; banner = null; shakeAmt = 0; surge = null; }
+// Juice: death pops, pickup sparks, dash afterimages, the streak callout, and HUD values that ease toward the truth.
+let deaths = [], sparks = [], afters = [], callout = null;
+const born = new WeakMap();                       // when each creature was first drawn, for its pop-in
+const hudA = { hp: 1, ghost: 1, xp: 0, kills: 0, bump: 0, lvl: 0, lvlBump: 0, streakBump: 0, streak: 0, at: 0 };
+const STREAKS = { 10: 'KILLING SPREE', 25: 'RAMPAGE', 50: 'UNSTOPPABLE', 100: 'MASSACRE', 150: 'GODLIKE', 200: 'LEGENDARY', 300: 'NEMESIS' };
+export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; booms = []; glints = []; lvl = null; banner = null; shakeAmt = 0; surge = null; deaths = []; sparks = []; afters = []; callout = null; Object.assign(hudA, { hp: 1, ghost: 1, xp: 0, kills: 0, bump: 0, lvl: 0, lvlBump: 0, streakBump: 0, streak: 0, at: 0 }); }
 
 // Level up (or a chest): a beam of light on the player, two rings, a shower of sparks and big text.
 export function levelFx(g) {
   const P = g.P;
-  lvl = { t: 0, chest: g.chest, n: P.lvl };
+  // The best rarity on offer colours the beam and sets how big the moment is.
+  const top = Math.max(0, ...(g.rar || []).map(r => RARITIES.indexOf(r)));
+  lvl = { t: 0, chest: g.chest, n: P.lvl, top, col: [PAL.y, PAL.c, PAL.v, PAL.o2][top] };
   rings.push({ x: P.x, y: P.y, r: 150, life: 0.35 }, { x: P.x, y: P.y, r: 90, life: 0.5 });
-  for (let i = 0; i < 26; i++) glints.push({ x: P.x + rnd(-70, 70), y: P.y + rnd(-10, 40), vy: -rnd(60, 190), life: rnd(0.5, 1.1), f: Math.floor(rnd(0, 3)) });
+  if (top >= 2) rings.push({ x: P.x, y: P.y, r: 240, life: 0.6 });
+  if (top === 3) { rings.push({ x: P.x, y: P.y, r: 340, life: 0.8 }); shakeAmt = Math.max(shakeAmt, 12); }
+  for (let i = 0; i < 26 + top * 22; i++) glints.push({ x: P.x + rnd(-70, 70), y: P.y + rnd(-10, 40), vy: -rnd(60, 190), life: rnd(0.5, 1.1), f: Math.floor(rnd(0, 3)) });
   shakeAmt = Math.max(shakeAmt, 5);
 }
 // After a pick: name what you took, with a green burst.
-export function pickFx(g, name) {
-  banner = { text: name, life: 1.5, c: PAL.mint };
+export function pickFx(g, name, rar = 'common') {
+  banner = { text: name, life: 1.5, c: { common: PAL.mint, rare: PAL.c, epic: PAL.v, legendary: PAL.y }[rar] };
   rings.push({ x: g.P.x, y: g.P.y, r: 70, life: 0.35 });
   for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28; parts.push({ x: g.P.x, y: g.P.y, vx: Math.cos(a) * 160, vy: Math.sin(a) * 160, life: 0.45, c: PAL.mint, s: 2 }); }
 }
@@ -78,6 +87,11 @@ export function consumeFx(g) {
     else if (f.k === 'power') banner = { text: POWERUPS[f.id].n + '!', life: 1.6, c: POWERUPS[f.id].c };
     else if (f.k === 'num') { if (nums.length < 50) nums.push({ x: f.x + rnd(-6, 6), y: f.y - 8, v: Math.round(f.v), life: 0.6 }); }
     else if (f.k === 'nova') rings.push({ x: f.x, y: f.y, r: f.r, life: 0.35 });
+    else if (f.k === 'die') { if (deaths.length < 60) deaths.push({ x: f.x, y: f.y, t: f.t, s: f.s, flip: Math.cos(f.a) < 0, life: 0.2 }); }
+    else if (f.k === 'gem') { if (sparks.length < 40) sparks.push({ x: f.x, y: f.y, life: 0.18, big: f.big }); }
+    else if (f.k === 'streak') { callout = { text: STREAKS[f.n] || 'STREAK', n: f.n, life: 1.6 }; shakeAmt = Math.max(shakeAmt, 4); }
+    else if (f.k === 'minute') banner = { text: f.n + ':00 survived', life: 1.8, c: PAL.w };
+    else if (f.k === 'gold') { booms.push({ x: f.x, y: f.y, life: 0.32, k: 1 }); for (let i = 0; i < 14; i++) glints.push({ x: f.x + rnd(-24, 24), y: f.y + rnd(-10, 20), vy: -rnd(40, 150), life: rnd(0.4, 0.9), f: Math.floor(rnd(0, 3)) }); }
     else {
       if (f.sp >= 250 && f.n >= 24 && booms.length < 12) booms.push({ x: f.x, y: f.y, life: 0.32, k: f.n >= 40 ? 2 : 1 });
       for (let i = 0; i < f.n; i++) {
@@ -97,6 +111,10 @@ export function updateFx(dt) {
   for (const s of sweeps) s.life -= dt; sweeps = sweeps.filter(s => s.life > 0);
   for (const b of bolts) b.life -= dt; bolts = bolts.filter(b => b.life > 0);
   for (const b of booms) b.life -= dt; booms = booms.filter(b => b.life > 0);
+  for (const d of deaths) d.life -= dt; deaths = deaths.filter(d => d.life > 0);
+  for (const d of sparks) d.life -= dt; sparks = sparks.filter(d => d.life > 0);
+  for (const d of afters) d.life -= dt; afters = afters.filter(d => d.life > 0);
+  if (callout && (callout.life -= dt) <= 0) callout = null;
   for (const s of glints) { s.life -= dt; s.y += s.vy * dt; s.vy *= 0.97; } glints = glints.filter(s => s.life > 0);
   if (lvl && (lvl.t += dt) > 1.4) lvl = null;
   if (banner && (banner.life -= dt) <= 0) banner = null;
@@ -198,7 +216,7 @@ function dither(cx, col) {
 // A marching dashed circle: the outline of a danger zone.
 function dashRing(cx, x, y, r, col, t, w = 2) {
   cx.strokeStyle = col; cx.lineWidth = w; cx.setLineDash([8, 8]); cx.lineDashOffset = -t * 40;
-  cx.beginPath(); cx.arc(x, y, r, 0, 7); cx.stroke(); cx.setLineDash([]);
+  cx.beginPath(); cx.arc(x, y, Math.max(0, r), 0, 7); cx.stroke(); cx.setLineDash([]);
 }
 
 // ---------- creatures ----------
@@ -254,11 +272,16 @@ function drawEnt(cx, g, e) {
   if (a && atlasImg) {
     // Side-view sprite, flipped to face the way it is going, standing on a shadow. Flyers hover above theirs.
     if (!offs.has(e)) offs.set(e, Math.floor(Math.random() * 4));
-    const scale = e.r / d.r, h = a.h * PX * scale, lift = d.fly ? 10 : 0, flip = Math.cos(e.ang) < 0;
-    const cy = e.r * 0.8 - h / 2 - lift, f = Math.floor(t * (d.fly ? 12 : 7)) + offs.get(e);
+    // Pops in when it first appears; squashes for a moment when hit.
+    if (!born.has(e)) born.set(e, t);
+    const age = t - born.get(e), pop = age < 0.18 ? 0.35 + 0.65 * age / 0.18 : 1;
+    const scale = e.r / d.r * pop, h = a.h * PX * scale, lift = d.fly ? 10 : 0, flip = Math.cos(e.ang) < 0;
+    const cy = e.r * 0.8 - h / 2 - lift, f = Math.floor(t * (d.fly ? 12 : 7)) + offs.get(e), hit = e.flash > 0;
     spr(cx, 'shadow', 0, e.r * 0.8, 0, e.r / 8 * (lift ? 0.8 : 1));
+    if (hit) { cx.save(); cx.translate(0, e.r * 0.8); cx.scale(1.2, 0.84); cx.translate(0, -e.r * 0.8); }
     spr(cx, name, 0, cy, f, scale, flip);
-    if (e.flash > 0) { cx.globalAlpha = 0.85; spr(cx, name, 0, cy, f, scale, flip, true); cx.globalAlpha = 1; }
+    if (hit) { cx.globalAlpha = 0.85; spr(cx, name, 0, cy, f, scale, flip, true); cx.globalAlpha = 1; cx.restore(); }
+    if (e.gold) for (let i = 0; i < 3; i++) { const q = t * 3 + i * 2.094; spr(cx, 'glint', Math.cos(q) * (e.r + 10), cy + Math.sin(q) * (h * 0.35), t * 8 + i); }
     if (e.mark > t) spr(cx, 'mark', 0, cy - h / 2 - 12);            // marked by the Hawk
     if (e.fireT > 0) spr(cx, 'burn', e.mark > t ? 14 : 0, cy - h / 2 - 12, t * 10);   // burning
     if (e.warn && blink) {                      // about to dive: a red exclamation mark overhead
@@ -289,6 +312,9 @@ function drawPlayer(cx, g) {
   const who = g.cls ? 'c_' + g.cls : 'c_player', a = ATLAS[who], x = snap(P.x), y = snap(P.y);
   if (a && atlasImg) {
     const cy = y + P.r * 0.8 - a.h * PX / 2, f = moving ? Math.floor(g.t * 10) : Math.floor(g.t * 2) % 2;   // walk cycle, or a slow breathing bob when standing
+    if (P.dashT > 0 && afters.length < 12) afters.push({ x, y: cy, f, flip: pFlip, who, life: 0.22 });
+    for (const q of afters) { cx.globalAlpha = q.life / 0.22 * 0.6; spr(cx, q.who, q.x, q.y, q.f, 1, q.flip, true); }
+    cx.globalAlpha = 1;
     spr(cx, 'shadow', x, y + P.r * 0.8, 0, 1.3);
     spr(cx, who, x, cy, f, 1, pFlip);
     if (P.flash > 0 || (lvl && lvl.t < 0.3 && Math.sin(lvl.t * 60) > -0.3)) { cx.globalAlpha = 0.85; spr(cx, who, x, cy, f, 1, pFlip, true); cx.globalAlpha = 1; }
@@ -407,7 +433,10 @@ export function draw(cv, cx, g, hud, hx) {
   }
   for (const r of rings) {
     // A shockwave: a solid white ring that thins, then breaks into dashes as it spreads.
-    const k = 1 - r.life / 0.35, rad = r.r * (0.3 + 0.7 * k);
+    // k runs 0..1 over the ring's own lifetime. (It used to assume 0.35s; longer rings got a negative radius,
+    // which throws and stopped the whole game.)
+    if (!r.max) r.max = Math.max(r.life, 0.01);
+    const k = clamp(1 - r.life / r.max, 0, 1), rad = Math.max(0, r.r * (0.3 + 0.7 * k));
     if (k < 0.55) { cx.strokeStyle = PAL.w; cx.lineWidth = k < 0.25 ? 6 : 4; cx.beginPath(); cx.arc(snap(r.x), snap(r.y), rad, 0, 7); cx.stroke(); }
     else dashRing(cx, snap(r.x), snap(r.y), rad, PAL.g1, 0);
   }
@@ -417,8 +446,14 @@ export function draw(cv, cx, g, hud, hx) {
     else if (!spr(cx, (b.boss ? 'big_' : 'orb_') + key, b.x, b.y) && !spr(cx, b.boss ? 'big_ff3b5c' : 'orb_fff', b.x, b.y)) { cx.fillStyle = b.color; cx.fillRect(b.x - 2, b.y - 2, 4, 4); }
   }
   for (const b of booms) spr(cx, 'boom', b.x, b.y, (1 - b.life / 0.32) * 5, b.k);
+  for (const d of deaths) {                              // a kill: the creature flashes white and swells, then a spark
+    const k = 1 - d.life / 0.2, a = ATLAS['c_' + d.t];
+    if (k < 0.5 && a) spr(cx, 'c_' + d.t, d.x, d.y - a.h * d.s * 0.4, 0, d.s * (1 + k * 0.9), d.flip, true);
+    else spr(cx, 'spark', d.x, d.y - 6, (k - 0.5) * 6, 1 + d.s);
+  }
+  for (const d of sparks) spr(cx, 'spark', d.x, d.y - (1 - d.life / 0.18) * 10, (1 - d.life / 0.18) * 3, d.big ? 2 : 1);
   if (lvl && lvl.t < 0.8) {                              // a beam of light that narrows to nothing
-    const k = 1 - lvl.t / 0.8, w = snap(56 * k) + 2, col = lvl.chest ? PAL.o2 : PAL.y, bx = snap(P.x);
+    const k = 1 - lvl.t / 0.8, w = snap((56 + lvl.top * 22) * k) + 2, col = lvl.col, bx = snap(P.x);
     cx.fillStyle = dither(cx, col); cx.fillRect(bx - w, camY, w * 2, snap(P.y) + 12 - camY);
     cx.fillStyle = col; cx.fillRect(bx - w / 2, camY, w, snap(P.y) + 12 - camY);
     cx.fillStyle = PAL.w; cx.fillRect(bx - snap(w / 4), camY, snap(w / 2), snap(P.y) + 12 - camY);
@@ -443,11 +478,32 @@ export function draw(cv, cx, g, hud, hx) {
   }
   cx.globalAlpha = 1;
 
+  // HUD values ease toward the real ones, and numbers bump when they change.
+  const now = performance.now(), hd = Math.min(0.05, (now - (hudA.at || now)) / 1000); hudA.at = now;
+  const hpF = P.hp / P.maxhp, xpF = Math.min(1, P.xp / P.next);
+  hudA.hp += (hpF - hudA.hp) * Math.min(1, hd * 14);
+  hudA.ghost = hpF >= hudA.ghost ? hpF : Math.max(hpF, hudA.ghost - hd * 0.35);          // the white chunk drains slowly after a hit
+  hudA.xp = xpF < hudA.xp - 0.2 ? 0 : hudA.xp + (xpF - hudA.xp) * Math.min(1, hd * 10);  // refills from empty after a level-up
+  if (g.kills !== hudA.kills) { hudA.kills = g.kills; hudA.bump = 0.12; }
+  if (P.lvl !== hudA.lvl) { hudA.lvl = P.lvl; hudA.lvlBump = 0.5; }
+  if (g.streak > hudA.streak) hudA.streakBump = 0.1;
+  hudA.streak = g.streak;
+  for (const k of ['bump', 'lvlBump', 'streakBump']) hudA[k] = Math.max(0, hudA[k] - hd);
+
   // Top-left: level, experience, kills.
   panel(cx, 14, 14, 196, 50);
-  cx.textAlign = 'left'; label(cx, 'LV ' + P.lvl, 24, 36, PAL.y, `bold 16px ${TITLE}`);
-  icon(cx, 'i_skull', 118, 20, 1.25); label(cx, g.kills, 144, 36, PAL.w, `16px ${TITLE}`);
-  bar(cx, 24, 46, 176, 8, P.xp / P.next, PAL.mint, PAL.gr2);
+  cx.textAlign = 'left'; label(cx, 'LV ' + P.lvl, 24, 36, hudA.lvlBump > 0 && Math.sin(t * 30) > 0 ? PAL.w : PAL.y, `bold ${hudA.lvlBump > 0.3 ? 20 : 16}px ${TITLE}`);
+  icon(cx, 'i_skull', 118, 20, 1.25); label(cx, g.kills, 144, hudA.bump > 0 ? 34 : 36, hudA.bump > 0 ? PAL.y : PAL.w, `${hudA.bump > 0 ? 20 : 16}px ${TITLE}`);
+  const near = xpF > 0.85 && Math.sin(t * 14) > 0;                                       // nearly there: the bar pulses
+  bar(cx, 24, 46, 176, 8, hudA.xp, near ? PAL.w : PAL.mint, PAL.gr2);
+  // Kill streak: grows and changes colour as it builds; the bar under it is the time left to keep it going.
+  if (g.streak >= 3) {
+    const tier = g.streak >= 100 ? PAL.y : g.streak >= 50 ? PAL.o : g.streak >= 25 ? PAL.r3 : g.streak >= 10 ? PAL.c : PAL.w;
+    const size = Math.min(34, 18 + Math.floor(g.streak / 10) * 2) + (hudA.streakBump > 0 ? 6 : 0);
+    label(cx, 'x' + g.streak, 18, 98, tier, `bold ${size}px ${TITLE}`);
+    label(cx, 'STREAK', 18, 114, PAL.g1, `10px ${TITLE}`);
+    cx.fillStyle = PAL.k; cx.fillRect(16, 118, 84, 6); cx.fillStyle = tier; cx.fillRect(18, 120, Math.round(80 * Math.max(0, g.streakT) / 2.5 / 2) * 2, 2);
+  }
 
   // Top centre: the clock, and the boss when it is here.
   panel(cx, W / 2 - 52, 14, 104, 34);
@@ -476,7 +532,11 @@ export function draw(cv, cx, g, hud, hx) {
   {
     const bw = 280, x = W / 2 - bw / 2, y = H - 34;
     icon(cx, 'i_tough', x - 30, y - 8, 1.5);
-    bar(cx, x, y, bw, 14, P.hp / P.maxhp, P.hp / P.maxhp < 0.3 && Math.sin(t * 12) > 0 ? PAL.r3 : PAL.r, PAL.r2);
+    bar(cx, x, y, bw, 14, hudA.ghost, PAL.w, PAL.g1);                                    // what you just lost, in white
+    const fw = Math.round(bw * clamp(hudA.hp, 0, 1) / 2) * 2;
+    cx.fillStyle = PAL.g5; cx.fillRect(x + fw, y, 0, 14);
+    cx.fillStyle = hpF < 0.3 && Math.sin(t * 12) > 0 ? PAL.r3 : PAL.r; cx.fillRect(x, y, fw, 14);
+    cx.fillStyle = 'rgba(255,255,255,.28)'; cx.fillRect(x, y, fw, 2); cx.fillStyle = PAL.r2; cx.fillRect(x, y + 12, fw, 2);
     cx.textAlign = 'center'; label(cx, Math.ceil(P.hp) + ' / ' + Math.round(P.maxhp), W / 2, y + 12, PAL.w, `12px ${TITLE}`);
   }
   minimap(cx, g, camX, camY, H);
@@ -507,9 +567,17 @@ export function draw(cv, cx, g, hud, hx) {
     if (lvl.t < 0.1) { cx.fillStyle = 'rgba(244,241,232,.35)'; cx.fillRect(0, 0, W, H); }
     if (on) {
       cx.textAlign = 'center';
-      label(cx, lvl.chest ? 'CHEST!' : 'LEVEL UP!', W / 2, H / 2 - 132, Math.sin(lvl.t * 30) > 0 ? PAL.y : PAL.w, `bold ${size}px ${TITLE}`);
-      if (lvl.t > 0.14) label(cx, lvl.chest ? 'DOUBLE STRENGTH' : 'LEVEL ' + lvl.n, W / 2, H / 2 - 104, PAL.mint, `16px ${TITLE}`);
+      label(cx, lvl.chest ? 'CHEST!' : 'LEVEL UP!', W / 2, H / 2 - 132, Math.sin(lvl.t * 30) > 0 ? lvl.col : PAL.w, `bold ${size}px ${TITLE}`);
+      if (lvl.t > 0.14) label(cx, lvl.top === 3 ? 'A LEGENDARY AWAITS' : lvl.top === 2 ? 'AN EPIC AWAITS' : lvl.chest ? 'NOTHING COMMON INSIDE' : 'LEVEL ' + lvl.n, W / 2, H / 2 - 104, lvl.top >= 2 ? lvl.col : PAL.mint, `16px ${TITLE}`);
     }
+  }
+  if (callout) {                                         // RAMPAGE! and friends
+    const k = 1.6 - callout.life, size = k < 0.06 ? 56 : k < 0.12 ? 44 : 34, col = callout.n >= 100 ? PAL.y : callout.n >= 50 ? PAL.o : callout.n >= 25 ? PAL.r3 : PAL.c;
+    if (callout.life > 0.3 || Math.sin(callout.life * 60) > 0) { cx.textAlign = 'center'; label(cx, callout.text + '!', W / 2, 200, Math.sin(k * 40) > 0 ? col : PAL.w, `bold ${size}px ${TITLE}`); label(cx, 'x' + callout.n + ' KILL STREAK', W / 2, 222, PAL.g1, `12px ${TITLE}`); }
+  }
+  if (hpF < 0.3 && g.state === 'play') {                 // low health: a red frame beats at the edges
+    cx.fillStyle = Math.sin(t * 8) > 0 ? 'rgba(228,59,68,.34)' : 'rgba(228,59,68,.16)';
+    cx.fillRect(0, 0, W, 10); cx.fillRect(0, H - 10, W, 10); cx.fillRect(0, 10, 10, H - 20); cx.fillRect(W - 10, 10, 10, H - 20);
   }
   if (banner) {
     cx.globalAlpha = Math.min(1, banner.life * 2); cx.textAlign = 'center';

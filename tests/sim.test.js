@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, step, pick, reroll, recruitQuality, ARENA } from '../src/sim.js';
-import { T, BOSS_TIME } from '../src/data.js';
-import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion } from '../src/save.js';
+import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
+import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -28,7 +28,7 @@ describe('sim', () => {
   it('the killer inherits the build you died with', () => {
     const g = createGame({ seed: 7 });
     g.picks = { pierce: 2, shots: 5, magnet: 4 };
-    g.P.hp = 1; g.P.maxhp = 1;
+    g.P.hp = 1; g.P.maxhp = 1; g.P.next = 1e9;   // no level-ups: the build is exactly what was set
     for (let i = 0; i < 60 * 120 && g.state !== 'dead'; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); }
     expect(g.recruit.perks).toMatchObject({ pierce: 2, shots: 3 });
     expect(g.recruit.perks.magnet).toBeUndefined();
@@ -111,7 +111,7 @@ describe('sim', () => {
     }
   });
 
-  it('offers at most one nemesis upgrade per choice; a chest applies the pick twice', () => {
+  it('offers at most one nemesis upgrade per choice; a chest never rolls Common', () => {
     const g = createGame({ seed: 6, party: [nem(1, 'brute', 1)] });
     for (let i = 0; i < 25; i++) {
       g.P.xp = g.P.next; g.P.hp = g.P.maxhp; step(g, 1 / 60, still());
@@ -124,9 +124,10 @@ describe('sim', () => {
     g.chests.push({ x: g.P.x, y: g.P.y });
     step(g, 1 / 60, still());
     expect(g.state).toBe('lvl'); expect(g.chest).toBe(true);
+    expect(g.rar.length).toBe(3); expect(g.rar).not.toContain('common');
     const id = g.choices[0].id, before = g.picks[id] || 0;
     pick(g, 0);
-    expect(g.picks[id]).toBe(before + 2); expect(g.chest).toBe(false);
+    expect(g.picks[id]).toBe(before + 1); expect(g.chest).toBe(false);
   });
 
   it('an enemy brute winds up, then charges in a straight line', () => {
@@ -321,6 +322,27 @@ describe('sim', () => {
     for (let i = 0; i < 180 && e.hp === 1e6; i++) step(g, 1 / 60, still());
     expect(e.hp).toBeLessThan(1e6);
   });
+
+  it('rarity: a higher rarity is a stronger upgrade; legendary powers are offered once', () => {
+    const dmgUp = UP.find(u => u.id === 'dmg');
+    const gain = rar => { const g = createGame({ seed: 3 }); g.P.xp = g.P.next; step(g, 1 / 60, still()); g.choices = [dmgUp, dmgUp, dmgUp]; g.rar = [rar, rar, rar]; const d0 = g.P.dmg; pick(g, 0); return g.P.dmg / d0; };
+    expect(gain('common')).toBeCloseTo(1.195); expect(gain('rare')).toBeCloseTo(1.315); expect(gain('epic')).toBeCloseTo(1.48); expect(gain('legendary')).toBeCloseTo(1.75);
+    expect(dmgUp.d(RARITY.legendary.s)).toBe('+75% damage');
+
+    // Over many level-ups every rarity turns up, Common most, Legendary least; luck shifts it up.
+    const tally = luck => { const g = createGame({ seed: 5, meta: { luck } }); const c = { common: 0, rare: 0, epic: 0, legendary: 0 }; const seen = new Set();
+      for (let i = 0; i < 300; i++) { g.P.xp = g.P.next = 1; g.P.hp = g.P.maxhp = 1e9; g.state = 'play'; step(g, 1 / 60, still()); for (let j = 0; j < 3; j++) { c[g.rar[j]]++; seen.add(g.choices[j].id); } pick(g, 0); g.state = 'play'; }
+      return { c, seen }; };
+    const a = tally(0), b = tally(5);
+    expect(a.c.common).toBeGreaterThan(a.c.rare); expect(a.c.rare).toBeGreaterThan(a.c.epic); expect(a.c.epic).toBeGreaterThan(a.c.legendary); expect(a.c.legendary).toBeGreaterThan(0);
+    expect(b.c.common).toBeLessThan(a.c.common);
+    expect(a.seen.size).toBeGreaterThan(20);                                 // real variety across the pool
+
+    const g = createGame({ seed: 1 }); g.P.xp = g.P.next; step(g, 1 / 60, still());
+    const storm = UP.find(u => u.id === 'storm'); g.choices = [storm, dmgUp, dmgUp]; g.rar = ['legendary', 'common', 'common']; pick(g, 0);
+    expect(g.storm).toBe(true);
+    for (let i = 0; i < 200; i++) { g.P.xp = g.P.next = 1; g.P.hp = g.P.maxhp = 1e9; g.state = 'play'; step(g, 1 / 60, still()); expect(g.choices).not.toContain(storm); pick(g, 1); g.state = 'play'; }
+  });
 });
 
 describe('save', () => {
@@ -425,6 +447,8 @@ describe('save', () => {
   it('progression: souls, shrine purchases, class unlocks, mastery and Nemesis+ tiers', () => {
     const s = sanitize({});
     expect([s.souls, s.tier, s.tierMax]).toEqual([0, 0, 0]); expect(s.classes).toEqual(['knight', 'ranger', 'necro']);
+    s.day = { date: today(), streak: 1 };                                    // no daily bonus in this test
+    s.missions = [{ id: 'streak', n: 100, have: 0 }, { id: 'epic', n: 4, have: 0 }, { id: 'level', n: 18, have: 0 }];   // none that this run finishes
     const run = { t: 200, kills: 300, opened: 2, boss: false, won: false, tier: 0, cls: 'knight', daily: false };
     expect(soulsFor(run, s)).toBe(Math.floor(300 * 0.12 + 200 * 0.2 + 8));
     expect(soulsFor({ ...run, tier: 2 }, s)).toBe(Math.floor(84 * 1.5));
@@ -445,5 +469,26 @@ describe('save', () => {
     expect(sanitize({ cls: 'warden' }).cls).toBe('knight');                  // a class you have not unlocked is dropped
     const old = sanitize({ wins: 2, winsHard: 1, hard: true, runs: 9 });     // a save from before tiers
     expect([old.tierMax, old.tier, old.classes.includes('warden')]).toEqual([2, 1, true]);
+  });
+
+  it('missions pay out and are replaced; the first run of a day pays a bonus that grows with the day streak', () => {
+    const s = sanitize({});
+    expect(s.missions.length).toBe(3); expect(new Set(s.missions.map(m => m.id)).size).toBe(3);
+    s.missions = [{ id: 'kills', n: 150, have: 100 }, { id: 'survive', n: 150, have: 0 }, { id: 'streak', n: 25, have: 0 }];
+    const run = { t: 120, kills: 60, opened: 0, won: false, tier: 0, cls: 'knight', bonus: 7, soulMul: 1.2, ms: { kills: 60, t: 120, streak: 30 } };
+    const base = soulsFor(run, s);
+    expect(base).toBe(Math.floor((60 * 0.12 + 120 * 0.2 + 7) * 1.2));         // streak and golden-enemy souls, Soul Harvest
+    const p = progress(s, run, '2026-11-16');
+    expect(p.missions.map(m => m.done)).toEqual([true, false, true]);        // 160/150 kills; 120s is short of 150; a 30 streak beats 25
+    expect(p.missionPay).toBe(25 + 35); expect(p.daily).toBe(20); expect(p.dayStreak).toBe(1);
+    expect(s.souls).toBe(base + 60 + 20);
+    expect(s.missions.length).toBe(3); expect(s.missions.some(m => m.id === 'survive' && m.have === 120)).toBe(true);
+    expect(progress(s, { ...run, ms: {} }, '2026-11-16').daily).toBe(0);     // only the first run of the day
+    expect(progress(s, { ...run, ms: {} }, '2026-11-17').daily).toBe(23);    // next day: streak 2
+    expect(progress(s, { ...run, ms: {} }, '2026-11-20').dayStreak).toBe(1); // a missed day starts the streak again
+    const goals = nextGoals(s);
+    expect(goals.length).toBeGreaterThan(0); expect(goals[0].have / goals[0].want).toBeGreaterThanOrEqual(goals[goals.length - 1].have / goals[goals.length - 1].want);
+    const back = sanitize(JSON.parse(JSON.stringify(s)));
+    expect(back.missions).toEqual(s.missions); expect(back.day).toEqual(s.day);
   });
 });
