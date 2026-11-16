@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-3 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 4 built on branch `phase-4-recruits`, not merged: ally jobs, growth and evolutions. Champions now win 9/10 (too easy): fix with the boss rework in Phase 5. Next: user plays it, merge, Phase 5.
+**Status:** Phases 1-4 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 5 built on branch `phase-5-variety`, not merged: enemy tells, boss moves and enrage, 6 upgrades, elites and chests, 3 maps. Open balance problem: champion parties win 9/10 and the boss is not dangerous enough. Next: user plays it, merge, Phase 6.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -35,9 +35,9 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: 3 runts last 20s longer than solo and 3 soldiers 40s longer, by `node tests/balance.js`.
 
 ## Phase 5: Variety per run
-- [ ] Counter-play and a visible tell per enemy (Brute charge, Archer aim line, Bat dive, Bomber fuse)
-- [ ] A real boss per type with a second stage at half health
-- [ ] About 6 new upgrades; elites that drop a chest; three map layouts
+- [x] Counter-play and a visible tell per enemy (Brute charge, Archer aim line, Bat dive, Bomber fuse)
+- [x] A real boss per type with a second stage at half health
+- [x] About 6 new upgrades; elites that drop a chest; three map layouts
 - Done when: two runs in a row feel different.
 
 ## Phase 6: Depth, feel, and reasons to return

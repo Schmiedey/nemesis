@@ -1,6 +1,6 @@
 // Draws the game. Fixed 960x600 view scaled to the window, camera follows the player.
 import { T, BOSS_TIME } from './data.js';
-import { ARENA, VIEW, ROCKS } from './sim.js';
+import { ARENA, VIEW, BOSS_BLAST, BLADE_R } from './sim.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a); // cosmetic only
@@ -25,7 +25,8 @@ export async function loadSprites() {
 
 let pAng = 0, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 500; // cap so a huge fight cannot flood the screen with particles
-export function resetFx() { parts = []; shakeAmt = 0; surge = null; }
+let rings = []; // expanding shockwave rings
+export function resetFx() { parts = []; rings = []; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
 export function consumeFx(g) {
@@ -33,6 +34,7 @@ export function consumeFx(g) {
     if (f.k === 'shake') shakeAmt = Math.max(shakeAmt, f.v);
     else if (f.k === 'surge') surge = { a: f.a, life: 2 };
     else if (f.k === 'snd') continue;
+    else if (f.k === 'nova') rings.push({ x: f.x, y: f.y, r: f.r, life: 0.35 });
     else for (let i = 0; i < f.n; i++) {
       const a = Math.random() * 6.28, s = rnd(30, f.sp);
       if (parts.length >= MAX_PARTS) break;
@@ -44,6 +46,7 @@ export function consumeFx(g) {
 export function updateFx(dt) {
   for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; p.life -= dt; }
   parts = parts.filter(p => p.life > 0);
+  for (const r of rings) r.life -= dt; rings = rings.filter(r => r.life > 0);
   if (surge && (surge.life -= dt) <= 0) surge = null;
   shakeAmt *= 0.88; if (shakeAmt < .3) shakeAmt = 0;
 }
@@ -75,6 +78,35 @@ function drawEnt(cx, g, e) {
     cx.fillStyle = gr; cx.beginPath(); cx.arc(0, 0, R, 0, 7); cx.fill();
     cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 3; cx.beginPath(); cx.arc(0, 0, e.r * (1.25 + 0.08 * k), 0, 7); cx.stroke();
   }
+  if (e.elite) {
+    const k = 0.5 + 0.5 * Math.sin(t * 6);
+    cx.strokeStyle = `rgba(255,210,63,${0.6 + 0.4 * k})`; cx.lineWidth = 2.5; cx.beginPath(); cx.arc(0, 0, e.r * 1.35, 0, 7); cx.stroke();
+  }
+  // Tells: what an enemy is about to do, drawn before it happens.
+  if (e.wind > 0 && !(e.boss && (e.type === 'slime' || e.type === 'bomber' || e.type === 'wisp'))) {
+    const len = e.boss ? 620 : 300, w = e.r * 2;                       // charge lane / arrow fan
+    cx.save(); cx.rotate(e.ang); cx.fillStyle = `rgba(255,59,92,${0.18 + 0.14 * Math.sin(t * 30)})`;
+    if (e.boss && e.type === 'archer') { cx.beginPath(); cx.moveTo(0, 0); cx.arc(0, 0, len, -0.48, 0.48); cx.closePath(); cx.fill(); }
+    else cx.fillRect(0, -w / 2, len, w);
+    cx.restore();
+  }
+  if (e.boss && e.wind > 0 && e.type === 'bomber') {
+    cx.fillStyle = `rgba(255,59,92,${0.14 + 0.1 * Math.sin(t * 30)})`; cx.beginPath(); cx.arc(0, 0, BOSS_BLAST, 0, 7); cx.fill();
+    cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 2; cx.stroke();
+  }
+  if (e.boss && e.wind > 0 && e.type === 'slime') {
+    cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 3; cx.fillStyle = 'rgba(255,59,92,.16)';
+    cx.beginPath(); cx.arc(e.jx - e.x, e.jy - e.y, e.r, 0, 7); cx.fill(); cx.stroke();
+  }
+  if (e.aim > 0) {
+    cx.strokeStyle = `rgba(255,210,63,${0.35 + 0.5 * (1 - e.aim / 0.5)})`; cx.lineWidth = 1.5; cx.beginPath();
+    cx.moveTo(0, 0); cx.lineTo(Math.cos(e.aimAng) * 420, Math.sin(e.aimAng) * 420); cx.stroke();
+  }
+  if (e.warn) { cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r + 5, 0, 7); cx.stroke(); }
+  if (e.fuse > 0 && e.team === 'enemy') {
+    cx.fillStyle = `rgba(255,59,92,${0.12 + 0.12 * Math.sin(t * 40)})`; cx.beginPath(); cx.arc(0, 0, 70, 0, 7); cx.fill();
+    cx.strokeStyle = 'rgba(255,59,92,.8)'; cx.lineWidth = 1.5; cx.stroke();
+  }
   if (e.team === 'ally') { cx.strokeStyle = 'rgba(125,255,176,.7)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r + 5, 0, 7); cx.stroke(); }
   let r = e.r; if (d.shape === 'blob') r *= 1 + 0.08 * Math.sin(t * 6 + e.x * .1);
   const sp = sprites[e.type];
@@ -101,9 +133,10 @@ function drawBar(cx, e) {
 }
 
 // The floor, walls and rocks never change, so they are painted once and reused every frame.
-let groundCv = null;
-function ground() {
-  if (groundCv) return groundCv;
+let groundCv = null, groundFor = null;
+function ground(ROCKS) {
+  if (groundCv && groundFor === ROCKS) return groundCv;
+  groundFor = ROCKS;
   groundCv = document.createElement('canvas'); groundCv.width = ARENA.w; groundCv.height = ARENA.h;
   const c = groundCv.getContext('2d');
   let seed = 7; const rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -145,11 +178,13 @@ function ground() {
 function minimap(cx, g, camX, camY, H) {
   const w = 168, h = w * ARENA.h / ARENA.w, x0 = 14, y0 = H - h - 14, k = w / ARENA.w;
   cx.fillStyle = 'rgba(6,6,10,.72)'; cx.fillRect(x0, y0, w, h);
-  cx.fillStyle = '#4a4a60'; for (const r of ROCKS) { cx.beginPath(); cx.arc(x0 + r.x * k, y0 + r.y * k, Math.max(1.5, r.r * k), 0, 7); cx.fill(); }
+  cx.fillStyle = '#4a4a60'; for (const r of g.rocks) { cx.beginPath(); cx.arc(x0 + r.x * k, y0 + r.y * k, Math.max(1.5, r.r * k), 0, 7); cx.fill(); }
   for (const e of g.ents) {
     if (e.boss) continue;
-    cx.fillStyle = e.team === 'ally' ? '#7dffb0' : '#ff3b5c'; cx.fillRect(x0 + e.x * k - 1, y0 + e.y * k - 1, 2, 2);
+    const q = e.elite ? 2 : 1;
+    cx.fillStyle = e.team === 'ally' ? '#7dffb0' : e.elite ? '#ffd23f' : '#ff3b5c'; cx.fillRect(x0 + e.x * k - q, y0 + e.y * k - q, q * 2, q * 2);
   }
+  cx.fillStyle = '#ffd23f'; for (const c of g.chests) cx.fillRect(x0 + c.x * k - 2, y0 + c.y * k - 2, 4, 4);
   if (g.boss) {
     const p = 4 + Math.sin(g.t * 6);
     cx.fillStyle = '#ff3b5c'; cx.beginPath(); cx.arc(x0 + g.boss.x * k, y0 + g.boss.y * k, p, 0, 7); cx.fill();
@@ -174,10 +209,28 @@ export function draw(cv, cx, g) {
   cx.beginPath(); cx.rect(ox, oy, VIEW.w * sc, VIEW.h * sc); cx.clip();
   cx.setTransform(sc, 0, 0, sc, ox + rnd(-shakeAmt, shakeAmt) * sc, oy + rnd(-shakeAmt, shakeAmt) * sc);
   cx.translate(-camX, -camY);
-  cx.drawImage(ground(), camX, camY, VIEW.w, VIEW.h, camX, camY, VIEW.w, VIEW.h);
+  cx.drawImage(ground(g.rocks), camX, camY, VIEW.w, VIEW.h, camX, camY, VIEW.w, VIEW.h);
 
   for (const gem of g.gems) { cx.fillStyle = gem.v >= 5 ? '#ffd23f' : '#7dffb0'; cx.fillRect(gem.x - 3, gem.y - 3, 6, 6); }
+  for (const c of g.chests) {
+    const b = Math.sin(g.t * 5) * 2;
+    cx.fillStyle = 'rgba(255,210,63,.18)'; cx.beginPath(); cx.arc(c.x, c.y, 22 + b, 0, 7); cx.fill();
+    cx.fillStyle = '#8a5a1c'; cx.fillRect(c.x - 11, c.y - 8, 22, 16);
+    cx.fillStyle = '#ffd23f'; cx.fillRect(c.x - 11, c.y - 3, 22, 3); cx.fillRect(c.x - 2, c.y - 5, 4, 7);
+    cx.strokeStyle = '#3a2408'; cx.lineWidth = 1.5; cx.strokeRect(c.x - 11, c.y - 8, 22, 16);
+  }
   for (const e of g.ents) drawEnt(cx, g, e);
+  for (let i = 0; i < P.blades && g.state !== 'dead'; i++) {
+    const a = g.t * 3.2 + i * 6.283 / P.blades, bx = P.x + Math.cos(a) * BLADE_R, by = P.y + Math.sin(a) * BLADE_R;
+    cx.save(); cx.translate(bx, by); cx.rotate(g.t * 14);
+    cx.fillStyle = '#e8f6ff'; cx.beginPath(); cx.moveTo(12, 0); cx.lineTo(0, 4); cx.lineTo(-12, 0); cx.lineTo(0, -4); cx.closePath(); cx.fill();
+    cx.rotate(1.57); cx.beginPath(); cx.moveTo(12, 0); cx.lineTo(0, 4); cx.lineTo(-12, 0); cx.lineTo(0, -4); cx.closePath(); cx.fill();
+    cx.restore();
+  }
+  for (const r of rings) {
+    const k = 1 - r.life / 0.35;
+    cx.strokeStyle = `rgba(255,255,255,${1 - k})`; cx.lineWidth = 6 * (1 - k) + 1; cx.beginPath(); cx.arc(r.x, r.y, r.r * (0.3 + 0.7 * k), 0, 7); cx.stroke();
+  }
   if (g.state !== 'dead' && !(P.inv > 0 && Math.sin(g.t * 60) > 0)) {
     // Face the way we are moving; the walk cycle only plays while moving.
     const mx = P.x - pPrev.x, my = P.y - pPrev.y, moving = mx * mx + my * my > 0.01;

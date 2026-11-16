@@ -1,5 +1,5 @@
 // Bots for simulated runs. Used by tests and by `node tests/balance.js`.
-import { createGame, step, pick, ARENA, ROCKS } from '../src/sim.js';
+import { createGame, step, pick, ARENA } from '../src/sim.js';
 
 export const still = () => ({ mx: 0, my: 0 });
 
@@ -55,10 +55,23 @@ export function smart(g) {
         const d = Math.hypot(x - (b.x + b.vx * h), y - (b.y + b.vy * h));
         if (d < 45) sc -= 8 * (45 - d) / 45;
       }
-      for (const k of ROCKS) { const d = Math.hypot(x - k.x, y - k.y) - k.r - P.r; if (d < 26) sc -= (26 - d) * 0.12; }
+      for (const e of enemies) {
+        // What a person sees and avoids: charge lanes, lit fuses, and the boss's blast or landing spot.
+        if (e.wind > 0 || e.dash > 0) {
+          const len = e.boss ? 620 : 300, ux = Math.cos(e.ang), uy = Math.sin(e.ang), px = x - e.x, py = y - e.y;
+          const along = px * ux + py * uy, off = Math.abs(px * uy - py * ux);
+          if (e.boss && e.type === 'bomber') { if (Math.hypot(px, py) < 200) sc -= 6; }
+          else if (e.boss && e.type === 'slime') { if (Math.hypot(x - e.jx, y - e.jy) < e.r + 30) sc -= 6; }
+          else if (along > -10 && along < len && off < e.r + P.r + 14) sc -= 5;
+        }
+        if (e.fuse > 0 && Math.hypot(x - e.x, y - e.y) < 95) sc -= 5;
+        if (e.aim > 0) { const px = x - e.x, py = y - e.y; if (px * Math.cos(e.aimAng) + py * Math.sin(e.aimAng) > 0 && Math.abs(px * Math.sin(e.aimAng) - py * Math.cos(e.aimAng)) < 16) sc -= 2; }
+      }
+      for (const k of g.rocks) { const d = Math.hypot(x - k.x, y - k.y) - k.r - P.r; if (d < 26) sc -= (26 - d) * 0.12; }
       const m = Math.min(x, y, W - x, H - y);
       if (m < 130) sc -= (130 - m) * 0.03;
     }
+    for (const c of g.chests) { const d = Math.hypot(c.x - P.x, c.y - P.y) || 1; sc += 1.2 * (mx * (c.x - P.x) + my * (c.y - P.y)) / d; }
     if (gem) { const d = Math.sqrt(gd) || 1; sc += 0.8 * (mx * (gem.x - P.x) + my * (gem.y - P.y)) / d; }
     const cx = W / 2 - P.x, cy = H / 2 - P.y, cd = Math.hypot(cx, cy) || 1;
     sc += 0.3 * (cd / 500) * (mx * cx + my * cy) / cd;

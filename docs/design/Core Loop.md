@@ -29,7 +29,6 @@ A giant version of the enemy type that has killed you most. Chases you, summons 
 - **Enemies hunt the player.** They only turn on a nemesis within 110 units, so allies help but do not hide you.
 - **Surge** every 20s: a wave closes in from one side (3 groups, +1 every 50s), with a red arc warning.
 - A stronger party draws a slightly bigger swarm (+4.5% spawns per point of total quality).
-- Boss has 11500 HP.
 
 ## Nemesis jobs, growth and evolutions (Phase 4)
 Every nemesis has a job that works at any rank, so even a Runt changes a run (`JOB` in `src/data.js`, rules in `src/sim.js`):
@@ -46,11 +45,29 @@ Ally strength: health x(2.6 + 1.3q), damage x(0.7 + 1.3q), where q is quality. T
 
 **Evolutions.** At Champion (q of 2 or more) a nemesis picks one of two evolutions on the roster screen, once and for good (`EVOS` in `src/data.js`): Bat Brood/Vampire, Slime Mother/Bulwark, Archer Volley/Frost, Brute Quake/Juggernaut, Bomber Cluster/Short Fuse, Wisp Storm/Ward.
 
-## Map
-- One fixed arena (1600x1000), the same every run so it can be learned: 16 rocks and pillars (`ROCKS` in `src/sim.js`), four pillars around the centre, big rocks on each side, clusters in the corners.
-- Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's ring. Your side's shots pass over them (blocking those too dropped a champion party to 3 wins in 10).
+## Maps
+- Three fixed layouts, one picked per run from the seed (`LAYOUTS` in `src/sim.js`): **Pillars** (four pillars round the centre, clusters in corners), **Corridors** (two broken walls), **Ring** (a ring of rocks with four gaps).
+- Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's rings. Your side's shots pass over them.
 - Bats and Wisps fly over rocks (`fly: true` in the enemy table). The boss ignores them.
-- A minimap in the bottom-left shows rocks, enemies (red), allies (green), the boss and the camera view.
+- A minimap in the bottom-left shows rocks, enemies (red), elites and chests (gold), allies (green), the boss and the camera view.
+
+## Enemy tells and counter-play (Phase 5)
+Each enemy shows what it is about to do, and has an answer:
+- **Brute**: plants its feet for 0.7s with a red lane, then charges straight. Dodge sideways; a Brute that hits a rock stuns itself for 1.5s.
+- **Archer**: shows a yellow aim line for 0.5s, then fires along it. Step off the line or put a rock between you.
+- **Bat**: circles you, flashes a red ring, then dives in a straight line.
+- **Bomber**: lights its fuse when close (the blast circle shows), slows, and explodes 0.6s later. Run out of the circle.
+- **Slime** splits; **Wisp** blinks (unchanged).
+
+## The boss
+A giant of the type that has killed you most. It walks you down, summons its kind every 5s and fires a ring every 4s. Every 6.5s it winds up for 0.85s with a tell and uses its type's move:
+- Brute and Bat: a long charge, ending in a shockwave ring. Slime: leaps onto where you stood and scatters small slimes. Archer: a wide fan of arrows. Bomber: a huge blast around itself. Wisp: blinks beside you and fires two offset rings.
+- **Enrage** below half health: 25% faster, specials every 4s, bigger and faster rings.
+- Health is 11500 x (1 + 0.6 x total party quality), so a stronger party faces a tougher nemesis.
+
+## Elites, chests and upgrades (Phase 5)
+- Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
+- Six new upgrades: Orbiting Blade, Chain Shot, Nova, Lucky Shot, and for nemeses Blood Bond and Iron Guard. A choice never offers more than one nemesis upgrade.
 
 ## Difficulty targets
 Tuned by simulation against a bot that plays like a skilled person (`smart` in `tests/bot.js`): it dodges, avoids walls and collects gems.
@@ -62,10 +79,10 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 1:48 | 2/10 | 1 | 0:26 |
-| 3 runts | 2:29 | 1/10 | 1 | 1:10 |
-| 3 soldiers | 2:24 | 0/10 | 0 | 1:01 |
-| 3 veterans with perks | 3:04 | 3/10 | 3 | 1:21 |
-| 3 champions with perks | 5:11 | 10/10 | 9 | 2:26 |
+| None | 2:02 | 1/10 | 1 | 0:31 |
+| 3 runts | 2:34 | 1/10 | 1 | 0:56 |
+| 3 soldiers | 2:23 | 0/10 | 0 | 1:05 |
+| 3 veterans with perks | 4:02 | 4/10 | 4 | 1:35 |
+| 3 champions with perks | 6:20 | 10/10 | 9 | 3:46 |
 
-Known gaps: runts and soldiers (same mix: bat, slime, bat) both beat solo by about 40s but are not separated from each other; a champion party now wins 9 of 10, which is too easy (target is about half) and is to be re-tuned with the boss rework in Phase 5; a champion party is not hit until about 2:26. Evolutions are not in the balance table.
+Known gaps: a champion party still wins 9 of 10 (target about half) even with boss health scaled to party strength; raising the swarm for strong parties (0.07 per quality point) broke the middle tiers and was reverted. Whoever reaches the boss nearly always wins, so the boss itself is not yet dangerous enough. Solo is slightly over target (2:02 vs 1:30-2:00). Runts and soldiers are not separated. Evolutions are not in the table.

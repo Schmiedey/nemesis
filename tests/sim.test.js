@@ -101,6 +101,58 @@ describe('sim', () => {
     const br = createGame({ seed: 2, party: [{ ...nem(1, 'bat', 2.5), evo: 'brood' }] });
     expect(br.ents.filter(e => e.team === 'ally').length).toBe(5);
   });
+
+  it('picks one of three maps from the seed; the start is never inside a rock', () => {
+    const names = [0, 1, 2].map(seed => createGame({ seed }).layout);
+    expect(new Set(names).size).toBe(3);
+    for (const seed of [0, 1, 2]) {
+      const g = createGame({ seed });
+      for (const k of g.rocks) expect(Math.hypot(k.x - g.P.x, k.y - g.P.y)).toBeGreaterThan(k.r + g.P.r);
+    }
+  });
+
+  it('offers at most one nemesis upgrade per choice; a chest applies the pick twice', () => {
+    const g = createGame({ seed: 6, party: [nem(1, 'brute', 1)] });
+    for (let i = 0; i < 25; i++) {
+      g.P.xp = g.P.next; g.P.hp = g.P.maxhp; step(g, 1 / 60, still());
+      expect(g.state).toBe('lvl');
+      expect(g.choices.filter(u => u.ally).length).toBeLessThanOrEqual(1);
+      expect(new Set(g.choices).size).toBe(3);
+      pick(g, 0);
+    }
+    g.ents.length = 0; g.bullets.length = 0;
+    g.chests.push({ x: g.P.x, y: g.P.y });
+    step(g, 1 / 60, still());
+    expect(g.state).toBe('lvl'); expect(g.chest).toBe(true);
+    const id = g.choices[0].id, before = g.picks[id] || 0;
+    pick(g, 0);
+    expect(g.picks[id]).toBe(before + 2); expect(g.chest).toBe(false);
+  });
+
+  it('an enemy brute winds up, then charges in a straight line', () => {
+    const g = createGame({ seed: 0 });
+    g.ents.length = 0;
+    step(g, 1 / 60, still());
+    const e = g.ents.find(x => x.team === 'enemy') || null;
+    g.ents.length = 0; g.spawnT = 99; g.surgeT = 99;
+    const b = { ...(e || {}), type: 'brute', team: 'enemy', x: g.P.x - 200, y: g.P.y, r: 20, hp: 1e6, maxhp: 1e6, dmg: 0, spd: 65, cd: 0, act: 0, flash: 0, ang: 0, haste: 1, dead: false, small: false };
+    g.ents.push(b);
+    step(g, 1 / 60, still());
+    expect(b.wind).toBeGreaterThan(0);
+    const x0 = b.x;
+    for (let i = 0; i < 80; i++) { step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    expect(b.x - x0).toBeGreaterThan(100);                   // far more than a 1.3s walk at speed 65
+  });
+
+  it('the boss enrages below half health', () => {
+    const g = createGame({ seed: 1 });
+    g.t = BOSS_TIME;
+    for (let i = 0; i < 5 && !g.boss; i++) step(g, 1 / 60, still());
+    expect(g.boss).toBeTruthy();
+    g.boss.hp = g.boss.maxhp * 0.4; g.P.hp = g.P.maxhp;
+    step(g, 1 / 60, still());
+    expect(g.boss.enraged).toBe(true);
+  });
 });
 
 describe('save', () => {

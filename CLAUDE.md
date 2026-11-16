@@ -5,7 +5,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 
 ## Layout
 - `index.html`: page shell and overlays
-- `src/sim.js`: all game rules, including the map (`ROCKS`). Pure: no DOM, seeded RNG. `createGame`, `step(g, dt, input)`, `pick(g, i)`
+- `src/sim.js`: all game rules, including the maps (`LAYOUTS`; a run's rocks are `g.rocks`). Pure: no DOM, seeded RNG. `createGame`, `step(g, dt, input)`, `pick(g, i)`
 - `src/data.js`: enemy table `T`, upgrades `UP`, text
 - `src/render.js`: canvas drawing, camera, particles (fixed 960x600 view, 1600x1000 arena)
 - `src/audio.js`: WebAudio synth, no audio files. `sfx(name)` one-shots, `scene(mode, g)` steers the soundtrack. The sim queues cues as `{ k: 'snd', n }` in `g.fx`.

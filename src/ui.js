@@ -135,6 +135,7 @@ export function showWon(g, save, growth) {
 
 export function showLevel(g, onPick) {
   const el = $('cards'); el.innerHTML = '';
+  $('lvlTitle').textContent = g.chest ? 'CHEST: DOUBLE STRENGTH' : 'LEVEL UP';
   g.choices.forEach((u, i) => {
     const c = document.createElement('div'); c.className = 'card' + (u.ally ? ' ally' : '');
     c.innerHTML = `<b>${i + 1}. ${u.n}</b><span>${u.d}</span>`;

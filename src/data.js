@@ -35,6 +35,12 @@ export const UP = [
     g.allyHaste *= 1.2;
     for (const e of g.ents) if (e.team === 'ally') e.haste *= 1.2;
   } },
+  { id: 'blade', n: 'Orbiting Blade', d: '+1 blade circling you that cuts what it touches', f: g => g.P.blades++ },
+  { id: 'chain', n: 'Chain Shot', d: 'Shots jump to +1 more enemy nearby', f: g => g.P.chain++ },
+  { id: 'nova', n: 'Nova', d: 'A blast around you throws enemies back; more picks, more often', f: g => g.P.nova++ },
+  { id: 'crit', n: 'Lucky Shot', d: '+15% chance for a shot to hit three times as hard', f: g => g.P.crit++ },
+  { id: 'bond', n: 'Blood Bond', d: 'Your nemeses heal 3% of their health each second', ally: true, f: g => g.allyRegen += 0.03 },
+  { id: 'guard', n: 'Iron Guard', d: 'Your nemeses take 25% less damage', ally: true, f: g => g.allyArmor *= 0.75 },
   { id: 'wind', n: 'Second Wind', d: 'Fallen nemeses return; all get +1 life', ally: true, f: g => g.secondWind = true },
 ];
 

@@ -3,7 +3,7 @@ import { createGame, step, pick } from '../src/sim.js';
 import { smart } from './bot.js';
 
 const nem = (id, type, q, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: '' });
-const PREF = ['dmg', 'haste', 'shots', 'pierce', 'tough', 'regen', 'rally', 'pack', 'wind', 'spd', 'magnet'];
+const PREF = ['dmg', 'haste', 'shots', 'chain', 'pierce', 'blade', 'crit', 'tough', 'nova', 'regen', 'rally', 'guard', 'bond', 'pack', 'wind', 'spd', 'magnet'];
 const choose = g => { let b = 0; g.choices.forEach((u, i) => { if (PREF.indexOf(u.id) < PREF.indexOf(g.choices[b].id)) b = i; }); return b; };
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
