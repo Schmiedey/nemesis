@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (which also holds Phase 14: level-up rarities, 14 new upgrades, kill streaks, golden enemies, animated HUD, missions, daily bonus, next-unlock goals, confetti and count-ups). Next: user review, merge everything. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (also holds Phases 14-15: rarities, juice and reward loops, the nemesis rework, class ultimates, new projectile art). Next: user review, merge everything. Known balance gaps are in `docs/design/Core Loop.md`. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -86,6 +86,12 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Kill streaks with callouts, golden enemies, death pops, squash on hit, eased HUD bars, low-health frame
 - [x] Missions, daily bonus and day streak, next-unlock goal, "so close" line, copy result, confetti and count-ups
 - Done when: levelling up and ending a run both feel like a payoff, and there is always a short goal in reach.
+
+## Phase 15: Class ultimates and projectile art
+- [x] An ultimate per class, charged by kills (E); signature passives for Knight, Ranger and Necromancer
+- [x] Animated projectile sprites with trails and impact sparks
+- [x] Nemeses never leave for good, hit harder, and show health and kills on the HUD
+- Done when: every class has something to look forward to in a run, not just a stat bonus.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

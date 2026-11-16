@@ -1,7 +1,7 @@
 // Draws the game in pixel art.
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
-import { T, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, gearOf } from './data.js';
+import { T, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
 import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
@@ -48,13 +48,15 @@ const offs = new WeakMap();                     // per-creature animation offset
 let pFlip = false, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 400;
 let rings = [], nums = [], sweeps = [], bolts = [], booms = [], banner = null;
+let trailTick = 0;
 let lvl = null, glints = [];                      // the level-up moment
 // Juice: death pops, pickup sparks, dash afterimages, the streak callout, and HUD values that ease toward the truth.
-let deaths = [], sparks = [], afters = [], callout = null;
+let deaths = [], sparks = [], afters = [], callout = null, strikes = [], ultFx = null, blockFx = 0;
+const ULT_COL = { knight: '#2ce8f5', ranger: '#63c74d', necro: '#b06cff', berserker: '#e43b44', engineer: '#feae34', warden: '#7dffb0' };
 const born = new WeakMap();                       // when each creature was first drawn, for its pop-in
 const hudA = { hp: 1, ghost: 1, xp: 0, kills: 0, bump: 0, lvl: 0, lvlBump: 0, streakBump: 0, streak: 0, at: 0 };
 const STREAKS = { 10: 'KILLING SPREE', 25: 'RAMPAGE', 50: 'UNSTOPPABLE', 100: 'MASSACRE', 150: 'GODLIKE', 200: 'LEGENDARY', 300: 'NEMESIS' };
-export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; booms = []; glints = []; lvl = null; banner = null; shakeAmt = 0; surge = null; deaths = []; sparks = []; afters = []; callout = null; Object.assign(hudA, { hp: 1, ghost: 1, xp: 0, kills: 0, bump: 0, lvl: 0, lvlBump: 0, streakBump: 0, streak: 0, at: 0 }); }
+export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; booms = []; glints = []; lvl = null; banner = null; shakeAmt = 0; surge = null; deaths = []; sparks = []; afters = []; callout = null; strikes = []; ultFx = null; blockFx = 0; Object.assign(hudA, { hp: 1, ghost: 1, xp: 0, kills: 0, bump: 0, lvl: 0, lvlBump: 0, streakBump: 0, streak: 0, at: 0 }); }
 
 // Level up (or a chest): a beam of light on the player, two rings, a shower of sparks and big text.
 export function levelFx(g) {
@@ -90,9 +92,13 @@ export function consumeFx(g) {
     else if (f.k === 'die') { if (deaths.length < 60) deaths.push({ x: f.x, y: f.y, t: f.t, s: f.s, flip: Math.cos(f.a) < 0, life: 0.2 }); }
     else if (f.k === 'gem') { if (sparks.length < 40) sparks.push({ x: f.x, y: f.y, life: 0.18, big: f.big }); }
     else if (f.k === 'streak') { callout = { text: STREAKS[f.n] || 'STREAK', n: f.n, life: 1.6 }; shakeAmt = Math.max(shakeAmt, 4); }
+    else if (f.k === 'strike') { if (strikes.length < 40) strikes.push({ x: f.x, y: f.y, life: 0.16 }); }
+    else if (f.k === 'ult') { ultFx = { id: f.id, life: 1.5 }; rings.push({ x: g.P.x, y: g.P.y, r: 320, life: 0.5 }, { x: g.P.x, y: g.P.y, r: 200, life: 0.35 }); }
+    else if (f.k === 'block') blockFx = 0.3;
     else if (f.k === 'minute') banner = { text: f.n + ':00 survived', life: 1.8, c: PAL.w };
     else if (f.k === 'gold') { booms.push({ x: f.x, y: f.y, life: 0.32, k: 1 }); for (let i = 0; i < 14; i++) glints.push({ x: f.x + rnd(-24, 24), y: f.y + rnd(-10, 20), vy: -rnd(40, 150), life: rnd(0.4, 0.9), f: Math.floor(rnd(0, 3)) }); }
     else {
+      if (f.n === 3 && f.sp === 80 && sparks.length < 40) sparks.push({ x: f.x, y: f.y, life: 0.14, big: false });   // a shot landing
       if (f.sp >= 250 && f.n >= 24 && booms.length < 12) booms.push({ x: f.x, y: f.y, life: 0.32, k: f.n >= 40 ? 2 : 1 });
       for (let i = 0; i < f.n; i++) {
         if (parts.length >= MAX_PARTS) break;
@@ -115,6 +121,9 @@ export function updateFx(dt) {
   for (const d of sparks) d.life -= dt; sparks = sparks.filter(d => d.life > 0);
   for (const d of afters) d.life -= dt; afters = afters.filter(d => d.life > 0);
   if (callout && (callout.life -= dt) <= 0) callout = null;
+  for (const d of strikes) d.life -= dt; strikes = strikes.filter(d => d.life > 0);
+  if (ultFx && (ultFx.life -= dt) <= 0) ultFx = null;
+  blockFx = Math.max(0, blockFx - dt);
   for (const s of glints) { s.life -= dt; s.y += s.vy * dt; s.vy *= 0.97; } glints = glints.filter(s => s.life > 0);
   if (lvl && (lvl.t += dt) > 1.4) lvl = null;
   if (banner && (banner.life -= dt) <= 0) banner = null;
@@ -282,6 +291,7 @@ function drawEnt(cx, g, e) {
     spr(cx, name, 0, cy, f, scale, flip);
     if (hit) { cx.globalAlpha = 0.85; spr(cx, name, 0, cy, f, scale, flip, true); cx.globalAlpha = 1; cx.restore(); }
     if (e.gold) for (let i = 0; i < 3; i++) { const q = t * 3 + i * 2.094; spr(cx, 'glint', Math.cos(q) * (e.r + 10), cy + Math.sin(q) * (h * 0.35), t * 8 + i); }
+    if (e.rootT > 0) spr(cx, 'root', 0, e.r * 0.8 - 6, 0, Math.max(1, e.r / 9));      // held by the Warden's roots
     if (e.mark > t) spr(cx, 'mark', 0, cy - h / 2 - 12);            // marked by the Hawk
     if (e.fireT > 0) spr(cx, 'burn', e.mark > t ? 14 : 0, cy - h / 2 - 12, t * 10);   // burning
     if (e.warn && blink) {                      // about to dive: a red exclamation mark overhead
@@ -440,11 +450,40 @@ export function draw(cv, cx, g, hud, hx) {
     if (k < 0.55) { cx.strokeStyle = PAL.w; cx.lineWidth = k < 0.25 ? 6 : 4; cx.beginPath(); cx.arc(snap(r.x), snap(r.y), rad, 0, 7); cx.stroke(); }
     else dashRing(cx, snap(r.x), snap(r.y), rad, PAL.g1, 0);
   }
+  // Projectiles: each kind has its own animated sprite, turned to face the way it flies, and leaves a short trail.
+  trailTick = (trailTick + 1) % 2;
   for (const b of g.bullets) {
-    const key = (b.color || '#fff').slice(1).toLowerCase();
-    if (b.team === 'enemy' && b.src === 'archer' && !b.boss) { cx.save(); cx.translate(snap(b.x), snap(b.y)); cx.rotate(Math.atan2(b.vy, b.vx)); spr(cx, 'arrow', 0, 0); cx.restore(); }
-    else if (!spr(cx, (b.boss ? 'big_' : 'orb_') + key, b.x, b.y) && !spr(cx, b.boss ? 'big_ff3b5c' : 'orb_fff', b.x, b.y)) { cx.fillStyle = b.color; cx.fillRect(b.x - 2, b.y - 2, 4, 4); }
+    const key = (b.color || '#fff').slice(1).toLowerCase(), mine = b.team === 'ally' && b.src === 'player';
+    let name = null, turn = true, col = b.color || '#fff';
+    if (b.burn) { name = 'b_fire'; col = PAL.o; }
+    else if (mine && key === 'fff') { name = 'b_bolt'; col = PAL.c; }
+    else if (mine && key === 'ffd23f') { name = 'b_crit'; col = PAL.y; }
+    else if (mine && key === '9fe8ff') { name = 'b_spark'; col = PAL.ice; }
+    else if (mine && key === '7dffb0') { name = 'b_shard'; col = PAL.mint; }
+    else if (b.src === 'archer' && !b.boss) name = b.team === 'ally' ? 'arrow_ally' : 'arrow';
+    else { name = (b.boss ? 'big_' : 'orb_') + (ATLAS['orb_' + key] ? key : b.boss ? 'ff3b5c' : 'fff'); turn = false; }
+    if (trailTick === 0 && parts.length < MAX_PARTS - 60) parts.push({ x: b.x - b.vx * 0.012, y: b.y - b.vy * 0.012, vx: 0, vy: 0, life: b.boss ? 0.22 : 0.13, c: col, s: b.boss ? 4 : 2 });
+    if (turn) { cx.save(); cx.translate(snap(b.x), snap(b.y)); cx.rotate(Math.atan2(b.vy, b.vx)); spr(cx, name, 0, 0, t * 14 + b.x * 0.05); cx.restore(); }
+    else spr(cx, name, b.x, b.y, t * (b.boss ? 10 : 6) + b.x * 0.05);
   }
+  // Ultimates in the world.
+  for (const d of strikes) {                             // Arrow Storm: an arrow drops in, then a spark
+    const k = 1 - d.life / 0.16;
+    if (k < 0.6) spr(cx, 'strike', d.x, d.y - 26 - (0.6 - k) * 260); else spr(cx, 'spark', d.x, d.y - 6, (k - 0.6) * 7, 2);
+  }
+  if (g.laser) {                                         // Orbital Laser: a beam from the top of the screen to its foot
+    const L = g.laser, lx = snap(L.x), w = Math.sin(t * 40) > 0 ? 14 : 10;
+    cx.fillStyle = dither(cx, PAL.o); cx.fillRect(lx - w - 6, camY, (w + 6) * 2, snap(L.y) - camY);
+    cx.fillStyle = PAL.o2; cx.fillRect(lx - w, camY, w * 2, snap(L.y) - camY);
+    cx.fillStyle = PAL.w; cx.fillRect(lx - w / 2, camY, w, snap(L.y) - camY);
+    spr(cx, 'boom', L.x, L.y, 1 + (t * 12) % 2, 1.6); dashRing(cx, lx, snap(L.y), 52, PAL.y, t * 3);
+  }
+  if (g.ultT > 0 && g.cls === 'knight') {                // Bulwark: a turning wall of shields
+    dashRing(cx, snap(P.x), snap(P.y), 80, PAL.c, t * 4, 4); dashRing(cx, snap(P.x), snap(P.y), 66, PAL.ice, -t * 4, 2);
+  }
+  if (blockFx > 0) { cx.strokeStyle = PAL.ice; cx.lineWidth = 4; cx.beginPath(); cx.arc(snap(P.x), snap(P.y) - 6, P.r + 16 + (0.3 - blockFx) * 60, 0, 7); cx.stroke(); }
+  if (g.cls === 'knight' && g.blockT <= 0 && g.state !== 'dead') { cx.strokeStyle = PAL.c; cx.lineWidth = 2; cx.beginPath(); cx.arc(snap(P.x), snap(P.y) - 6, P.r + 12, -2.4, -0.7); cx.stroke(); }   // shield ready
+  if (g.ultT > 0 && g.cls === 'berserker') { cx.fillStyle = dither(cx, PAL.r2); cx.fillRect(camX, camY, VIEW.w, 12); cx.fillRect(camX, camY + VIEW.h - 12, VIEW.w, 12); cx.fillRect(camX, camY, 12, VIEW.h); cx.fillRect(camX + VIEW.w - 12, camY, 12, VIEW.h); }
   for (const b of booms) spr(cx, 'boom', b.x, b.y, (1 - b.life / 0.32) * 5, b.k);
   for (const d of deaths) {                              // a kill: the creature flashes white and swells, then a spark
     const k = 1 - d.life / 0.2, a = ATLAS['c_' + d.t];
@@ -545,6 +584,22 @@ export function draw(cv, cx, g, hud, hx) {
   }
   minimap(cx, g, camX, camY, H);
 
+  // Bottom-right: the class ultimate. It fills with kills; when full the frame flashes and E unleashes it.
+  if (g.cls) {
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches;
+    const x = W - (touch ? 222 : 142), y = H - 78, full = g.ult >= 1, col = ULT_COL[g.cls], on = g.ultT > 0;
+    panel(cx, x, y, 56, 56, full && Math.sin(t * 10) > 0 ? 'rgba(254,174,52,.9)' : 'rgba(26,20,35,.9)');
+    const a = ATLAS[CLASSES[g.cls].sprite]; if (a) { cx.globalAlpha = full || on ? 1 : 0.5; icon(cx, CLASSES[g.cls].sprite, x + 28 - a.w, y + 28 - a.h, 2); cx.globalAlpha = 1; }
+    const fh = Math.round(52 * (on ? g.ultT / 6 : 1 - g.ult) / 2) * 2;
+    if (!full && !on) { cx.fillStyle = 'rgba(26,20,35,.72)'; cx.fillRect(x + 2, y + 2, 52, fh); }
+    cx.fillStyle = PAL.k; cx.fillRect(x, y + 58, 56, 6); cx.fillStyle = col; cx.fillRect(x + 2, y + 60, Math.round(52 * (on ? Math.min(1, g.ultT / 6) : g.ult) / 2) * 2, 2);
+    cx.textAlign = 'center'; label(cx, full ? 'E' : on ? CLASSES[g.cls].ult.n.toUpperCase().slice(0, 9) : Math.floor(g.ult * 100) + '%', x + 28, y + 78, full ? PAL.y : PAL.g2, `10px ${TITLE}`);
+  }
+  if (ultFx) {                                           // the ultimate's name, large, in the class colour
+    const k = 1.5 - ultFx.life, size = k < 0.06 ? 64 : k < 0.12 ? 50 : 38, c = CLASSES[ultFx.id];
+    if (k < 0.1) { cx.fillStyle = 'rgba(244,241,232,.3)'; cx.fillRect(0, 0, W, H); }
+    if (ultFx.life > 0.25 || Math.sin(ultFx.life * 60) > 0) { cx.textAlign = 'center'; label(cx, c.ult.n.toUpperCase() + '!', W / 2, 262, Math.sin(k * 40) > 0 ? ULT_COL[ultFx.id] : PAL.w, `bold ${size}px ${TITLE}`); }
+  }
   // Bottom-right: the ability slot, with a cooldown that drains downward.
   {
     const touch = typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches;   // on touch, the button sits in the corner

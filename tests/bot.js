@@ -80,6 +80,7 @@ export function smart(g) {
   }
   // Use the ability the way a person would: when things get close.
   let close = 0; for (const e of enemies) if (Math.hypot(e.x - P.x, e.y - P.y) < 95 + e.r) close++;
+  best.ult = g.ult >= 1 && (enemies.filter(e => Math.hypot(e.x - P.x, e.y - P.y) < 260).length >= 6 || !!g.boss);   // spend the ultimate when it will hit plenty
   best.act = close >= 3 || enemies.some(e => e.boss && Math.hypot(e.x - P.x, e.y - P.y) < e.r + 80);
   return best;
 }

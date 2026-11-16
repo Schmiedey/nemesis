@@ -188,24 +188,25 @@ export const gearOf = id => WEAPONS[id] || ABILITIES[id] || CHARMS[id] || null;
 // A class is chosen on the title screen. It gives a passive bonus and a starter minion with its own ability.
 // Weapons, abilities and charms stay a free choice on the loadout screen.
 export const CLASSES = {
-  knight: { n: 'Knight', sprite: 'c_knight', d: '+30 health, and you take 15% less damage.', minion: 'squire',
+  knight: { n: 'Knight', sprite: 'c_knight', d: '+30 health, and you take 15% less damage. Every 8 seconds your shield blocks one hit outright.', ult: { n: 'Bulwark', d: 'For 5 seconds nothing can hurt you, and everything that comes near is cut down and thrown back.' }, minion: 'squire',
     md: 'Squire: stays close, blocks enemy shots with his shield and stuns with a shield bash.' },
-  ranger: { n: 'Ranger', sprite: 'c_ranger', d: '+10% move speed and +8% attack speed.', minion: 'hawk',
+  ranger: { n: 'Ranger', sprite: 'c_ranger', d: '+10% move speed and +8% attack speed. Every 5th attack is a power shot: triple damage, and it passes through everything.', ult: { n: 'Arrow Storm', d: 'Arrows rain from the sky for 4 seconds, striking enemies all across the screen.' }, minion: 'hawk',
     md: 'Hawk: cannot be hurt. Dives at the toughest enemy and marks it; marked enemies take 20% more damage.' },
-  necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 12th kill raises a Skeleton to fight for you (up to 5).', minion: 'imp',
+  necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 6th kill rises as a Skeleton to fight for you (up to 8). Skeletons explode when they fall.', ult: { n: 'Army of the Dead', d: 'Ten Skeletons claw out of the ground around you at once.' }, minion: 'imp',
     md: 'Imp: throws fireballs that set enemies burning.' },
   // Locked classes. `lock.need(save)` returns [have, want]; unlocked for good once have >= want.
-  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', minion: 'wolf',
+  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', ult: { n: 'Blood Rage', d: 'For 6 seconds you deal double damage, attack twice as fast, and every kill heals you.' }, minion: 'wolf',
     md: 'Wolf: fast and savage. Its howl sends you into a frenzy, attacking twice as fast for a moment.',
     lock: { text: 'Kill 1,000 enemies in total', need: s => [s.stats.kills, 1000] } },
-  engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', minion: 'drone',
+  engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', ult: { n: 'Orbital Laser', d: 'A beam from the sky sweeps a circle around you, burning everything it crosses.' }, minion: 'drone',
     md: 'Drone: cannot be hurt. Circles you, shooting the nearest enemy.',
     lock: { text: 'Open 8 chests in total', need: s => [s.stats.chests, 8] } },
-  warden: { n: 'Warden', sprite: 'c_warden', d: 'You regenerate 0.5 health a second.', minion: 'golem',
+  warden: { n: 'Warden', sprite: 'c_warden', d: 'You regenerate 0.5 health a second.', ult: { n: 'Wrath of the Wild', d: 'Roots burst up and hold every enemy on screen for 4 seconds, and you heal a third of your health.' }, minion: 'golem',
     md: 'Golem: a wall of stone. Slams the ground to stun everything close, and for a moment enemies turn on it instead of you.',
     lock: { text: 'Slay your nemesis once', need: s => [Math.min(1, s.wins), 1] } },
 };
 export const START_CLASSES = ['knight', 'ranger', 'necro'];
+// Each class has an ultimate, charged by kills and used with E (or the touch button).
 // Class mastery: time survived as a class (plus a bonus for winning) raises its level. Each level makes its
 // minion 15% stronger and you 2% stronger. Thresholds in seconds for levels 2..5.
 export const MASTERY = [240, 720, 1500, 3000];

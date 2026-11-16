@@ -80,7 +80,7 @@ export function showStart(save, bossType) {
   const chip = id => `<span class="chip">${pix('i_' + id, 1)}${gearOf(id).n}</span>`;
   $('stageScene').innerHTML = `<div class="party">${party.map(n => pix('c_' + n.type, 3, true)).join('')}</div>` + pix(cls.sprite, 6, true) + pix('c_' + cls.minion, 4, true);
   const b = T[bossType], n = save.deaths[bossType] || 0;
-  $('stageInfo').innerHTML = `<h3>${cls.n.toUpperCase()}</h3><div>${cls.d}</div><div class="min">${cls.md}</div>` +
+  $('stageInfo').innerHTML = `<h3>${cls.n.toUpperCase()}</h3><div>${cls.d}</div><div class="min">${cls.md}</div><div class="ult">Ultimate, ${cls.ult.n}: ${cls.ult.d}</div>` +
     `<div class="chips">${chip(lo.weapon)}${chip(lo.ability)}${lo.charm ? chip(lo.charm) : ''}</div>` +
     `<div class="boss">${n ? `Your true nemesis: the <b style="color:${b.color}">${b.name}</b>, ${n} kill${n > 1 ? 's' : ''} on you. It comes at <b>5:00</b>.` : 'Whatever kills you joins your roster. Your nemesis comes at <b>5:00</b>.'}</div>`;
   $('stageQuests').innerHTML = questList(save);
@@ -191,8 +191,8 @@ export function showClasses(save, onPick) {
     const [got, want] = c.lock ? c.lock.need(save) : [1, 1];
     card.innerHTML = `<div class="scene">${pix(c.sprite, 5, true)}${pix('c_' + c.minion, c.minion === 'golem' ? 3 : 4, true)}${id === 'necro' ? pix('c_skeleton', 3, true) : ''}</div>` +
       `<h3>${c.n.toUpperCase()}</h3>` +
-      (have ? `${stars(masteryLevel(xp))}${masteryBar(xp, xp)}<p>${c.d}</p><p class="min">${c.md}</p><span class="pick">${id === save.cls ? 'PLAYING' : 'click to choose'}</span>`
-        : `<p>${c.d}</p><p class="min">${c.md}</p><div class="need">${pix('i_lock', 1)}${c.lock.text.toUpperCase()}</div><span class="bar"><i style="width:${Math.round(Math.min(1, got / want) * 100)}%"></i></span><span class="pick">${Math.min(got, want).toLocaleString()} / ${want.toLocaleString()}</span>`);
+      (have ? `${stars(masteryLevel(xp))}${masteryBar(xp, xp)}<p>${c.d}</p><p class="min">${c.md}</p><p class="ult">Ultimate, ${c.ult.n}: ${c.ult.d}</p><span class="pick">${id === save.cls ? 'PLAYING' : 'click to choose'}</span>`
+        : `<p>${c.d}</p><p class="min">${c.md}</p><p class="ult">Ultimate, ${c.ult.n}: ${c.ult.d}</p><div class="need">${pix('i_lock', 1)}${c.lock.text.toUpperCase()}</div><span class="bar"><i style="width:${Math.round(Math.min(1, got / want) * 100)}%"></i></span><span class="pick">${Math.min(got, want).toLocaleString()} / ${want.toLocaleString()}</span>`);
     if (have) card.onclick = () => onPick(id);
     el.appendChild(card);
   }

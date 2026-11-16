@@ -80,11 +80,33 @@ const add = (name, ...frames) => { S[name] = frames; };
 // Bullets: a small glowing orb per colour, and a larger one for the boss.
 const ORBS = { fff: ['c2', 'ice', 'w'], ffd23f: ['o', 'y', 'w'], '9fe8ff': ['c2', 'c', 'w'], '7dffb0': ['gr2', 'mint', 'w'],
   b06cff: ['v2', 'v', 'w'], '4cff8a': ['gr2', 'gr', 'w'], ff7a2f: ['r2', 'o', 'y'], ff3b5c: ['r2', 'r', 'r3'], '4cd9ff': ['c3', 'c', 'w'] };
+// Enemy and ally orbs pulse between two sizes; boss shots are spiked and turn.
 for (const k in ORBS) {
-  add('orb_' + k, G(7).disc(3, 3, 2, ORBS[k]).px(2, 2, 'w').outline());
-  add('big_' + k, G(11).disc(5, 5, 4, ORBS[k]).px(3, 3, 'w').px(4, 3, 'w').px(3, 4, 'w').outline());
+  add('orb_' + k, G(9).disc(4, 4, 2, ORBS[k]).px(3, 3, 'w').outline(), G(9).disc(4, 4, 3, ORBS[k]).px(3, 2, 'w').px(2, 3, 'w').outline());
+  const spike = (g, pts) => { for (const [x, y] of pts) g.px(x, y, ORBS[k][1]); return g; };
+  add('big_' + k,
+    spike(G(15).disc(7, 7, 4, ORBS[k]).px(5, 5, 'w').px(6, 5, 'w').px(5, 6, 'w'), [[7, 1], [7, 2], [7, 12], [7, 13], [1, 7], [2, 7], [12, 7], [13, 7]]).outline(),
+    spike(G(15).disc(7, 7, 4, ORBS[k]).px(5, 5, 'w').px(6, 5, 'w').px(5, 6, 'w'), [[3, 3], [2, 2], [11, 3], [12, 2], [3, 11], [2, 12], [11, 11], [12, 12]]).outline());
 }
+// Projectiles are drawn pointing right and turned to face the way they fly.
 add('arrow', G(11, 5).line(1, 2, 8, 2, 'br').px(9, 2, 'g1').px(8, 1, 'g1').px(8, 3, 'g1').px(1, 1, 'r').px(1, 3, 'r').outline());
+add('arrow_ally', G(11, 5).line(1, 2, 8, 2, 'br').px(9, 2, 'w').px(8, 1, 'w').px(8, 3, 'w').px(1, 1, 'mint').px(1, 3, 'mint').px(0, 2, 'mint').outline());
+// Blaster bolt: a white-hot head with a blue tail that flickers.
+add('b_bolt', G(13, 5).rect(1, 2, 5, 1, 'c2').rect(4, 1, 6, 3, 'c').rect(7, 1, 4, 3, 'ice').rect(9, 2, 3, 1, 'w').px(8, 2, 'w').outline(),
+  G(13, 5).rect(3, 2, 3, 1, 'c2').rect(5, 1, 5, 3, 'c').rect(7, 1, 4, 3, 'ice').rect(9, 2, 3, 1, 'w').px(8, 2, 'w').px(0, 2, 'c2').outline());
+// Lucky Shot: a larger golden lance.
+add('b_crit', G(17, 7).poly([[0, 3.5], [9, 0], [17, 3.5], [9, 7]], 'o2').poly([[5, 3.5], [10, 1.5], [15, 3.5], [10, 5.5]], 'y').rect(9, 3, 6, 1, 'w').px(1, 3, 'o').outline('r2'),
+  G(17, 7).poly([[1, 3.5], [9, 0], [17, 3.5], [9, 7]], 'o2').poly([[5, 3.5], [10, 1.5], [15, 3.5], [10, 5.5]], 'y').rect(8, 3, 7, 1, 'w').px(3, 1, 'y').px(3, 5, 'y').outline('r2'));
+// Chain spark and Drone shot: a crackle of lightning.
+add('b_spark', G(11, 7).line(0, 3, 3, 1, 'c').line(3, 1, 6, 5, 'ice').line(6, 5, 10, 3, 'w').outline('c3'), G(11, 7).line(0, 3, 3, 5, 'c').line(3, 5, 6, 1, 'ice').line(6, 1, 10, 3, 'w').outline('c3'));
+// Lodestone shard: a green crystal.
+add('b_shard', G(11, 5).poly([[0, 2.5], [6, 0], [11, 2.5], [6, 5]], 'gr').line(4, 1, 9, 2, 'mint').px(8, 2, 'w').outline('gr3'));
+// Fireball (the Imp): a ball of flame with a licking tail.
+const fb = t => G(13, 9).poly([[0, 4.5], [6, 2 - t], [7, 7 + t]], 'r').poly([[2, 4.5], [7, 2], [7, 7]], 'o').disc(8, 4, 3, ['o', 'y', 'w']).px(9, 4, 'w').outline('r2');
+add('b_fire', fb(0), fb(1), fb(-1));
+// An arrow falling from the sky (the Ranger's Arrow Storm), and roots that hold enemies (the Warden).
+add('strike', G(5, 13).line(2, 0, 2, 9, 'br').px(2, 12, 'w').px(1, 10, 'g1').px(2, 10, 'g1').px(3, 10, 'g1').px(2, 11, 'w').px(1, 0, 'mint').px(3, 0, 'mint').outline());
+add('root', G(13, 8).line(1, 7, 3, 3, 'gr3').line(3, 3, 6, 6, 'gr2').line(6, 6, 9, 2, 'gr3').line(9, 2, 11, 7, 'gr2').px(3, 2, 'gr').px(9, 1, 'gr').px(6, 3, 'mint').outline());
 
 // Gems (two frames: a glint passes over).
 const gem = (s, a, b, c, glint) => { const g = G(s); const m = (s - 1) / 2; g.poly([[m + .5, 0], [s, m + .5], [m + .5, s], [0, m + .5]], b); for (let i = 0; i <= m; i++) g.px(m - i + 1, i + 1 > m ? m : i + 1, c); g.line(m, s - 2, s - 2, m, a); if (glint) g.px(m - 1, m - 1, 'w'); else g.px(m, m - 2, 'w'); return g.outline(); };

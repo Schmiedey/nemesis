@@ -194,11 +194,17 @@ let touchAct = false;
 actBtn.addEventListener('pointerdown', e => { e.preventDefault(); touchAct = true; });
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) actBtn.addEventListener(ev, () => { touchAct = false; });
 
+// The class ultimate: E, or its own touch button.
+const ultBtn = document.getElementById('bUlt');
+let touchUlt = false;
+ultBtn.addEventListener('pointerdown', e => { e.preventDefault(); touchUlt = true; });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) ultBtn.addEventListener(ev, () => { touchUlt = false; });
+
 const input = () => {
-  const act = !!keys.Space || touchAct;
-  if (joy && Math.hypot(joy.dx, joy.dy) > JOY_DEAD) return { mx: joy.dx, my: joy.dy, act };
+  const act = !!keys.Space || touchAct, ult = !!keys.KeyE || touchUlt;
+  if (joy && Math.hypot(joy.dx, joy.dy) > JOY_DEAD) return { mx: joy.dx, my: joy.dy, act, ult };
   return {
-    act,
+    act, ult,
     mx: (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0),
     my: (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0),
   };
@@ -244,6 +250,7 @@ function frame(now) {
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
   document.body.classList.toggle('playing', mode === 'play');
+  ultBtn.classList.toggle('hidden', mode !== 'play' || !g || !g.cls); ultBtn.classList.toggle('full', !!g && g.ult >= 1);
   audio.scene(mode, g);
   draw(cv, cx, g, hud, hx);
   workMs += (performance.now() - w0 - workMs) * 0.05;

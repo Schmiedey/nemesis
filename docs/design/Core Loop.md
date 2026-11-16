@@ -107,6 +107,21 @@ What carries over between runs, and why there is always something to work toward
 - Already there from earlier phases: nemeses that rank up and evolve, gear found and kept, feats and boons, the daily run.
 - Save version 9. The balance table runs with no Shrine ranks, mastery or tier.
 
+## Class ultimates and signature passives (Phase 15)
+Classes were passive bonuses and felt flat, so each now has an **ultimate** and a passive you can see working.
+- **Charge**: every kill fills the meter (an elite counts five). The first costs 38 kills, each later one 10 more, up to 98. Press E (or the ULT touch button) when it is full. No class, no meter.
+
+| Class | Ultimate | Signature passive |
+|---|---|---|
+| Knight | **Bulwark** (5s): cannot be hurt; opens with a blast, then cuts and throws back everything within 80 | shield blocks one hit outright every 8s (an arc over your head shows it is ready) |
+| Ranger | **Arrow Storm** (4s): an arrow lands on a random enemy within 500, 14 a second, 1.5x damage each | every fifth Blaster volley is a power shot: triple damage, passes through everything |
+| Necromancer | **Army of the Dead**: ten Skeletons at once, for 14s | every 6th kill rises as a Skeleton (up to 8); a Skeleton that falls explodes for 1.6x damage within 64 |
+| Berserker | **Blood Rage** (6s): double damage, double attack speed, +2 health per kill | (unchanged) up to +60% damage as health falls |
+| Engineer | **Orbital Laser** (3.6s): a beam's foot circles you at 150, 2.2x damage ten times a second within 52 | (unchanged) more and longer power-ups |
+| Warden | **Wrath of the Wild**: 2x damage to every enemy within 540, roots them 4s (not the boss), heals a third of your health | (unchanged) regeneration |
+
+**Projectiles** each have their own animated sprite, turned to face their flight, with a short trail and a spark where they land: Blaster bolt, golden lance for Lucky Shots and power shots, lightning for Chain Shot and the Drone, crystal shard (Lodestone), fireball (Imp), arrows, pulsing orbs for other creatures, spiked turning orbs for the boss.
+
 ## Classes and minions (Phase 12)
 You pick one of three classes on the title screen (`CLASSES` in `src/data.js`; saved as `cls`, default Knight). A class is a passive bonus plus a starter minion with its own ability; weapon, ability and charm stay a free choice. Minions are not nemeses: no rank, no perks, and they return 8s after they fall.
 

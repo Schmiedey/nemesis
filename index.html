@@ -178,7 +178,7 @@ button.quiet:hover{color:var(--w)}
 .cls:hover{background:#2e2940}
 .cls .scene{height:128px;padding-bottom:22px;background:linear-gradient(var(--k) 0 calc(100% - 34px),#2a2639 0 calc(100% - 32px),#221e30 0)}
 .cls h3{font:700 20px var(--t);color:var(--w);margin:4px 14px 0;letter-spacing:0}
-.cls p{margin:0 14px}.cls .min{color:var(--cyan)}
+.cls p{margin:0 14px}.cls .min{color:var(--cyan)}.cls .ult,.info .ult{color:var(--y)}
 .cls .pick{font:400 10px var(--t);color:var(--dim);margin:2px 14px 0}
 .cls.on{background:#22382d;box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--green),inset -2px -2px 0 var(--green2)}
 .cls.on .pick{color:var(--mint)}
@@ -216,8 +216,8 @@ button.quiet:hover{color:var(--w)}
 .near{color:var(--y)}
 
 /* Movement: screens arrive in steps, menu items slide in, buttons lift, numbers pop. Stepped timing keeps it pixel-like. */
-@keyframes rise{from{opacity:0;transform:translateY(14px)}}
-@keyframes slide{from{opacity:0;transform:translateX(-22px)}}
+@keyframes rise{from{transform:translateY(14px)}}
+@keyframes slide{from{transform:translateX(-22px)}}
 @keyframes popin{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.12)}100%{transform:none}}
 .ov:not(.hidden):not(#lvl):not(#rotate)>*{animation:rise .24s steps(6) backwards}
 .ov:not(.hidden)>*:nth-child(2){animation-delay:.05s}.ov:not(.hidden)>*:nth-child(3){animation-delay:.1s}.ov:not(.hidden)>*:nth-child(4){animation-delay:.15s}
@@ -249,6 +249,8 @@ button.quiet:hover{color:var(--w)}
 #joy i{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;background:var(--txt);box-shadow:0 0 0 2px var(--k),inset 0 -6px 0 var(--dim),inset 0 2px 0 var(--w)}
 #bPause{position:fixed;right:12px;top:12px;z-index:5;font-size:12px;padding:8px 12px 11px}
 #bAct{position:fixed;right:14px;bottom:14px;z-index:5;width:76px;height:76px;font-size:12px;padding:0 0 4px;touch-action:none;opacity:.85}
+#bUlt{position:fixed;right:14px;bottom:100px;z-index:5;width:76px;height:62px;font-size:12px;padding:0 0 4px;touch-action:none;opacity:.5}
+#bUlt.full{opacity:1;background:var(--gold);color:var(--k)}
 #mute{position:fixed;right:10px;bottom:10px;z-index:5}
 #rotate{display:none;z-index:9;background:var(--k)}
 @media (pointer:coarse){
@@ -256,7 +258,7 @@ button.quiet:hover{color:var(--w)}
   button .key,.mouse-only,.card .key{display:none}
   .touch-only{display:initial}
 }
-@media (pointer:fine){#bPause,#bAct{display:none}}
+@media (pointer:fine){#bPause,#bAct,#bUlt{display:none}}
 @media (pointer:coarse) and (orientation:portrait){#rotate{display:flex}}
 @media (max-height:640px){.side .logo{font-size:48px;margin-bottom:8px}.ov{gap:10px}.scene{height:132px}.mi{padding:6px 10px 9px}.mi.go{font-size:20px;padding:8px 12px 12px}}
 @media (max-height:480px){
@@ -300,7 +302,7 @@ button.quiet:hover{color:var(--w)}
   </div>
   <div class="foot">
     <div class="stats" id="startStats"></div>
-    <div class="how"><span class="mouse-only"><span class="key">WASD</span> move</span><span class="touch-only">drag to move</span><span class="mouse-only"><span class="key">SPACE</span> ability</span><span class="mouse-only"><span class="key">Esc</span> pause</span></div>
+    <div class="how"><span class="mouse-only"><span class="key">WASD</span> move</span><span class="touch-only">drag to move</span><span class="mouse-only"><span class="key">SPACE</span> ability</span><span class="mouse-only"><span class="key">E</span> ultimate</span><span class="mouse-only"><span class="key">Esc</span> pause</span></div>
   </div>
 </div>
 
@@ -386,6 +388,7 @@ button.quiet:hover{color:var(--w)}
 <div id="joy" class="hidden"><i></i></div>
 <button id="bPause" class="hidden" aria-label="Pause">II</button>
 <button id="bAct" class="hidden" aria-label="Use ability">USE</button>
+<button id="bUlt" class="hidden" aria-label="Use ultimate">ULT</button>
 <div id="rotate" class="ov"><h2>Turn your phone sideways</h2><div class="sub">NEMESIS plays in landscape.</div></div>
 <button class="quiet" id="mute"></button>
 

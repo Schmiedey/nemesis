@@ -64,6 +64,8 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     streak: 0, streakT: 0, bestStreak: 0, killsBy: {}, elites: 0, acts: 0, epics: 0, bonusSouls: 0, minute: 0,
     rar: [], luck: 1 + 0.12 * mr('luck'), soulMul: 1, storm: false, stormT: 0, phoenix: false, twin: false, leechC: 0,
     respawnMul: 1,
+    // Class ultimate: charge 0..1 from kills; ultT is how long the current one has left; ultN how many you have used.
+    ult: 0, ultT: 0, ultN: 0, ultTick: 0, laser: null, blockT: 0, shotN: 0,
     cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
@@ -373,11 +375,12 @@ function think(g, e, dt) {
   const d = T[e.type], foe = e.team === 'enemy' ? 'ally' : 'enemy', ally = e.team === 'ally', P = g.P;
   e.cd -= dt; e.flash -= dt; e.act -= dt;
   if (e.slowT > 0) e.slowT -= dt;
+  if (e.rootT > 0) e.rootT -= dt;
   if (e.fireT > 0) {                                    // burning: damage twice a second
     e.fireT -= dt; e.fireTick = (e.fireTick || 0) - dt;
     if (e.fireTick <= 0) { e.fireTick = 0.5; damage(g, e, e.fireD, 'burn'); if (e.dead) return; }
   }
-  if (e.ttl > 0 && (e.ttl -= dt) <= 0) { e.dead = true; burst(g, e.x, e.y, '#f4f1e8', 8, 120); return; }   // a raised Skeleton crumbles
+  if (e.ttl > 0 && (e.ttl -= dt) <= 0) { e.dead = true; boneBlast(g, e); return; }   // a raised Skeleton crumbles, and goes off like a bomb
   if (e.minion && minionThink(g, e, dt)) return;
   if (e.stun > 0) { e.stun -= dt; return; }
   // Job: Bat nemeses fetch gems. Any gem they pass flies to you.
@@ -479,6 +482,8 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   const P = g.P;
   if (o === P) {
     if (P.inv > 0 || g.state !== 'play') return;
+    if (g.ultT > 0 && g.cls === 'knight') return;       // Bulwark: nothing gets through
+    if (g.cls === 'knight' && g.blockT <= 0) { g.blockT = 8; P.inv = 0.3; burst(g, P.x, P.y, '#2ce8f5', 10, 180); g.fx.push({ k: 'block' }); snd(g, 'thud'); return; }   // the Knight's shield takes one hit every 8 seconds
     amt *= g.armor;
     if (P.dodge > 0 && g.rand() < P.dodge) { P.inv = 0.25; burst(g, P.x, P.y, '#c0f4ff', 6, 120); return; }   // Evasion
     if (P.shield > 0) { P.shield--; P.inv = 0.4; burst(g, P.x, P.y, '#9fe8ff', 10, 160); snd(g, 'thud'); return; }   // Bubble
@@ -494,6 +499,7 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   // Job: a Slime nemesis is a shield. It shrugs off 40% of damage (70% as a Bulwark).
   if (o.team === 'ally') amt *= g.allyArmor;
   if (o.mark > g.t) amt *= 1.2;                          // marked by the Hawk
+  if (src === 'player' && g.cls === 'berserker' && g.ultT > 0) amt *= 2;                      // Blood Rage
   if (src === 'player' && g.cls === 'berserker') amt *= 1 + 0.6 * (1 - g.P.hp / g.P.maxhp);   // Berserker: hurt means angry
   if (src === 'player' && o.team === 'enemy') {
     const P = g.P;
@@ -511,8 +517,15 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
 }
 
 // An ally that falls comes back while it has lives left, then is gone for the run.
+// A Skeleton that falls explodes: bones everywhere, damage to every enemy close by.
+function boneBlast(g, e) {
+  burst(g, e.x, e.y, '#f4f1e8', 26, 260); g.fx.push({ k: 'nova', x: e.x, y: e.y, r: 64 });
+  for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, e) < (64 + o.r) ** 2) damage(g, o, g.P.dmg * 1.6, 'player');
+}
+
 function allyDown(g, e, delay, free = false) {
   if (e.small) return;
+  if (e.type === 'skeleton') boneBlast(g, e);
   if (e.minion) { if (e.type !== 'skeleton') g.respawnQ.push({ minion: e.type, at: g.t + 8 }); return; }
   // A nemesis is never gone for good. Each time it falls it takes a little longer to return (5s, then +3s a fall,
   // at most 20s). A Bomber blowing itself up (free) does not count as a fall.
@@ -539,7 +552,10 @@ function kill(g, e) {
   }
   if (e.team === 'enemy') { g.kills++; g.gems.push({ x: e.x, y: e.y, v: e.small ? 1 : T[e.type].xp }); if (e.elite) g.chests.push({ x: e.x, y: e.y });
     // Necromancer: every 12th kill gets back up as a Skeleton, on your side, for a while.
-    if (g.cls === 'necro' && ++g.raiseC >= 12 && g.ents.filter(x => x.type === 'skeleton' && !x.dead).length < 5) { g.raiseC = 0; spawnMinion(g, 'skeleton', e.x, e.y); }
+    // Ultimate charge: every kill fills it; each use makes the next one cost a little more.
+    if (g.cls && g.ultT <= 0) g.ult = Math.min(1, g.ult + (e.elite ? 5 : 1) / (38 + 10 * Math.min(6, g.ultN)));
+    if (g.cls === 'berserker' && g.ultT > 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 2);
+    if (g.cls === 'necro' && ++g.raiseC >= 6 && g.ents.filter(x => x.type === 'skeleton' && !x.dead).length < 8) { g.raiseC = 0; spawnMinion(g, 'skeleton', e.x, e.y); }
     if (g.P.leech && (g.leechC += g.P.leech) >= 10) { g.leechC -= 10; g.P.hp = Math.min(g.P.maxhp, g.P.hp + 1); }   // Leech
     if (g.P.charm === 'fang' && g.kills % 25 === 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 5);
     // Power-ups: always from an elite, rarely from anything else.
@@ -677,9 +693,11 @@ function fireWeapon(g, dt) {
       const tg = nearest(g, P, 'enemy', 520);
       if (tg) {
         P.fireT = P.fire; const a = Math.atan2(tg.y - P.y, tg.x - P.x); snd(g, 'shoot');
+        const power = g.cls === 'ranger' && ++g.shotN % 5 === 0;      // the Ranger's every fifth volley is a power shot
+        if (power) snd(g, 'bolt');
         for (let i = 0; i < P.multi; i++) {
-          const crit = P.crit > 0 && g.rand() < 0.15 * P.crit;
-          const b = shoot(g, P.x, P.y, a + (i - (P.multi - 1) / 2) * 0.16, 540, P.dmg * (crit ? 3 : 1), 'ally', 'player', P.pierce, crit ? '#ffd23f' : '#fff');
+          const crit = power || (P.crit > 0 && g.rand() < 0.15 * P.crit);
+          const b = shoot(g, P.x, P.y, a + (i - (P.multi - 1) / 2) * 0.16, power ? 700 : 540, P.dmg * (crit ? 3 : 1), 'ally', 'player', power ? 99 : P.pierce, crit ? '#ffd23f' : '#fff');
           b.chain = P.chain;
         }
       }
@@ -745,6 +763,39 @@ function usePowerup(g, k) {
     for (const e of g.ents) if (e.team === 'ally' && !e.dead) { e.hp = Math.min(e.maxhp, e.hp + e.maxhp * 0.5); if (!e.giant) { e.giant = true; e.dmg *= 1.5; e.r *= 1.3; } }
     g.giantT = 6 * long;
   }
+}
+
+// ---------- class ultimates ----------
+export const ULT_TIME = { knight: 5, ranger: 4, necro: 0.6, berserker: 6, engineer: 3.6, warden: 0.6 };
+function useUlt(g) {
+  const P = g.P, c = g.cls;
+  g.ult = 0; g.ultN++; g.ultT = ULT_TIME[c]; g.ultTick = 0;
+  g.fx.push({ k: 'ult', id: c }); shake(g, 12); snd(g, 'ult');
+  if (c === 'knight') blast(g, 210, 4);
+  else if (c === 'necro') { for (let i = 0; i < 10; i++) { const a = i * 0.628; const s = spawnMinion(g, 'skeleton', clamp(P.x + Math.cos(a) * 70, 20, ARENA.w - 20), clamp(P.y + Math.sin(a) * 70, 20, ARENA.h - 20)); s.ttl = 14; } }
+  else if (c === 'berserker') g.frenzyT = Math.max(g.frenzyT, 6);
+  else if (c === 'engineer') g.laser = { a: g.rand() * 6.28, x: P.x, y: P.y };
+  else if (c === 'warden') {
+    P.hp = Math.min(P.maxhp, P.hp + P.maxhp / 3); g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 520 });
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, P) < 540 * 540) { damage(g, o, P.dmg * 2, 'player'); if (!o.boss && !o.dead) { o.stun = Math.max(o.stun || 0, 4); o.rootT = 4; } }
+  }
+}
+// What an ultimate does while it lasts.
+function ultStep(g, dt) {
+  const P = g.P, c = g.cls;
+  g.ultT -= dt; g.ultTick -= dt;
+  if (c === 'knight' && g.ultTick <= 0) {               // Bulwark: a grinding ring of steel around you
+    g.ultTick = 0.3;
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, P) < (80 + o.r) ** 2) { damage(g, o, P.dmg * 1.5, 'player'); shove(P, o); }
+  } else if (c === 'ranger' && g.ultTick <= 0) {        // Arrow Storm: an arrow lands on a random enemy 14 times a second
+    g.ultTick = 0.07;
+    const near = g.ents.filter(o => o.team === 'enemy' && !o.dead && d2(o, P) < 500 * 500);
+    if (near.length) { const o = near[Math.floor(g.rand() * near.length)]; g.fx.push({ k: 'strike', x: o.x, y: o.y }); damage(g, o, P.dmg * 1.5, 'player'); }
+  } else if (c === 'engineer' && g.laser) {             // Orbital Laser: the beam's foot runs a circle around you
+    const L = g.laser; L.a += dt * 3.6; L.x = P.x + Math.cos(L.a) * 150; L.y = P.y + Math.sin(L.a) * 150;
+    if (g.ultTick <= 0) { g.ultTick = 0.1; for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, L) < (52 + o.r) ** 2) damage(g, o, P.dmg * 2.2, 'player'); }
+  }
+  if (g.ultT <= 0) g.laser = null;
 }
 
 // ---------- abilities ----------
@@ -819,6 +870,9 @@ export function step(g, dt, input) {
   P.moved = Math.hypot(P.x - x0, P.y - y0);
   P.actT -= dt; g.slowT -= dt;
   if (input.act && P.actT <= 0) useAbility(g);
+  if (input.ult && g.ult >= 1 && g.cls && g.ultT <= 0) useUlt(g);
+  if (g.ultT > 0) ultStep(g, dt);
+  if (g.cls === 'knight') g.blockT -= dt;
   unstick(g, P);
   P.x = clamp(P.x, P.r, ARENA.w - P.r); P.y = clamp(P.y, P.r, ARENA.h - P.r);
   P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * dt);
