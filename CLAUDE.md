@@ -16,10 +16,11 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 ## Commands
 - `npm run dev` → http://localhost:8791 (port 8765 belongs to another project)
 - `npm test` → simulated runs and save tests
+- `node tests/balance.js` → survival table by party strength (about 1 minute)
 - `npm run build` → `dist/`
 
 ## Testing
-- Balance questions: write a simulation in `tests/` using `simulate(seed, roster)`; do not play in the browser.
+- Balance questions: use `simulate(seed, { party, bot, choose })` from `tests/bot.js`; do not play in the browser.
 - Browser checks: `window.__game` exposes `g`, `mode`, `save`, `begin()`, `choose(i)`.
 
 ## Working style

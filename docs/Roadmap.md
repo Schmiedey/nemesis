@@ -2,12 +2,13 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 1 foundation done (modules, fixed arena, safe saves, pause, tests) on branch `phase-1-foundation`. Next: Phase 1 loop fixes (earned recruits, draft, boss, inherited builds).
+**Status:** Phase 1 done on branch `phase-1-foundation` (not merged to main). Needs a human playtest. Next: Phase 2 (art pipeline in Blender, then sound).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
-- [ ] Earned recruits, draft 3 allies, limited ally respawns
-- [ ] Boss at ~5:00 and a win screen; killer inherits your build
+- [x] Earned recruits, draft 3 allies, limited ally respawns
+- [x] Boss at ~5:00 and a win screen; killer inherits your build
+- [ ] Not done: per-type ally evolutions, distinct counter-play per enemy, visible "RECRUITED" moment
 - Done when: dying early on purpose is a bad strategy and you want to replay.
 
 ## Phase 2: Make it look and sound good

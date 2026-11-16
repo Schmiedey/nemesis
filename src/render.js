@@ -1,5 +1,5 @@
 // Draws the game. Fixed 960x600 view scaled to the window, camera follows the player.
-import { T } from './data.js';
+import { T, BOSS_TIME } from './data.js';
 import { ARENA, VIEW } from './sim.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -52,14 +52,14 @@ function drawEnt(cx, g, e) {
   cx.fillStyle = e.flash > 0 ? '#fff' : d.color; shapePath(cx, d.shape, r); cx.fill();
   if (d.explode && Math.sin(t * 20) > 0) { cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(0, -r - 3, 2.5, 0, 7); cx.fill(); }
   cx.restore();
-  if (e.hp < e.maxhp && (e.team === 'ally' || e.type === 'brute')) {
+  if (e.hp < e.maxhp && !e.boss && (e.team === 'ally' || e.type === 'brute')) {
     cx.fillStyle = '#000a'; cx.fillRect(e.x - e.r, e.y - e.r - 9, e.r * 2, 3);
     cx.fillStyle = e.team === 'ally' ? '#7dffb0' : '#ff7a2f';
     cx.fillRect(e.x - e.r, e.y - e.r - 9, e.r * 2 * Math.max(0, e.hp / e.maxhp), 3);
   }
 }
 
-export function draw(cv, cx, g, roster) {
+export function draw(cv, cx, g) {
   cx.setTransform(1, 0, 0, 1, 0, 0);
   cx.fillStyle = '#050508'; cx.fillRect(0, 0, cv.width, cv.height);
   if (!g) return;
@@ -99,7 +99,20 @@ export function draw(cv, cx, g, roster) {
   cx.font = '14px ' + font; cx.textAlign = 'left'; cx.fillStyle = '#aaa'; cx.fillText(`LV ${P.lvl}   KILLS ${g.kills}`, 16, 30);
   const bw = 260; cx.fillStyle = '#222'; cx.fillRect(W / 2 - bw / 2, H - 30, bw, 10);
   cx.fillStyle = '#ff3b5c'; cx.fillRect(W / 2 - bw / 2, H - 30, bw * P.hp / P.maxhp, 10);
-  let x = W - 16; cx.textAlign = 'right';
-  for (const k in roster) { const s = `${T[k].name} ×${roster[k]}`; cx.fillStyle = T[k].color; cx.fillText(s, x, 30); x -= cx.measureText(s).width + 18; }
+  // Party: one line per nemesis, dimmed once it has fallen for good.
+  cx.textAlign = 'right';
+  g.party.forEach((n, i) => {
+    const alive = g.ents.some(e => e.nem === n) || g.respawnQ.some(q => q.nem === n);
+    cx.globalAlpha = alive ? 1 : 0.3; cx.fillStyle = T[n.type].color;
+    cx.fillText(`${n.name} ${n.title}`, W - 16, 30 + i * 18);
+  });
+  cx.globalAlpha = 1; cx.textAlign = 'center';
+  if (g.boss) {
+    const w = 420; cx.fillStyle = '#222'; cx.fillRect(W / 2 - w / 2, 56, w, 8);
+    cx.fillStyle = T[g.boss.type].color; cx.fillRect(W / 2 - w / 2, 56, w * Math.max(0, g.boss.hp / g.boss.maxhp), 8);
+    if (g.t - g.bossAt < 3.5) { cx.fillStyle = '#ff3b5c'; cx.font = 'bold 30px ' + font; cx.fillText('YOUR NEMESIS HAS COME', W / 2, H / 2 - 120); }
+  } else if (!g.bossAt && g.t > BOSS_TIME - 30) {
+    cx.fillStyle = '#ff3b5c'; cx.fillText(`nemesis in ${Math.ceil(BOSS_TIME - g.t)}`, W / 2, 62);
+  }
   cx.restore();
 }

@@ -20,13 +20,19 @@ button{background:none;border:1px solid #444;color:#777;border-radius:6px;paddin
 .pulse{animation:p 1.2s infinite}@keyframes p{50%{opacity:.4}}
 .big{font-size:20px}
 .soft{background:rgba(8,8,12,.7)}
+.roster{max-width:900px;max-height:42vh;overflow:auto}
+.nem{width:190px;padding:10px 12px;border:1px solid #333;border-radius:10px;background:#12121a;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:3px;font-size:12px;color:#aaa}
+.nem.on{border-color:#7dffb0;box-shadow:0 0 12px #7dffb044}
+.nem b{font-size:14px}.nem .perks{color:#ffd23f}.nem .tag{color:#666;font-size:11px}.nem.on .tag{color:#7dffb0}
+.card.ally b{color:#7dffb0}
 </style></head><body>
 <canvas id="c"></canvas>
 
 <div id="start" class="ov hidden">
   <h1>NEMESIS</h1>
-  <div class="sub">Survive the swarm. Your aim is automatic.<br><b style="color:#fff">Whatever kills you, joins you.</b></div>
+  <div class="sub">Survive the swarm. Your aim is automatic.<br><b style="color:#fff">Whatever kills you joins you, with the powers you died holding.</b><br>Pick up to 3 nemeses. Kill your true nemesis at 5:00.</div>
   <div class="sub"><span class="key">WASD</span> / <span class="key">Arrows</span> to move · <span class="key">Esc</span> to pause</div>
+  <div class="sub" id="startParty"></div>
   <div class="roster" id="startRoster"></div>
   <div class="sub" id="startBest"></div>
   <div class="big pulse">Press <span class="key">SPACE</span> to start</div>
@@ -37,9 +43,19 @@ button{background:none;border:1px solid #444;color:#777;border-radius:6px;paddin
   <h2 id="dTitle"></h2>
   <div class="sub big" id="dJoin"></div>
   <div class="sub" id="dStats"></div>
-  <div class="roster" id="deadRoster"></div>
+  <div class="roster" id="dCard"></div>
   <div class="sub" id="dTease"></div>
   <div class="big pulse">Press <span class="key">SPACE</span> to go again</div>
+  <div class="sub"><span class="key">C</span> to change your party</div>
+</div>
+
+<div id="won" class="ov hidden">
+  <h1 style="color:#7dffb0;text-shadow:0 0 30px #7dffb088">NEMESIS SLAIN</h1>
+  <div class="sub" id="wStats"></div>
+  <div class="sub big" id="wNote"></div>
+  <div class="roster" id="wParty"></div>
+  <div class="big pulse">Press <span class="key">SPACE</span> to go again</div>
+  <div class="sub"><span class="key">C</span> to change your party</div>
 </div>
 
 <div id="lvl" class="ov soft hidden">
