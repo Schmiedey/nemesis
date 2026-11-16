@@ -1,7 +1,7 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick } from './sim.js';
 import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, PARTY_SIZE } from './save.js';
-import { draw, resize, consumeFx, updateFx, resetFx } from './render.js';
+import { draw, resize, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
 import * as ui from './ui.js';
 
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
@@ -96,6 +96,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+loadSprites();
 toStart();
 requestAnimationFrame(loop);
 

@@ -10,6 +10,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 - `src/render.js`: canvas drawing, camera, particles (fixed 960x600 view, 1600x1000 arena)
 - `src/ui.js`: HTML overlays · `src/save.js`: versioned save · `src/main.js`: loop, input, glue
 - `tests/sim.test.js`: headless simulated runs
+- `art/make_sprites.py`: Blender script. Each creature is a `build_<name>()` function made of helper primitives; add it to `CREATURES`. Output goes to `public/sprites/`. The game falls back to a plain shape for any creature without a sprite.
 - `prototype/nemesis.html`: original one-file prototype, reference only
 - `docs/`: Obsidian vault. Keep docs in sync when design changes.
 
@@ -18,6 +19,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 - `npm test` → simulated runs and save tests
 - `node tests/balance.js` → survival table by party strength, played by the `smart` bot (about 2 minutes). Targets are in `docs/design/Core Loop.md`; re-run after any rule change.
 - `npm run build` → `dist/`
+- `blender -b -P art/make_sprites.py -- bat` → re-render one creature (omit the name for all). Check the PNG by reading it before wiring it in.
 
 ## Testing
 - Balance questions: use `simulate(seed, { party, bot, choose })` from `tests/bot.js`; do not play in the browser.

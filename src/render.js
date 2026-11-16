@@ -8,6 +8,21 @@ export const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).pa
 
 let parts = [], shakeAmt = 0, surge = null;
 
+// Sprite sheets rendered by art/make_sprites.py. Any creature without one falls back to a shape.
+const sprites = {};
+const offs = new WeakMap(); // per-creature animation offset
+export async function loadSprites() {
+  try {
+    const manifest = await (await fetch('/sprites/sprites.json')).json();
+    for (const name in manifest) {
+      const img = new Image();
+      img.onload = () => { sprites[name] = { img, ...manifest[name] }; };
+      img.src = `/sprites/${name}.png`;
+    }
+  } catch { /* no sprites yet: shapes only */ }
+}
+
+
 export function resetFx() { parts = []; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
@@ -50,10 +65,22 @@ function drawEnt(cx, g, e) {
   cx.save(); cx.translate(e.x, e.y);
   if (e.team === 'ally') { cx.strokeStyle = 'rgba(125,255,176,.7)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r + 5, 0, 7); cx.stroke(); }
   let r = e.r; if (d.shape === 'blob') r *= 1 + 0.08 * Math.sin(t * 6 + e.x * .1);
+  const sp = sprites[e.type];
+  if (sp && e.flash <= 0) {
+    // Animated sprite, facing its direction of travel. Each one starts on a different frame.
+    if (!offs.has(e)) offs.set(e, Math.floor(Math.random() * sp.frames));
+    const size = e.r * sp.draw, f = (Math.floor(t * sp.fps) + offs.get(e)) % sp.frames;
+    cx.rotate(e.ang);
+    cx.drawImage(sp.img, f * sp.size, 0, sp.size, sp.size, -size / 2, -size / 2, size, size);
+    cx.restore(); drawBar(cx, e); return;
+  }
   cx.rotate(d.shape === 'star' ? t * 3 : d.shape === 'square' ? 0 : e.ang);
   cx.fillStyle = e.flash > 0 ? '#fff' : d.color; shapePath(cx, d.shape, r); cx.fill();
   if (d.explode && Math.sin(t * 20) > 0) { cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(0, -r - 3, 2.5, 0, 7); cx.fill(); }
-  cx.restore();
+  cx.restore(); drawBar(cx, e);
+}
+
+function drawBar(cx, e) {
   if (e.hp < e.maxhp && !e.boss && (e.team === 'ally' || e.type === 'brute')) {
     cx.fillStyle = '#000a'; cx.fillRect(e.x - e.r, e.y - e.r - 9, e.r * 2, 3);
     cx.fillStyle = e.team === 'ally' ? '#7dffb0' : '#ff7a2f';
