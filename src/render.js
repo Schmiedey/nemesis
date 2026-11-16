@@ -476,7 +476,7 @@ export function draw(cv, cx, g, hud, hx) {
     cx.fillStyle = dither(cx, PAL.o); cx.fillRect(lx - w - 6, camY, (w + 6) * 2, snap(L.y) - camY);
     cx.fillStyle = PAL.o2; cx.fillRect(lx - w, camY, w * 2, snap(L.y) - camY);
     cx.fillStyle = PAL.w; cx.fillRect(lx - w / 2, camY, w, snap(L.y) - camY);
-    spr(cx, 'boom', L.x, L.y, 1 + (t * 12) % 2, 1.6); dashRing(cx, lx, snap(L.y), 52, PAL.y, t * 3);
+    spr(cx, 'boom', L.x, L.y, 1 + (t * 12) % 2, 1.6); dashRing(cx, lx, snap(L.y), 62, PAL.y, t * 3);
   }
   if (g.ultT > 0 && g.cls === 'knight') {                // Bulwark: a turning wall of shields
     dashRing(cx, snap(P.x), snap(P.y), 80, PAL.c, t * 4, 4); dashRing(cx, snap(P.x), snap(P.y), 66, PAL.ice, -t * 4, 2);
@@ -590,7 +590,7 @@ export function draw(cv, cx, g, hud, hx) {
     const x = W - (touch ? 222 : 142), y = H - 78, full = g.ult >= 1, col = ULT_COL[g.cls], on = g.ultT > 0;
     panel(cx, x, y, 56, 56, full && Math.sin(t * 10) > 0 ? 'rgba(254,174,52,.9)' : 'rgba(26,20,35,.9)');
     const a = ATLAS[CLASSES[g.cls].sprite]; if (a) { cx.globalAlpha = full || on ? 1 : 0.5; icon(cx, CLASSES[g.cls].sprite, x + 28 - a.w, y + 28 - a.h, 2); cx.globalAlpha = 1; }
-    const fh = Math.round(52 * (on ? g.ultT / 6 : 1 - g.ult) / 2) * 2;
+    const fh = Math.round(52 * (on ? g.ultT / 5 : 1 - g.ult) / 2) * 2;
     if (!full && !on) { cx.fillStyle = 'rgba(26,20,35,.72)'; cx.fillRect(x + 2, y + 2, 52, fh); }
     cx.fillStyle = PAL.k; cx.fillRect(x, y + 58, 56, 6); cx.fillStyle = col; cx.fillRect(x + 2, y + 60, Math.round(52 * (on ? Math.min(1, g.ultT / 6) : g.ult) / 2) * 2, 2);
     cx.textAlign = 'center'; label(cx, full ? 'E' : on ? CLASSES[g.cls].ult.n.toUpperCase().slice(0, 9) : Math.floor(g.ult * 100) + '%', x + 28, y + 78, full ? PAL.y : PAL.g2, `10px ${TITLE}`);

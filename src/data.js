@@ -10,7 +10,7 @@ export const T = {
   squire:   { name: 'Squire',   color: '#2ce8f5', r: 9, hp: 70, spd: 165, dmg: 8,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', minion: true },
   hawk:     { name: 'Hawk',     color: '#feae34', r: 7, hp: 30, spd: 300, dmg: 9,  unlock: Infinity, w: 0, xp: 0, shape: 'tri', fly: true, minion: true },
   imp:      { name: 'Imp',      color: '#e43b44', r: 8, hp: 30, spd: 150, dmg: 6,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', ranged: true, minion: true },
-  skeleton: { name: 'Skeleton', color: '#f4f1e8', r: 8, hp: 20, spd: 150, dmg: 7,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', minion: true },
+  skeleton: { name: 'Skeleton', color: '#f4f1e8', r: 8, hp: 14, spd: 150, dmg: 5,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', minion: true },
   wolf:     { name: 'Wolf',     color: '#8b8696', r: 9, hp: 46, spd: 235, dmg: 9,  unlock: Infinity, w: 0, xp: 0, shape: 'tri', minion: true },
   drone:    { name: 'Drone',    color: '#2ce8f5', r: 6, hp: 30, spd: 280, dmg: 6,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', fly: true, minion: true },
   golem:    { name: 'Golem',    color: '#8b8696', r: 16, hp: 110, spd: 120, dmg: 6, unlock: Infinity, w: 0, xp: 0, shape: 'square', minion: true },
@@ -188,20 +188,20 @@ export const gearOf = id => WEAPONS[id] || ABILITIES[id] || CHARMS[id] || null;
 // A class is chosen on the title screen. It gives a passive bonus and a starter minion with its own ability.
 // Weapons, abilities and charms stay a free choice on the loadout screen.
 export const CLASSES = {
-  knight: { n: 'Knight', sprite: 'c_knight', d: '+30 health, and you take 15% less damage. Every 8 seconds your shield blocks one hit outright.', ult: { n: 'Bulwark', d: 'For 5 seconds nothing can hurt you, and everything that comes near is cut down and thrown back.' }, minion: 'squire',
+  knight: { n: 'Knight', sprite: 'c_knight', d: '+30 health, and you take 15% less damage. Every 10 seconds your shield blocks one hit outright.', ult: { n: 'Bulwark', d: 'For 4 seconds nothing can hurt you, and everything that comes near is cut down and thrown back.' }, minion: 'squire',
     md: 'Squire: stays close, blocks enemy shots with his shield and stuns with a shield bash.' },
   ranger: { n: 'Ranger', sprite: 'c_ranger', d: '+10% move speed and +8% attack speed. Every 5th attack is a power shot: triple damage, and it passes through everything.', ult: { n: 'Arrow Storm', d: 'Arrows rain from the sky for 4 seconds, striking enemies all across the screen.' }, minion: 'hawk',
     md: 'Hawk: cannot be hurt. Dives at the toughest enemy and marks it; marked enemies take 20% more damage.' },
-  necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 6th kill rises as a Skeleton to fight for you (up to 8). Skeletons explode when they fall.', ult: { n: 'Army of the Dead', d: 'Ten Skeletons claw out of the ground around you at once.' }, minion: 'imp',
+  necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 10th kill rises as a Skeleton to fight for you (up to 5). Skeletons explode when they fall.', ult: { n: 'Army of the Dead', d: 'Seven Skeletons claw out of the ground around you at once.' }, minion: 'imp',
     md: 'Imp: throws fireballs that set enemies burning.' },
   // Locked classes. `lock.need(save)` returns [have, want]; unlocked for good once have >= want.
-  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', ult: { n: 'Blood Rage', d: 'For 6 seconds you deal double damage, attack twice as fast, and every kill heals you.' }, minion: 'wolf',
+  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', ult: { n: 'Blood Rage', d: 'For 5 seconds you deal 25% more damage, attack twice as fast, and every kill heals you.' }, minion: 'wolf',
     md: 'Wolf: fast and savage. Its howl sends you into a frenzy, attacking twice as fast for a moment.',
     lock: { text: 'Kill 1,000 enemies in total', need: s => [s.stats.kills, 1000] } },
-  engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', ult: { n: 'Orbital Laser', d: 'A beam from the sky sweeps a circle around you, burning everything it crosses.' }, minion: 'drone',
+  engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', ult: { n: 'Orbital Laser', d: 'A beam from the sky spirals around you, burning everything it crosses.' }, minion: 'drone',
     md: 'Drone: cannot be hurt. Circles you, shooting the nearest enemy.',
     lock: { text: 'Open 8 chests in total', need: s => [s.stats.chests, 8] } },
-  warden: { n: 'Warden', sprite: 'c_warden', d: 'You regenerate 0.5 health a second.', ult: { n: 'Wrath of the Wild', d: 'Roots burst up and hold every enemy on screen for 4 seconds, and you heal a third of your health.' }, minion: 'golem',
+  warden: { n: 'Warden', sprite: 'c_warden', d: 'You regenerate 0.5 health a second.', ult: { n: 'Wrath of the Wild', d: 'Roots burst up and hold every enemy on screen for 3 seconds, and you heal a quarter of your health.' }, minion: 'golem',
     md: 'Golem: a wall of stone. Slams the ground to stun everything close, and for a moment enemies turn on it instead of you.',
     lock: { text: 'Slay your nemesis once', need: s => [Math.min(1, s.wins), 1] } },
 };

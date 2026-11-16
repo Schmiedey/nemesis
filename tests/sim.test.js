@@ -364,7 +364,7 @@ describe('sim', () => {
     // Knight: cannot be hurt, and the meter empties
     g = fresh('knight'); g.ult = 1; g.blockT = 99; let e = dummy(g, 6); e.stun = 0; e.dmg = 50; e.cd = 0;
     const hp = g.P.hp; for (let i = 0; i < 30; i++) step(g, 1 / 60, ult);
-    expect(g.P.hp).toBe(hp); expect(g.ult).toBe(0); expect(g.ultT).toBeGreaterThan(4); expect(e.hp).toBeLessThan(1e6);
+    expect(g.P.hp).toBe(hp); expect(g.ult).toBe(0); expect(g.ultT).toBeGreaterThan(3); expect(e.hp).toBeLessThan(1e6);
 
     // Ranger: arrows fall on enemies anywhere near
     g = fresh('ranger'); g.ult = 1; e = dummy(g, 380); for (let i = 0; i < 60; i++) step(g, 1 / 60, ult);
@@ -372,7 +372,7 @@ describe('sim', () => {
 
     // Necromancer: ten skeletons at once; a skeleton that falls explodes
     g = fresh('necro'); g.ult = 1; step(g, 1 / 60, ult);
-    const bones = g.ents.filter(x => x.type === 'skeleton'); expect(bones.length).toBe(10);
+    const bones = g.ents.filter(x => x.type === 'skeleton'); expect(bones.length).toBe(7);
     e = dummy(g, 0); e.x = bones[0].x + 20; e.y = bones[0].y; bones[0].ttl = 0.01; step(g, 1 / 60, still());
     expect(e.hp).toBeLessThan(1e6);
 
@@ -380,21 +380,21 @@ describe('sim', () => {
     g = fresh('berserker'); e = dummy(g, 70); g.P.weapon = 'rod'; g.P.fire = 0.42;
     g.P.fireT = 0; step(g, 1 / 60, still()); const base = 1e6 - e.hp;
     e.hp = 1e6; g.ult = 1; g.P.fireT = 0; step(g, 1 / 60, ult);
-    expect((1e6 - e.hp) / base).toBeCloseTo(2, 1);
+    expect((1e6 - e.hp) / base).toBeCloseTo(1.25, 1);
 
     // Engineer: the beam burns what it crosses
     g = fresh('engineer'); g.ult = 1; for (let i = 0; i < 12; i++) { const a = i * 0.524; const d = dummy(g, 0); d.x = g.P.x + Math.cos(a) * 150; d.y = g.P.y + Math.sin(a) * 150; }
-    for (let i = 0; i < 230; i++) step(g, 1 / 60, ult);
+    for (let i = 0; i < 270; i++) step(g, 1 / 60, ult);
     expect(g.ents.filter(x => x.team === 'enemy' && x.hp < 1e6).length).toBeGreaterThan(6); expect(g.laser).toBe(null);
 
     // Warden: roots every enemy on screen and heals
     g = fresh('warden'); g.ult = 1; g.P.hp = 10; e = dummy(g, 400); e.stun = 0; step(g, 1 / 60, ult);
-    expect(e.stun).toBeGreaterThan(3); expect(e.rootT).toBeGreaterThan(3); expect(g.P.hp).toBeGreaterThan(40);
+    expect(e.stun).toBeGreaterThan(2.5); expect(e.rootT).toBeGreaterThan(2.5); expect(g.P.hp).toBeGreaterThan(30);
 
     // Knight's shield blocks one hit, then needs time; Ranger's fifth volley is a power shot
     g = fresh('knight'); e = dummy(g, 6); e.stun = 0; e.dmg = 20; e.cd = 0;
     const h0 = g.P.hp; for (let i = 0; i < 5; i++) step(g, 1 / 60, still());
-    expect(g.P.hp).toBe(h0); expect(g.blockT).toBeGreaterThan(7);
+    expect(g.P.hp).toBe(h0); expect(g.blockT).toBeGreaterThan(9);
     g = fresh('ranger'); e = dummy(g, 200); g.P.fire = 0.1; g.P.fireT = 0;
     for (let i = 0; i < 40; i++) step(g, 1 / 60, still());
     expect(g.shotN).toBeGreaterThanOrEqual(5);

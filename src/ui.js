@@ -263,36 +263,75 @@ export function showFeats(save) {
   show('feats');
 }
 
-// Roster: every nemesis you have earned. Click to move one in or out of the party.
+// ---------- roster ----------
+// Your party stands on a stage at the top; every nemesis is a tile below; the panel on the right describes
+// whichever tile is selected and holds the buttons. Keeps text to one nemesis at a time.
+let rosterFocus = null;
+const RANKS = [[0, 0.7], [0.7, 1.3], [1.3, 2], [2, 3]];                      // Runt, Soldier, Veteran, Champion
+const rankOf = q => (q < 0.7 ? 0 : q < 1.3 ? 1 : q < 2 ? 2 : 3);
+const pips = q => `<span class="ranks r${rankOf(q) + 1}"><i></i><i></i><i></i><i></i></span>`;
 export function showRoster(save, onToggle, onEvo) {
   hideAll();
-  const el = $('rosterList'); el.innerHTML = '';
-  $('rosterHint').innerHTML = save.nemeses.length
-    ? `Pick up to ${PARTY_SIZE} to fight beside you. Party <b>${save.party.length}/${PARTY_SIZE}</b>`
-    : 'Empty. Whatever kills you will show up here.';
-  $('rosterParty').innerHTML = save.nemeses.length ? slots(save) : '';
-  const sorted = [...save.nemeses].sort((a, b) => b.q - a.q);
-  for (const n of sorted) {
-    const picked = save.party.includes(n.id);
-    const c = document.createElement('div');
-    c.className = 'nem' + (picked ? ' on' : '');
-    c.innerHTML = nemCard(n, picked);
-    c.onclick = () => onToggle(n.id);
-    if (canEvolve(n)) {
-      // A Champion chooses one of two evolutions, once.
-      c.classList.add('evolve');
-      const box = document.createElement('div'); box.className = 'evos';
-      box.innerHTML = '<span class="pick" style="color:var(--gold)">CHAMPION: choose an evolution</span>';
-      for (const ev of EVOS[n.type]) {
-        const b = document.createElement('button'); b.innerHTML = `<b>${ev.n}</b><span>${ev.d}</span>`;
-        b.onclick = e => { e.stopPropagation(); onEvo(n.id, ev.id); };
-        box.appendChild(b);
-      }
-      c.appendChild(box);
-    }
-    el.appendChild(c);
-  }
+  const sorted = [...save.nemeses].sort((a, b) => b.q - a.q), party = save.party.map(id => save.nemeses.find(n => n.id === id)).filter(Boolean);
+  const redraw = () => showRoster(save, onToggle, onEvo);
   $('reset').classList.toggle('hidden', !save.nemeses.length && !save.runs);
+  if (!sorted.length) {
+    $('rosterHint').textContent = '';
+    $('rosterParty').innerHTML = [0, 1, 2].map(() => '<div class="pslot empty"><i>?</i>EMPTY</div>').join('');
+    $('rosterList').innerHTML = '<div class="rempty">Nobody yet. Go and die to something: whatever kills you joins you here, and the longer you last, the stronger it arrives.</div>';
+    $('rosterDetail').innerHTML = ''; $('rosterDetail').classList.add('hidden');
+    return show('roster');
+  }
+  if (!sorted.some(n => n.id === rosterFocus)) rosterFocus = (party[0] || sorted[0]).id;
+  $('rosterHint').innerHTML = `Party <b>${party.length} / ${PARTY_SIZE}</b>. Pick a nemesis to see what it does.`;
+
+  // The party, large, on the stage. Click one to send it back to the bench.
+  const stage = $('rosterParty'); stage.innerHTML = '';
+  for (let i = 0; i < PARTY_SIZE; i++) {
+    const n = party[i], d = document.createElement('div');
+    d.className = 'pslot' + (n ? '' : ' empty');
+    d.innerHTML = n ? pix('c_' + n.type, n.type === 'brute' ? 3 : 4, true) + `<span style="color:${T[n.type].color}">${esc(n.name).toUpperCase()}</span>` : '<i>+</i>EMPTY';
+    if (n) d.onclick = () => { rosterFocus = n.id; onToggle(n.id); };
+    stage.appendChild(d);
+  }
+
+  // Everyone, as tiles: sprite, name, rank pips. A badge marks one that is ready to evolve.
+  const grid = $('rosterList'); grid.innerHTML = '';
+  for (const n of sorted) {
+    const t = document.createElement('div');
+    t.className = 'rtile' + (save.party.includes(n.id) ? ' in' : '') + (n.id === rosterFocus ? ' focus' : '');
+    t.innerHTML = pix('c_' + n.type, n.type === 'brute' ? 2 : 3, n.id === rosterFocus) + `<span style="color:${T[n.type].color}">${esc(n.name).toUpperCase().slice(0, 9)}</span>${pips(n.q)}` + (canEvolve(n) ? '<em class="badge">!</em>' : '');
+    t.onclick = () => { rosterFocus = n.id; redraw(); };
+    grid.appendChild(t);
+  }
+
+  // The selected nemesis in full.
+  const n = sorted.find(x => x.id === rosterFocus), d = T[n.type], inParty = save.party.includes(n.id), r = rankOf(n.q), [lo, hi] = RANKS[r];
+  const det = $('rosterDetail'); det.classList.remove('hidden');
+  det.innerHTML = `<div class="scene">${pix('c_' + n.type, n.type === 'brute' ? 4 : 6, true)}</div>` +
+    `<h3 style="color:${d.color}">${esc(n.name).toUpperCase()}<br><span style="color:var(--txt);font-weight:400;font-size:12px">${esc(n.title).toUpperCase()}</span></h3>` +
+    `<div class="rank">${pips(n.q)}${rankName(n.q).toUpperCase()} ${d.name.toUpperCase()}${evoOf(n) ? ' &middot; <span style="color:var(--y)">' + evoOf(n).n.toUpperCase() + '</span>' : ''}</div>` +
+    (r < 3 ? `<span class="bar"><i style="width:${Math.round((n.q - lo) / (hi - lo) * 100)}%"></i></span>` : '') +
+    `<div class="job">${JOB[n.type]}.${evoOf(n) ? ' ' + evoOf(n).d + '.' : ''}</div>` +
+    (Object.keys(n.perks).length ? `<div class="perkrow">${Object.keys(n.perks).map(k => `<span class="perk" title="${PERKS[k].label}">${pix('i_' + k, 1)}${PERKS[k].label.toUpperCase()}${n.perks[k] > 1 ? ' x' + n.perks[k] : ''}</span>`).join('')}</div>` : '<div class="hist">It inherited no powers from you.</div>') +
+    `<div class="hist">${n.runs ? `${n.runs} run${n.runs > 1 ? 's' : ''} with you &middot; ${n.kills} kill${n.kills === 1 ? '' : 's'}${n.wins ? ' &middot; ' + n.wins + ' win' + (n.wins > 1 ? 's' : '') : ''}` : 'Has not fought for you yet.'}</div>`;
+  if (canEvolve(n)) {
+    // A Champion chooses one of two evolutions, once.
+    const box = document.createElement('div'); box.className = 'evos';
+    box.innerHTML = '<span class="rank" style="color:var(--y)">CHAMPION: CHOOSE AN EVOLUTION</span>';
+    for (const ev of EVOS[n.type]) {
+      const b = document.createElement('button'); b.innerHTML = `<b>${ev.n}</b><span>${ev.d}</span>`;
+      b.onclick = () => onEvo(n.id, ev.id);
+      box.appendChild(b);
+    }
+    det.appendChild(box);
+  }
+  const full = !inParty && party.length >= PARTY_SIZE, b = document.createElement('button');
+  b.className = inParty ? '' : 'go'; b.style.fontSize = '16px'; b.style.padding = '9px 12px 13px';
+  b.textContent = inParty ? 'REMOVE FROM PARTY' : full ? 'PARTY IS FULL' : 'ADD TO PARTY';
+  b.disabled = full; if (full) b.style.opacity = '.45';
+  b.onclick = () => onToggle(n.id);
+  det.appendChild(b);
   show('roster');
 }
 
