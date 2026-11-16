@@ -46,6 +46,7 @@ const rr = (g, a, b) => a + g.rand() * (b - a);
 // Visual effects are queued for the renderer; the sim never draws.
 const burst = (g, x, y, c, n, sp = 140) => g.fx.push({ k: 'burst', x, y, c, n, sp });
 const shake = (g, v) => g.fx.push({ k: 'shake', v });
+const snd = (g, n) => g.fx.push({ k: 'snd', n }); // sound cue, played by main.js
 
 function mk(g, type, team, x, y, { small = false, hpMul = 1, dmgMul = 1, spdMul = 1 } = {}) {
   const d = T[type];
@@ -90,7 +91,7 @@ function spawnBoss(g) {
   const e = mk(g, g.bossType, 'enemy', clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
   e.boss = true; e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP; e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
-  g.boss = e; g.bossAt = g.t; shake(g, 14); burst(g, e.x, e.y, d.color, 40, 300);
+  g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);
 }
 
 function bossThink(g, e, dt) {
@@ -103,7 +104,7 @@ function bossThink(g, e, dt) {
     for (let i = 0; i < (e.type === 'bat' ? 6 : 3); i++) mkEnemy(g, e.type, e.x + rr(g, -60, 60), e.y + rr(g, -60, 60));
   }
   if (e.ringT <= 0) {
-    e.ringT = 4; const off = g.rand() * 6.28;
+    e.ringT = 4; const off = g.rand() * 6.28; snd(g, 'ring');
     for (let i = 0; i < 12; i++) shoot(g, e.x, e.y, off + i * Math.PI / 6, 200, 14, 'enemy', e.type, 0, d.color, true);
   }
 }
@@ -196,7 +197,7 @@ function damage(g, o, amt, src, byBoss = false) {
   const P = g.P;
   if (o === P) {
     if (P.inv > 0 || g.state !== 'play') return;
-    P.hp -= amt; P.inv = 0.25; P.flash = 0.15; shake(g, 8);
+    P.hp -= amt; P.inv = 0.25; P.flash = 0.15; shake(g, 8); snd(g, 'hurt');
     if (P.hp <= 0) { P.hp = 0; die(g, src, byBoss); }
     return;
   }
@@ -213,6 +214,7 @@ function allyDown(g, e, delay) {
 
 function kill(g, e) {
   e.dead = true; burst(g, e.x, e.y, T[e.type].color, e.team === 'enemy' ? 10 : 6);
+  snd(g, e.boss ? 'win' : e.team === 'enemy' ? 'kill' : 'allyDown');
   if (e.boss) { g.state = 'won'; g.boss = null; burst(g, e.x, e.y, '#fff', 60, 400); shake(g, 20); return; }
   if (T[e.type].split && !e.small) for (let i = 0; i < 2; i++) {
     mk(g, 'slime', e.team, e.x + rr(g, -8, 8), e.y + rr(g, -8, 8), { small: true, hpMul: e.hpMul, dmgMul: e.dmgMul });
@@ -223,7 +225,7 @@ function kill(g, e) {
 
 function explode(g, e) {
   if (e.dead) return; e.dead = true;
-  burst(g, e.x, e.y, '#ff3b5c', 26, 260); burst(g, e.x, e.y, '#ffd23f', 14, 180); shake(g, 10);
+  burst(g, e.x, e.y, '#ff3b5c', 26, 260); burst(g, e.x, e.y, '#ffd23f', 14, 180); shake(g, 10); snd(g, 'boom');
   const foe = e.team === 'enemy' ? 'ally' : 'enemy';
   for (const o of targetsOf(g, foe)) { const r = 70 + o.r; if (d2(e, o) < r * r) damage(g, o, e.dmg, 'bomber'); }
   if (e.team === 'ally') allyDown(g, e, 5);
@@ -249,13 +251,13 @@ function makeRecruit(g, type, byBoss) {
 
 function die(g, src, byBoss) {
   g.state = 'dead'; g.killer = src; g.recruit = makeRecruit(g, src, byBoss);
-  burst(g, g.P.x, g.P.y, '#fff', 40, 300); shake(g, 16);
+  burst(g, g.P.x, g.P.y, '#fff', 40, 300); shake(g, 16); snd(g, 'die');
 }
 
 function levelUp(g) {
   const P = g.P;
   P.xp -= P.next; P.lvl++; P.next = Math.floor(P.next * 1.22 + 3);
-  g.state = 'lvl';
+  g.state = 'lvl'; snd(g, 'level');
   const pool = UP.filter(u => !u.ally || g.party.length);
   g.choices = [];
   while (g.choices.length < 3) { const u = pool[Math.floor(g.rand() * pool.length)]; if (!g.choices.includes(u)) g.choices.push(u); }
@@ -289,7 +291,7 @@ export function step(g, dt, input) {
   if (P.fireT <= 0) {
     const tg = nearest(g, P, 'enemy', 520);
     if (tg) {
-      P.fireT = P.fire; const a = Math.atan2(tg.y - P.y, tg.x - P.x);
+      P.fireT = P.fire; const a = Math.atan2(tg.y - P.y, tg.x - P.x); snd(g, 'shoot');
       for (let i = 0; i < P.multi; i++) shoot(g, P.x, P.y, a + (i - (P.multi - 1) / 2) * 0.16, 540, P.dmg, 'ally', 'player', P.pierce, '#fff');
     }
   }
@@ -301,7 +303,7 @@ export function step(g, dt, input) {
   if (g.surgeT <= 0 && !g.boss) {
     g.surgeT = 20; const a = g.rand() * 6.28, n = 3 + Math.floor(g.t / 50);
     for (let i = 0; i < n; i++) spawnEnemy(g, a + rr(g, -0.5, 0.5));
-    g.fx.push({ k: 'surge', a });
+    g.fx.push({ k: 'surge', a }); snd(g, 'surge');
   }
   for (const q of g.respawnQ) if (!q.done && g.t >= q.at) { q.done = true; spawnAlly(g, q.nem, q.lives); }
   g.respawnQ = g.respawnQ.filter(q => !q.done);
@@ -331,7 +333,7 @@ export function step(g, dt, input) {
       if (b.hit.has(o)) continue;
       const r = o.r + 3;
       if (d2(b, o) < r * r) {
-        damage(g, o, b.dmg, b.src, b.boss); b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80);
+        damage(g, o, b.dmg, b.src, b.boss); b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80); if (b.team === 'ally') snd(g, 'hit');
         if (b.pierce > 0) b.pierce--; else { b.life = 0; break; }
       }
     }
@@ -341,7 +343,7 @@ export function step(g, dt, input) {
   for (const gem of g.gems) {
     const dd = Math.sqrt(d2(gem, P)) || 0.01;
     if (dd < P.magnet) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
-    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v; }
+    if (dd < P.r + 6) { gem.got = true; P.xp += gem.v; snd(g, 'gem'); }
   }
   g.gems = g.gems.filter(x => !x.got);
   g.ents = g.ents.filter(e => !e.dead);

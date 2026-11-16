@@ -3,6 +3,7 @@ import { createGame, step, pick } from './sim.js';
 import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, PARTY_SIZE } from './save.js';
 import { draw, resize, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
 import * as ui from './ui.js';
+import * as audio from './audio.js';
 
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
 addEventListener('resize', () => resize(cv)); resize(cv);
@@ -20,7 +21,7 @@ function toggleParty(id) {
   const i = save.party.indexOf(id);
   if (i >= 0) save.party.splice(i, 1);
   else if (save.party.length < PARTY_SIZE) save.party.push(id);
-  writeSave(save); ui.showRoster(save, toggleParty);
+  audio.sfx('ui'); writeSave(save); ui.showRoster(save, toggleParty);
 }
 
 function begin() {
@@ -30,12 +31,12 @@ function begin() {
     party: partyOf(save).map(n => ({ ...n, perks: { ...n.perks } })),
     bossType: bossTypeFor(save),
   });
-  mode = 'play';
+  mode = 'play'; audio.sfx('start');
 }
 
 function choose(i) {
   if (mode !== 'lvl') return;
-  pick(g, i);
+  pick(g, i); audio.sfx('pick');
   if (g.state === 'lvl') ui.showLevel(g, choose); else { ui.hideLevel(); mode = 'play'; }
 }
 
@@ -53,7 +54,7 @@ function onDeath() {
   const res = addRecruit(save, g.recruit);
   writeSave(save);
   const run = g;
-  setTimeout(() => { if (g === run && mode === 'dead') ui.showDead(run, save, res, newBest); }, 700);
+  setTimeout(() => { if (g === run && mode === 'dead') { ui.showDead(run, save, res, newBest); if (res.status !== 'rejected') audio.sfx('stamp', 0.5); } }, 700);
 }
 
 function onWin() {
@@ -66,8 +67,16 @@ function onWin() {
   setTimeout(() => { if (g === run && mode === 'won') ui.showWon(run, save, promoted); }, 900);
 }
 
+const muteBtn = document.getElementById('mute');
+const showMute = () => { muteBtn.textContent = audio.isMuted() ? 'sound off (M)' : 'sound on (M)'; };
+const flipMute = () => { audio.toggleMute(); showMute(); };
+muteBtn.onclick = () => { muteBtn.blur(); flipMute(); }; showMute();
+addEventListener('pointerdown', audio.unlock);
+addEventListener('click', e => { if (e.target.closest('button')) audio.sfx('ui'); });
+
 addEventListener('keydown', e => {
-  keys[e.code] = true;
+  keys[e.code] = true; audio.unlock();
+  if (e.code === 'KeyM' && !e.repeat) flipMute();
   const over = mode === 'dead' || mode === 'won';
   const menu = mode === 'start' || mode === 'roster';
   if (e.code === 'Space' && (menu || over)) { e.preventDefault(); begin(); }
@@ -95,11 +104,13 @@ function loop(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
   if (mode === 'play') {
     step(g, dt, input()); consumeFx(g);
+    for (const f of g.fx) if (f.k === 'snd') audio.sfx(f.n);
     if (g.state === 'lvl') { mode = 'lvl'; ui.showLevel(g, choose); }
     else if (g.state === 'dead') onDeath();
     else if (g.state === 'won') onWin();
   }
   if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(dt);
+  audio.scene(mode, g);
   draw(cv, cx, g);
   requestAnimationFrame(loop);
 }
@@ -109,4 +120,4 @@ toStart();
 requestAnimationFrame(loop);
 
 // Debug hook for automated tests (Playwright).
-window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster };
+window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster, audio };

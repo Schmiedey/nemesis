@@ -8,6 +8,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 - `src/sim.js`: all game rules. Pure: no DOM, seeded RNG. `createGame`, `step(g, dt, input)`, `pick(g, i)`
 - `src/data.js`: enemy table `T`, upgrades `UP`, text
 - `src/render.js`: canvas drawing, camera, particles (fixed 960x600 view, 1600x1000 arena)
+- `src/audio.js`: WebAudio synth, no audio files. `sfx(name)` one-shots, `scene(mode, g)` steers the soundtrack. The sim queues cues as `{ k: 'snd', n }` in `g.fx`.
 - `src/ui.js`: HTML overlays · `src/save.js`: versioned save · `src/main.js`: loop, input, glue
 - `tests/sim.test.js`: headless simulated runs
 - `art/make_sprites.py`: Blender script. Each creature is a `build_<name>()` function made of helper primitives; add it to `CREATURES`. Output goes to `public/sprites/`. The game falls back to a plain shape for any creature without a sprite.
@@ -23,7 +24,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 
 ## Testing
 - Balance questions: use `simulate(seed, { party, bot, choose })` from `tests/bot.js`; do not play in the browser.
-- Browser checks: `window.__game` exposes `g`, `mode`, `save`, `begin()`, `choose(i)`.
+- Browser checks: `window.__game` exposes `g`, `mode`, `save`, `begin()`, `choose(i)`, `audio` (use `audio.debugState()`; a dynamic `import()` gets a different module copy).
 
 ## Working style
 Keep usage low: read only needed parts of files, trim output, no subagents unless asked.

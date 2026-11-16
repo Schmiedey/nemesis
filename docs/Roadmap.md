@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 in progress on branch `phase-2-art`: sprites for everything, plus logo, title menu, roster screen, death and win screens (with a RECRUITED stamp) and a pause menu. Next: sound effects and soundtrack in code, then Phase 2 is done.
+**Status:** Phase 2 built on branch `phase-2-art`, not yet merged: sprites, menus, and code-made sound effects and soundtrack (`src/audio.js`). Sound has not been listened to by a human yet: play a run, tune volumes, then merge. Next: Phase 3.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -15,7 +15,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Blender script that renders a creature to a sprite sheet (`art/make_sprites.py`), proven on the Bat
 - [x] Slime, Archer, Brute, Bomber, Wisp, player; boss = giant sprite of its type with a red aura
 - [x] Menus, roster screen, death screen, logo
-- [ ] Sound effects and soundtrack made in code
+- [x] Sound effects and soundtrack made in code (needs a listening pass)
 - Done when: no placeholder shapes or silent actions remain.
 
 ## Phase 3: Ship it

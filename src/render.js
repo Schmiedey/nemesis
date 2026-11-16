@@ -31,6 +31,7 @@ export function consumeFx(g) {
   for (const f of g.fx) {
     if (f.k === 'shake') shakeAmt = Math.max(shakeAmt, f.v);
     else if (f.k === 'surge') surge = { a: f.a, life: 2 };
+    else if (f.k === 'snd') continue;
     else for (let i = 0; i < f.n; i++) {
       const a = Math.random() * 6.28, s = rnd(30, f.sp);
       parts.push({ x: f.x, y: f.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.3, .7), c: f.c });
