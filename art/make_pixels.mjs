@@ -119,6 +119,9 @@ add('boom',
   G(32).ring(16, 16, 14, 'g3', 1).disc(10, 11, 2, 'g3').disc(22, 20, 2, 'g4'));
 add('spark', G(9).line(4, 1, 4, 7, 'w').line(1, 4, 7, 4, 'w').px(4, 4, 'y'), G(9).line(2, 2, 6, 6, 'y').line(6, 2, 2, 6, 'y').px(4, 4, 'w'), G(9).px(1, 1, 'y').px(7, 1, 'y').px(1, 7, 'y').px(7, 7, 'y'));
 
+// A chevron for charge lanes: it marches along the lane to show which way the charge goes.
+add('chev', G(9, 11).poly([[1, 1], [4, 1], [8, 5.5], [4, 10], [1, 10], [5, 5.5]], 'r3').line(1, 1, 5, 5, 'w').outline('r2'));
+
 // Shadow under creatures.
 add('shadow', G(16, 7).disc(8, 3, 3, 'k').rect(2, 2, 12, 3, 'k').rect(4, 1, 8, 5, 'k').alpha(0.4));
 
@@ -174,23 +177,26 @@ add('pu_vortex', badge('mint', g => g.ring(8.5, 8.5, 4, 'mint', 1).ring(8.5, 8.5
 add('pu_giant', badge('v', g => g.poly([[8.5, 3], [13, 9], [4, 9]], 'v').rect(7, 9, 3, 4, 'v')));
 
 // ---------- creatures: side view, facing right; the game flips them to face left ----------
-// Two frames each. Drawn larger than the hit circle so they read on screen.
-const bat = up => { const g = G(16, 13); g.poly(up ? [[6, 7], [0, 1], [1, 8]] : [[6, 7], [0, 11], [2, 5]], 'v2').poly(up ? [[10, 7], [16, 1], [15, 8]] : [[10, 7], [16, 11], [14, 5]], 'v2');
-  g.line(up ? 1 : 1, up ? 3 : 9, 5, 7, 'v').line(up ? 14 : 14, up ? 3 : 9, 10, 7, 'v');
+// Four frames each: two poses, each with a one-pixel bob, so they step and breathe. Drawn larger than the hit circle.
+const lift = (g, dy) => { const o = new Grid(g.w, g.h + 1); for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) o.d[(y + dy) * o.w + x] = g.d[y * g.w + x]; return o; };
+const cycle = (a, b) => [lift(a, 1), lift(a, 0), lift(b, 1), lift(b, 0)];
+const bat = pose => { const g = G(16, 13);               // pose 0 wings up, 1 level, 2 down
+  const L = [[[6, 7], [0, 1], [1, 8]], [[6, 7], [0, 5], [1, 9]], [[6, 7], [0, 11], [2, 5]]][pose], R = L.map(([x, y]) => [16 - x, y]);
+  g.poly(L, 'v2').poly(R, 'v2').line(L[1][0] + 1, L[1][1] + (pose ? 0 : 2), 5, 7, 'v').line(R[1][0] - 2, R[1][1] + (pose ? 0 : 2), 10, 7, 'v');
   g.disc(8, 7, 3, ['v2', 'v', 'v']).px(6, 3, 'v').px(10, 3, 'v').px(6, 4, 'v').px(10, 4, 'v').px(7, 6, 'y').px(9, 6, 'y').px(7, 9, 'w').px(9, 9, 'w'); return g.outline(); };
-add('c_bat', bat(true), bat(false));
+add('c_bat', lift(bat(0), 1), lift(bat(1), 0), lift(bat(2), 0), lift(bat(1), 1));
 
 const slime = sq => { const g = G(18, 14); const y = sq ? 1 : 0;
   g.disc(9, 7 + y, 6 - y, ['gr2', 'gr', 'mint']).rect(3 - y, 8 + y, 12 + 2 * y, 5 - y, 'gr').rect(3 - y, 12, 12 + 2 * y, 1, 'gr2').rect(13 + y, 8 + y, 2, 4 - y, 'gr2');
   g.rect(7, 6 + y, 1, 2, 'k').rect(11, 6 + y, 1, 2, 'k').px(5, 4 + y, 'w').px(6, 4 + y, 'w').px(5, 5 + y, 'w').rect(8, 9 + y, 3, 1, 'gr3'); return g.outline(); };
-add('c_slime', slime(false), slime(true));
+add('c_slime', lift(slime(false), 0), lift(slime(false), 1), lift(slime(true), 1), lift(slime(false), 1));
 
 const archer = st => { const g = G(18, 19);
   g.poly([[4, 8], [12, 8], [13, 17], [3, 17]], 'o2').rect(4, 8, 2, 9, 'gold2').rect(8, 9, 1, 8, 'y');                 // cloak
   g.disc(8, 5, 4, ['gold2', 'o2', 'y']).rect(6, 4, 5, 3, 'br3').px(7, 5, 'w').px(9, 5, 'w').px(8, 0, 'o2').px(8, 1, 'o2');   // hood, face in shadow
   g.line(14, 3, 16, 7, 'br').line(16, 7, 16, 10, 'br').line(16, 10, 14, 14, 'br').line(14, 3, 14, 14, 'g1').rect(12, 8, 3, 1, 'g1').px(15, 8, 'w');   // bow and arrow
   g.rect(st ? 4 : 5, 17, 3, 1, 'br2').rect(st ? 10 : 9, 17, 3, 1, 'br2'); return g.outline(); };
-add('c_archer', archer(false), archer(true));
+add('c_archer', ...cycle(archer(false), archer(true)));
 
 const brute = st => { const g = G(28, 27); const y = st ? 1 : 0;
   g.disc(14, 16, 9, ['r2', 'o', 'o2']).rect(9, 22, 10, 2, 'r2');                                                     // body
@@ -200,7 +206,7 @@ const brute = st => { const g = G(28, 27); const y = st ? 1 : 0;
   g.rect(11, 6, 2, 2, 'y').rect(15, 6, 2, 2, 'y').px(12, 7, 'k').px(16, 7, 'k').line(10, 5, 13, 5, 'r2').line(15, 5, 18, 5, 'r2');   // eyes, brow
   g.rect(11, 9, 6, 2, 'br3').px(11, 9, 'w').px(13, 9, 'w').px(15, 9, 'w').px(12, 10, 'w').px(14, 10, 'w').px(16, 10, 'w');     // teeth
   g.rect(st ? 8 : 9, 24, 4, 2, 'r2').rect(st ? 16 : 15, 24, 4, 2, 'r2').rect(11, 17, 6, 1, 'r2').rect(11, 19, 6, 1, 'r2'); return g.outline(); };
-add('c_brute', brute(false), brute(true));
+add('c_brute', ...cycle(brute(false), brute(true)));
 
 const bomber = st => { const g = G(16, 19);
   g.disc(8, 10, 6, ['r2', 'r', 'r3']).rect(4, 13, 9, 1, 'r2');
@@ -208,12 +214,12 @@ const bomber = st => { const g = G(16, 19);
   g.rect(6, 3, 4, 2, 'g3').rect(6, 3, 4, 1, 'g2').line(8, 2, 10, 0, 'br');
   if (st) g.px(11, 0, 'y').px(12, 0, 'w').px(11, 1, 'o'); else g.px(11, 0, 'o').px(10, 1, 'y');
   g.rect(st ? 3 : 4, 17, 3, 1, 'r2').rect(st ? 10 : 9, 17, 3, 1, 'r2'); return g.outline(); };
-add('c_bomber', bomber(false), bomber(true));
+add('c_bomber', ...cycle(bomber(false), bomber(true)));
 
 const wisp = st => { const g = G(14, 17); const t = st ? 5 : 8;
   g.poly([[t, 0], [11, 6], [12, 11], [9, 16], [5, 16], [2, 11], [3, 6]], 'c2').poly([[t, 2], [10, 7], [10, 11], [8, 15], [6, 15], [4, 11], [4, 7]], 'c').poly([[7, 6], [9, 9], [9, 12], [7, 14], [5, 12], [5, 9]], 'ice');
   g.rect(5, 10, 1, 2, 'k').rect(8, 10, 1, 2, 'k').px(7, 8, 'w'); return g.outline(); };
-add('c_wisp', wisp(false), wisp(true));
+add('c_wisp', ...cycle(wisp(false), wisp(true)));
 
 const hero = st => { const g = G(18, 21);
   g.poly(st ? [[5, 9], [0, 14], [1, 17], [5, 16]] : [[5, 9], [1, 15], [2, 18], [5, 16]], 'r2');                           // cape
@@ -221,7 +227,7 @@ const hero = st => { const g = G(18, 21);
   g.disc(8, 5, 4, ['g2', 'g1', 'w']).rect(6, 5, 6, 1, 'k').px(10, 5, 'mint').px(9, 5, 'mint').rect(7, 0, 3, 2, 'r').px(8, 0, 'r3');   // helmet, visor, plume
   g.rect(12, 10, 2, 2, 'g2').line(15, 3, 15, 11, 'w').px(15, 2, 'ice').rect(14, 11, 3, 1, 'gold').px(15, 12, 'br');       // sword arm
   g.rect(st ? 5 : 6, 16, 2, st ? 4 : 3, 'g3').rect(st ? 10 : 9, 16, 2, st ? 3 : 4, 'g3'); return g.outline(); };
-add('c_player', hero(false), hero(true));
+add('c_player', ...cycle(hero(false), hero(true)));
 
 // ---------- pack into one sheet ----------
 const names = Object.keys(S), atlas = {};

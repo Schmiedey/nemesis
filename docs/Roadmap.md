@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-9 merged to main. Phase 10 (pixel-art overhaul) built on branch `phase-10-pixel`, not merged: every creature, bullet, item, effect and icon is now a pixel sprite from `art/make_pixels.mjs`; the world renders at 480x300; menus and HUD are restyled as pixel game UI with bundled pixel fonts. Still vector, not sprites: enemy tells (lanes, rings), sword arcs, lightning, the touch stick. Rocks are plain shaded discs. Next: user review. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main (pixel-art overhaul included). Polish pass built on branch `phase-11-polish`, not merged: four-frame creature animation, faceted boulders, dithered warning zones with marching outlines, solid sword/lightning/shockwave effects, pixel touch stick and ability button. Touch movement was not re-verified after the restyle (the test browser was hidden). Next: user review, merge. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -65,7 +65,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] One sprite sheet for creatures, bullets, items, effects and icons (`art/make_pixels.mjs`); Blender pipeline retired
 - [x] World drawn at 480x300 with hard-edged scaling; HUD on a sharp layer in pixel fonts
 - [x] Menus restyled as pixel game UI; sprite icons replace text symbols
-- [ ] Still to do if wanted: sprite versions of tells and weapon effects, better rocks, more animation frames
+- [x] Polish: four-frame creature cycles, faceted boulders, dithered tells with marching outlines, solid weapon effects, pixel touch controls
 - Done when: nothing on screen is a plain shape or a default-looking web page.
 
 ## Usage rules

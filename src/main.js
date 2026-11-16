@@ -195,6 +195,7 @@ function loop(now) {
   if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(total);
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
+  document.body.classList.toggle('playing', mode === 'play');
   audio.scene(mode, g);
   draw(cv, cx, g, hud, hx);
   workMs += (performance.now() - w0 - workMs) * 0.05;

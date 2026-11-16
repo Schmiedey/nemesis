@@ -15,7 +15,7 @@ const perkText = perks => Object.keys(perks).map(k => `${PERKS[k].label}${perks[
 // A sprite from the sheet as an HTML element, k screen pixels per art pixel. Two-frame sprites animate.
 const pix = (name, k = 3, anim = false) => {
   const a = ATLAS[name]; if (!a) return '';
-  return `<i class="px${anim && a.n > 1 ? ' a2' : ''}" style="width:${a.w * k}px;height:${a.h * k}px;background-size:${ATLAS_SIZE.w * k}px ${ATLAS_SIZE.h * k}px;background-position:${-a.x * k}px ${-a.y * k}px;--x1:${-(a.x + a.w) * k}px"></i>`;
+  return `<i class="px${anim && a.n > 1 ? ' a2' : ''}" style="width:${a.w * k}px;height:${a.h * k}px;background-size:${ATLAS_SIZE.w * k}px ${ATLAS_SIZE.h * k}px;background-position:${-a.x * k}px ${-a.y * k}px;--x1:${-(a.x + a.w * (a.n >= 4 ? 2 : 1)) * k}px"></i>`;
 };
 const spr = (type, px = 48) => pix('c_' + type, Math.max(2, Math.round(px / 20)), true);
 const stat = (v, label, cls = '') => `<div class="stat ${cls}"><b>${v}</b><span>${label}</span></div>`;

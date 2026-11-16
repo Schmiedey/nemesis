@@ -11,7 +11,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 - `src/audio.js`: WebAudio synth, no audio files. `sfx(name)` one-shots, `scene(mode, g)` steers the soundtrack. The sim queues cues as `{ k: 'snd', n }` in `g.fx`.
 - `src/ui.js`: HTML overlays · `src/save.js`: versioned save · `src/main.js`: loop, input, glue
 - `tests/sim.test.js`: headless simulated runs
-- `art/make_pixels.mjs`: all art. Draws every sprite (creatures, bullets, items, effects, UI icons) from a few primitives on small grids with one palette (`PAL`) and a 1-pixel outline, then writes `public/sprites/items.png` and `src/atlas.js` (`ATLAS`: name → position). Creatures are `c_<type>` (side view, two frames, flipped in game to face left); icons are `i_<id>` matching upgrade and gear ids.
+- `art/make_pixels.mjs`: all art. Draws every sprite (creatures, bullets, items, effects, UI icons) from a few primitives on small grids with one palette (`PAL`) and a 1-pixel outline, then writes `public/sprites/items.png` and `src/atlas.js` (`ATLAS`: name → position). Creatures are `c_<type>` (side view, four frames, flipped in game to face left); icons are `i_<id>` matching upgrade and gear ids.
 - `art/make_sprites.py`: retired Blender pipeline, kept for reference; nothing in the game uses its output.
 - `public/fonts/`: Silkscreen (titles, HUD) and Pixelify Sans (body), SIL OFL, licence files alongside.
 - `prototype/nemesis.html`: original one-file prototype, reference only
@@ -36,4 +36,4 @@ Keep usage low: read only needed parts of files, trim output, no subagents unles
 Commit at each checkpoint and update the status line in `docs/Roadmap.md`.
 
 ## Look
-Pixel art throughout: one palette (`PAL` in `art/make_pixels.mjs`, mirrored as CSS variables in `index.html`), two pixel fonts, hard edges. No rounded corners, glows, gradients, emoji or text symbols as icons; use a sprite from the sheet instead.
+Pixel art throughout: one palette (`PAL` in `art/make_pixels.mjs`, mirrored as CSS variables in `index.html`), two pixel fonts, hard edges. No rounded corners, glows, gradients, emoji or text symbols as icons; use a sprite from the sheet instead. See-through areas (danger zones, auras) are a checkerboard `dither()` fill with a `dashRing()` outline in `src/render.js`, never a soft alpha fade.

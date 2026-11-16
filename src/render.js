@@ -137,20 +137,50 @@ function ground(rocks) {
   const disc = (cx, cy, r, shade) => {
     for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) { const q = x * x + y * y; if (q <= r * r + r * 0.6) dot(cx + x, cy + y, shade(x, y, q)); }
   };
+  // Boulders: an uneven outline, a dark side face, and a top cut into facets that catch the light from the top-left.
   for (const k of rocks) {
-    const x = Math.round(k.x / PX), y = Math.round(k.y / PX), r = Math.round(k.r / PX), lift = Math.max(2, Math.round(r * 0.3));
-    c.globalAlpha = 0.45; disc(x + 2, y + 3, r, () => '#0c0816'); c.globalAlpha = 1;       // shadow
-    disc(x, y, r + 1, () => PAL.k); disc(x, y, r, () => PAL.g4);                         // side face, outlined
-    disc(x, y - lift, r + 1, () => PAL.k);
-    disc(x, y - lift, r, (dx, dy) => { const t = -(dx + dy) / (2 * r); return t > 0.32 ? PAL.g1 : t > 0.05 ? PAL.g2 : t > -0.3 ? '#6f6a7d' : PAL.g3; });   // lit top
-    for (let i = 0; i < 2 + r / 6; i++) {                                               // cracks
-      let px = x + Math.floor((rn() - 0.5) * r), py = y - lift + Math.floor((rn() - 0.5) * r);
-      for (let j = 0; j < 3 + r / 5; j++) { if ((px - x) ** 2 + (py - y + lift) ** 2 < (r - 1) ** 2) dot(px, py, PAL.g4); px += rn() < 0.6 ? 1 : 0; py += rn() < 0.6 ? 1 : -1; }
-    }
+    const x = Math.round(k.x / PX), y = Math.round(k.y / PX), r = Math.round(k.r / PX), up = Math.max(2, Math.round(r * 0.3));
+    const n = 7 + Math.floor(rn() * 3), a0 = rn() * 6.283, rad = Array.from({ length: n }, () => 0.86 + rn() * 0.18);
+    const sector = a => ((a - a0) % 6.283 + 6.283) % 6.283 / 6.283 * n;
+    const edge = a => { const u = sector(a), i = Math.floor(u), f = u - i; return r * (rad[i % n] * (1 - f) + rad[(i + 1) % n] * f); };
+    const blob = (ox, oy, grow, shade) => {
+      for (let dy = -r - 2; dy <= r + 2; dy++) for (let dx = -r - 2; dx <= r + 2; dx++) {
+        const q = Math.hypot(dx, dy), a = Math.atan2(dy, dx); if (q <= edge(a) + grow) dot(x + dx + ox, y + dy + oy, shade(dx, dy, q, a));
+      }
+    };
+    const tone = [PAL.g3, '#6f6a7d', PAL.g2, PAL.g1];
+    c.globalAlpha = 0.45; blob(2, 3, 0, () => '#0c0816'); c.globalAlpha = 1;             // shadow
+    blob(0, 0, 1, () => PAL.k); blob(0, 0, 0, (dx) => (dx > r * 0.3 ? PAL.g5 : PAL.g4));  // side face
+    blob(0, -up, 1, () => PAL.k);
+    blob(0, -up, 0, (dx, dy, q, a) => {
+      if (q < r * 0.42) return -(dx + dy) > r * 0.12 ? PAL.g1 : PAL.g2;                 // flat cap
+      const u = sector(a), i = Math.floor(u), mid = a0 + (i + 0.5) * 6.283 / n;
+      if (u - i < 0.07 * n / 6.283 * 6 / Math.max(3, q)) return PAL.g3;                 // seam between facets
+      const lit = -(Math.cos(mid) + Math.sin(mid)) / 1.414;
+      return tone[Math.max(0, Math.min(3, Math.round((lit + 1) * 1.4)))];
+    });
+    if (rn() < 0.45) for (let i = 0; i < 5; i++) dot(x - Math.floor(rn() * r * 0.5), y - up - Math.floor(rn() * r * 0.4), i % 2 ? PAL.gr2 : PAL.gr3);   // moss
   }
   c.fillStyle = PAL.br3; c.fillRect(0, 0, W, 4); c.fillRect(0, H - 4, W, 4); c.fillRect(0, 0, 4, H); c.fillRect(W - 4, 0, 4, H);   // wall
   c.fillStyle = PAL.r2; c.fillRect(4, 4, W - 8, 1); c.fillRect(4, H - 5, W - 8, 1); c.fillRect(4, 4, 1, H - 8); c.fillRect(W - 5, 4, 1, H - 8);
   return groundCv;
+}
+
+// A checkerboard fill in one colour: the pixel-art way to draw something see-through.
+const dithers = {};
+function dither(cx, col) {
+  if (!dithers[col]) {
+    const c = document.createElement('canvas'); c.width = c.height = 2;
+    const d = c.getContext('2d'); d.fillStyle = col; d.fillRect(0, 0, 1, 1); d.fillRect(1, 1, 1, 1);
+    const p = cx.createPattern(c, 'repeat'); if (p.setTransform) p.setTransform(new DOMMatrix().scale(PX));
+    dithers[col] = p;
+  }
+  return dithers[col];
+}
+// A marching dashed circle: the outline of a danger zone.
+function dashRing(cx, x, y, r, col, t, w = 2) {
+  cx.strokeStyle = col; cx.lineWidth = w; cx.setLineDash([8, 8]); cx.lineDashOffset = -t * 40;
+  cx.beginPath(); cx.arc(x, y, r, 0, 7); cx.stroke(); cx.setLineDash([]);
 }
 
 // ---------- creatures ----------
@@ -165,48 +195,56 @@ function shapePath(cx, s, r) {                  // fallback when the sheet has n
 function drawEnt(cx, g, e) {
   const d = T[e.type], t = g.t;
   cx.save(); cx.translate(snap(e.x), snap(e.y));
-  if (e.boss) {
-    // The nemesis: a pulsing red aura so it never reads as just a big enemy.
-    const k = 0.5 + 0.5 * Math.sin(t * 5), R = e.r * 1.9;
-    const gr = cx.createRadialGradient(0, 0, e.r * 0.6, 0, 0, R);
-    gr.addColorStop(0, `rgba(228,59,68,${0.35 + 0.2 * k})`); gr.addColorStop(1, 'rgba(228,59,68,0)');
-    cx.fillStyle = gr; cx.beginPath(); cx.arc(0, 0, R, 0, 7); cx.fill();
+  if (e.boss) {                                 // the nemesis stands in a red, marching ring
+    cx.fillStyle = dither(cx, PAL.r2); cx.beginPath(); cx.arc(0, 0, e.r * 1.5, 0, 7); cx.fill();
+    dashRing(cx, 0, 0, e.r * 1.5, e.enraged ? PAL.r3 : PAL.r, t * (e.enraged ? 3 : 1), 4);
   }
-  if (e.elite) { cx.strokeStyle = Math.sin(t * 8) > 0 ? PAL.y : PAL.gold; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r * 1.4, 0, 7); cx.stroke(); }
-  // Tells: what an enemy is about to do, drawn before it happens.
+  if (e.elite) dashRing(cx, 0, 0, e.r * 1.4, PAL.y, t);
+  // Tells: what an enemy is about to do, drawn before it happens. Dithered red zones with marching outlines.
+  const blink = Math.sin(t * 24) > 0;
   if (e.wind > 0 && !(e.boss && (e.type === 'slime' || e.type === 'bomber' || e.type === 'wisp'))) {
     const len = e.boss ? 620 : 300, w = e.r * 2;                       // charge lane / arrow fan
-    cx.save(); cx.rotate(e.ang); cx.fillStyle = `rgba(228,59,68,${0.2 + 0.15 * Math.sin(t * 30)})`;
-    if (e.boss && e.type === 'archer') { cx.beginPath(); cx.moveTo(0, 0); cx.arc(0, 0, len, -0.48, 0.48); cx.closePath(); cx.fill(); }
-    else cx.fillRect(0, -w / 2, len, w);
+    cx.save(); cx.rotate(e.ang); cx.fillStyle = dither(cx, blink ? PAL.r : PAL.r2);
+    if (e.boss && e.type === 'archer') {
+      cx.beginPath(); cx.moveTo(0, 0); cx.arc(0, 0, len, -0.48, 0.48); cx.closePath(); cx.fill();
+      cx.strokeStyle = PAL.r; cx.lineWidth = 2; cx.stroke();
+    } else {
+      cx.fillRect(0, -w / 2, len, w);
+      cx.fillStyle = PAL.r; cx.fillRect(0, -w / 2 - 2, len, 2); cx.fillRect(0, w / 2, len, 2);
+      for (let q = (t * 260) % 64 + e.r; q < len - 8; q += 64) spr(cx, 'chev', q, 0, 0, e.boss ? 2 : 1);   // chevrons march the way it will go
+    }
     cx.restore();
   }
   if (e.boss && e.wind > 0 && e.type === 'bomber') {
-    cx.fillStyle = `rgba(228,59,68,${0.14 + 0.1 * Math.sin(t * 30)})`; cx.beginPath(); cx.arc(0, 0, BOSS_BLAST, 0, 7); cx.fill();
-    cx.strokeStyle = PAL.r; cx.lineWidth = 2; cx.stroke();
+    cx.fillStyle = dither(cx, blink ? PAL.r : PAL.r2); cx.beginPath(); cx.arc(0, 0, BOSS_BLAST, 0, 7); cx.fill();
+    dashRing(cx, 0, 0, BOSS_BLAST, PAL.r3, t * 2, 4);
   }
   if (e.boss && e.wind > 0 && e.type === 'slime') {
-    cx.strokeStyle = PAL.r; cx.lineWidth = 2; cx.fillStyle = 'rgba(228,59,68,.16)';
-    cx.beginPath(); cx.arc(e.jx - e.x, e.jy - e.y, e.r, 0, 7); cx.fill(); cx.stroke();
+    const jx = snap(e.jx - e.x), jy = snap(e.jy - e.y);
+    cx.fillStyle = dither(cx, blink ? PAL.r : PAL.r2); cx.beginPath(); cx.arc(jx, jy, e.r, 0, 7); cx.fill();
+    dashRing(cx, jx, jy, e.r, PAL.r3, t * 2, 4);
   }
-  if (e.aim > 0) {
-    cx.strokeStyle = `rgba(254,231,97,${0.35 + 0.5 * (1 - e.aim / 0.5)})`; cx.lineWidth = 2; cx.beginPath();
-    cx.moveTo(0, 0); cx.lineTo(Math.cos(e.aimAng) * 420, Math.sin(e.aimAng) * 420); cx.stroke();
+  if (e.aim > 0) {                              // an archer's aim: a dashed line that firms up just before the shot
+    cx.strokeStyle = e.aim < 0.18 ? PAL.w : PAL.y; cx.lineWidth = 2; cx.setLineDash(e.aim < 0.18 ? [] : [8, 6]); cx.lineDashOffset = -t * 60;
+    cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(Math.cos(e.aimAng) * 420, Math.sin(e.aimAng) * 420); cx.stroke(); cx.setLineDash([]);
   }
-  if (e.warn) { cx.strokeStyle = PAL.r; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r + 6, 0, 7); cx.stroke(); }
   if (e.fuse > 0 && e.team === 'enemy') {
-    cx.fillStyle = `rgba(228,59,68,${0.12 + 0.12 * Math.sin(t * 40)})`; cx.beginPath(); cx.arc(0, 0, 70, 0, 7); cx.fill();
-    cx.strokeStyle = PAL.r; cx.lineWidth = 2; cx.stroke();
+    cx.fillStyle = dither(cx, blink ? PAL.r : PAL.r2); cx.beginPath(); cx.arc(0, 0, 70, 0, 7); cx.fill();
+    dashRing(cx, 0, 0, 70, PAL.r3, t * 2);
   }
   const name = 'c_' + e.type, a = ATLAS[name];
   if (a && atlasImg) {
     // Side-view sprite, flipped to face the way it is going, standing on a shadow. Flyers hover above theirs.
-    if (!offs.has(e)) offs.set(e, Math.floor(Math.random() * 2));
+    if (!offs.has(e)) offs.set(e, Math.floor(Math.random() * 4));
     const scale = e.r / d.r, h = a.h * PX * scale, lift = d.fly ? 10 : 0, flip = Math.cos(e.ang) < 0;
-    const cy = e.r * 0.8 - h / 2 - lift, f = Math.floor(t * (d.fly ? 9 : 5)) + offs.get(e);
+    const cy = e.r * 0.8 - h / 2 - lift, f = Math.floor(t * (d.fly ? 12 : 7)) + offs.get(e);
     spr(cx, 'shadow', 0, e.r * 0.8, 0, e.r / 8 * (lift ? 0.8 : 1));
     spr(cx, name, 0, cy, f, scale, flip);
     if (e.flash > 0) { cx.globalAlpha = 0.85; spr(cx, name, 0, cy, f, scale, flip, true); cx.globalAlpha = 1; }
+    if (e.warn && blink) {                      // about to dive: a red exclamation mark overhead
+      const ty = cy - h / 2 - 18;
+      cx.fillStyle = PAL.k; cx.fillRect(-4, ty - 2, 8, 18); cx.fillStyle = PAL.r3; cx.fillRect(-2, ty, 4, 8); cx.fillRect(-2, ty + 10, 4, 4);
+    }
     if (e.team === 'ally') {                    // your nemeses carry a small green marker overhead
       cx.fillStyle = PAL.k; cx.fillRect(-4, cy - h / 2 - 12, 8, 8); cx.fillStyle = PAL.mint; cx.fillRect(-2, cy - h / 2 - 10, 4, 4);
     }
@@ -230,7 +268,7 @@ function drawPlayer(cx, g) {
   pPrev = { x: P.x, y: P.y };
   const a = ATLAS.c_player, x = snap(P.x), y = snap(P.y);
   if (a && atlasImg) {
-    const cy = y + P.r * 0.8 - a.h * PX / 2, f = moving ? Math.floor(g.t * 8) : 0;
+    const cy = y + P.r * 0.8 - a.h * PX / 2, f = moving ? Math.floor(g.t * 10) : Math.floor(g.t * 2) % 2;   // walk cycle, or a slow breathing bob when standing
     spr(cx, 'shadow', x, y + P.r * 0.8, 0, 1.3);
     spr(cx, 'c_player', x, cy, f, 1, pFlip);
     if (P.flash > 0) { cx.globalAlpha = 0.85; spr(cx, 'c_player', x, cy, f, 1, pFlip, true); cx.globalAlpha = 1; }
@@ -297,8 +335,8 @@ export function draw(cv, cx, g, hud, hx) {
     spr(cx, 'fire', f.x, f.y, t * 9 + f.x, f.r / 16);
   }
   if (P.charm === 'ember' && g.state !== 'dead') {       // Ember Heart aura
-    cx.fillStyle = `rgba(247,118,34,${0.08 + 0.04 * Math.sin(t * 9)})`; cx.beginPath(); cx.arc(P.x, P.y, EMBER_R, 0, 7); cx.fill();
-    cx.strokeStyle = 'rgba(247,118,34,.5)'; cx.lineWidth = 2; cx.stroke();
+    cx.fillStyle = dither(cx, PAL.r2); cx.beginPath(); cx.arc(snap(P.x), snap(P.y), EMBER_R, 0, 7); cx.fill();
+    dashRing(cx, snap(P.x), snap(P.y), EMBER_R, PAL.o, t);
   }
   for (const gem of g.gems) spr(cx, gem.v >= 5 ? 'gem_big' : 'gem', gem.x, gem.y, t * 3 + gem.x * 0.1);
   for (const c of g.chests) { spr(cx, 'shadow', c.x, c.y + 14, 0, 2); spr(cx, 'chest', c.x, c.y + (Math.sin(t * 5) > 0 ? -2 : 0)); }
@@ -310,7 +348,7 @@ export function draw(cv, cx, g, hud, hx) {
   if (g.decoy) {                                         // Decoy: a ghost of you with a shrinking fuse ring
     const d = g.decoy;
     cx.globalAlpha = 0.6; spr(cx, 'c_player', d.x, d.y + P.r * 0.8 - ATLAS.c_player.h, 0, 1, pFlip); cx.globalAlpha = 1;
-    cx.strokeStyle = PAL.w; cx.lineWidth = 2; cx.beginPath(); cx.arc(d.x, d.y, 12 + 98 * Math.min(1, d.life / 2.5), 0, 7); cx.stroke();
+    dashRing(cx, snap(d.x), snap(d.y), 12 + 98 * Math.min(1, d.life / 2.5), PAL.w, t * 2);
   }
 
   // Creatures and the player, drawn back to front so nearer ones overlap farther ones.
@@ -329,21 +367,29 @@ export function draw(cv, cx, g, hud, hx) {
     const a = t * 3.2 + k * 6.283 / P.blades; spr(cx, 'blade', P.x + Math.cos(a) * BLADE_R, P.y + Math.sin(a) * BLADE_R, t * 12, 1.2);
   }
   for (const s of sweeps) {                              // Greatsword arcs
-    const k = s.life / 0.16;
-    cx.fillStyle = `rgba(192,244,255,${0.45 * k})`; cx.beginPath(); cx.moveTo(s.x, s.y); cx.arc(s.x, s.y, s.r, s.a - s.half, s.a + s.half); cx.closePath(); cx.fill();
-    cx.strokeStyle = `rgba(244,241,232,${k})`; cx.lineWidth = 4; cx.beginPath(); cx.arc(s.x, s.y, s.r, s.a - s.half, s.a + s.half); cx.stroke();
+    // Solid bands, no fading: a white edge with two blue trails that drop away as the swing ends.
+    const k = s.life / 0.16, arc = (r, w, col) => { cx.strokeStyle = col; cx.lineWidth = w; cx.beginPath(); cx.arc(snap(s.x), snap(s.y), r, s.a - s.half, s.a + s.half); cx.stroke(); };
+    if (k > 0.66) arc(s.r - 22, 8, PAL.c2);
+    if (k > 0.33) arc(s.r - 12, 8, PAL.ice);
+    arc(s.r - 3, 6, PAL.w);
   }
   for (const b of bolts) {                               // Storm Rod lightning: a jagged line through each target
-    cx.strokeStyle = b.life > 0.07 ? PAL.w : PAL.c; cx.lineWidth = 2; cx.beginPath();
-    b.pts.forEach((p, k) => {
-      if (!k) return cx.moveTo(p.x, p.y);
-      const q = b.pts[k - 1]; cx.lineTo((p.x + q.x) / 2 + rnd(-10, 10), (p.y + q.y) / 2 + rnd(-10, 10)); cx.lineTo(p.x, p.y);
-    });
-    cx.stroke();
+    // A blue glow with a white core, kinked once between each pair of targets.
+    if (!b.kinks) b.kinks = b.pts.map(() => [snap(rnd(-12, 12)), snap(rnd(-12, 12))]);
+    for (const [w, col] of [[6, PAL.c2], [2, b.life > 0.06 ? PAL.w : PAL.ice]]) {
+      cx.strokeStyle = col; cx.lineWidth = w; cx.beginPath();
+      b.pts.forEach((p, k) => {
+        if (!k) return cx.moveTo(snap(p.x), snap(p.y));
+        const q = b.pts[k - 1]; cx.lineTo(snap((p.x + q.x) / 2) + b.kinks[k][0], snap((p.y + q.y) / 2) + b.kinks[k][1]); cx.lineTo(snap(p.x), snap(p.y));
+      });
+      cx.stroke();
+    }
   }
   for (const r of rings) {
-    const k = 1 - r.life / 0.35;
-    cx.strokeStyle = `rgba(244,241,232,${1 - k})`; cx.lineWidth = 4; cx.beginPath(); cx.arc(r.x, r.y, r.r * (0.3 + 0.7 * k), 0, 7); cx.stroke();
+    // A shockwave: a solid white ring that thins, then breaks into dashes as it spreads.
+    const k = 1 - r.life / 0.35, rad = r.r * (0.3 + 0.7 * k);
+    if (k < 0.55) { cx.strokeStyle = PAL.w; cx.lineWidth = k < 0.25 ? 6 : 4; cx.beginPath(); cx.arc(snap(r.x), snap(r.y), rad, 0, 7); cx.stroke(); }
+    else dashRing(cx, snap(r.x), snap(r.y), rad, PAL.g1, 0);
   }
   for (const b of g.bullets) {
     const key = (b.color || '#fff').slice(1).toLowerCase();
@@ -410,7 +456,8 @@ export function draw(cv, cx, g, hud, hx) {
 
   // Bottom-right: the ability slot, with a cooldown that drains downward.
   {
-    const ab = ABILITIES[P.ability], x = W - 70, y = H - 78, left = Math.max(0, P.actT), ready = left <= 0;
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches;   // on touch, the button sits in the corner
+    const ab = ABILITIES[P.ability], x = W - (touch ? 150 : 70), y = H - 78, left = Math.max(0, P.actT), ready = left <= 0;
     panel(cx, x, y, 56, 56, ready ? 'rgba(38,92,66,.9)' : 'rgba(26,20,35,.9)');
     cx.globalAlpha = ready ? 1 : 0.45; icon(cx, 'i_' + P.ability, x + 4, y + 4, 3); cx.globalAlpha = 1;
     if (!ready) {
@@ -418,7 +465,7 @@ export function draw(cv, cx, g, hud, hx) {
       cx.fillStyle = 'rgba(26,20,35,.7)'; cx.fillRect(x + 2, y + 2, 52, fh);
       cx.textAlign = 'center'; label(cx, Math.ceil(left), x + 28, y + 36, PAL.w, `bold 20px ${TITLE}`);
     }
-    cx.textAlign = 'center'; label(cx, ready ? 'SPACE' : ab.n.toUpperCase(), x + 28, y + 72, ready ? PAL.mint : PAL.g2, `10px ${TITLE}`);
+    cx.textAlign = 'center'; label(cx, ready ? (touch ? 'READY' : 'SPACE') : ab.n.toUpperCase(), x + 28, y + 72, ready ? PAL.mint : PAL.g2, `10px ${TITLE}`);
     // Timed effects stack above it.
     const eff = [];
     if (g.frenzyT > 0) eff.push(['pu_frenzy', Math.ceil(g.frenzyT) + 's']);
