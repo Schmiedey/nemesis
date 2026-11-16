@@ -9,16 +9,18 @@ addEventListener('resize', () => resize(cv)); resize(cv);
 
 let save = loadSave();
 let g = null;
-let mode = 'start'; // start | play | lvl | pause | dead | won
+let mode = 'start'; // start | roster | play | lvl | pause | dead | won
 const keys = {};
 
-function toStart() { mode = 'start'; ui.showStart(save, toggleParty); }
+function toStart() { mode = 'start'; g = null; ui.showStart(save, bossTypeFor(save)); }
+function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty); }
+function resume() { if (mode === 'pause') { mode = 'play'; ui.setPause(false); } }
 
 function toggleParty(id) {
   const i = save.party.indexOf(id);
   if (i >= 0) save.party.splice(i, 1);
   else if (save.party.length < PARTY_SIZE) save.party.push(id);
-  writeSave(save); ui.showStart(save, toggleParty);
+  writeSave(save); ui.showRoster(save, toggleParty);
 }
 
 function begin() {
@@ -67,15 +69,21 @@ function onWin() {
 addEventListener('keydown', e => {
   keys[e.code] = true;
   const over = mode === 'dead' || mode === 'won';
-  if (e.code === 'Space' && (mode === 'start' || over)) { e.preventDefault(); begin(); }
-  else if (e.code === 'KeyC' && over) toStart();
+  const menu = mode === 'start' || mode === 'roster';
+  if (e.code === 'Space' && (menu || over)) { e.preventDefault(); begin(); }
+  else if ((e.code === 'KeyR' || e.code === 'KeyC') && (mode === 'start' || over)) toRoster();
+  else if (e.code === 'Escape' && (mode === 'roster' || over)) toStart();
+  else if (e.code === 'KeyQ' && mode === 'pause') toStart();
   else if ((e.code === 'Escape' || e.code === 'KeyP') && (mode === 'play' || mode === 'pause')) {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
   } else if (mode === 'lvl') { const i = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code); if (i >= 0) choose(i); }
 });
 addEventListener('keyup', e => keys[e.code] = false);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
-ui.onReset(() => { if (confirm('Forget all your nemeses?')) { save = resetSave(); toStart(); } });
+ui.bindMenus({
+  play: begin, roster: toRoster, menu: toStart, resume,
+  reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
+});
 
 const input = () => ({
   mx: (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0),
@@ -101,4 +109,4 @@ toStart();
 requestAnimationFrame(loop);
 
 // Debug hook for automated tests (Playwright).
-window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart };
+window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster };

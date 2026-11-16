@@ -1,72 +1,140 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEMESIS</title>
 <style>
-html,body{margin:0;height:100%;background:#050508;overflow:hidden;font-family:ui-monospace,Menlo,monospace;color:#eee}
+:root{--red:#ff3b5c;--green:#7dffb0;--gold:#ffd23f;--ink:#050508;--panel:#12121a;--line:#2a2a38;--dim:#9a9aae}
+html,body{margin:0;height:100%;background:var(--ink);overflow:hidden;font-family:ui-monospace,Menlo,monospace;color:#eee}
 canvas{display:block}
-.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,8,12,.88);text-align:center;gap:14px;padding:20px}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,8,12,.88);text-align:center;gap:16px;padding:20px;overflow:auto}
 .hidden{display:none!important}
-h1{font-size:72px;margin:0;letter-spacing:10px;color:#ff3b5c;text-shadow:0 0 30px #ff3b5c88}
-h2{font-size:34px;margin:0}
-.sub{color:#aaa;font-size:16px;max-width:520px;line-height:1.5}
-.key{display:inline-block;border:1px solid #555;border-radius:4px;padding:2px 8px;color:#fff}
-.roster{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:30px}
-.chip{border:1px solid;border-radius:20px;padding:4px 12px;font-size:14px}
+.soft{background:rgba(8,8,12,.7)}
+.menu{background:radial-gradient(ellipse at 50% 38%,#2a0b16 0%,#0a0a10 55%,var(--ink) 100%)}
+.menu::before{content:"";position:absolute;inset:0;background:linear-gradient(#ffffff06 1px,transparent 1px) 0 0/40px 40px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/40px 40px;pointer-events:none}
+.menu>*{position:relative}
+h2{font-size:34px;margin:0;letter-spacing:3px}
+.sub{color:var(--dim);font-size:15px;max-width:560px;line-height:1.5}
+.sub b{color:#fff}
+.big{font-size:20px}
+.key{display:inline-block;border:1px solid #555;border-bottom-width:3px;border-radius:5px;padding:1px 8px;color:#fff;font-size:.9em}
+.pulse{animation:p 1.2s infinite}@keyframes p{50%{opacity:.4}}
+
+/* Logo: red wordmark with a green reflection. What kills you (red) joins you (green). */
+.logo{font:900 96px/0.9 Impact,'Arial Black',sans-serif;letter-spacing:14px;margin:0 0 .5em;padding-left:14px;position:relative;
+  background:linear-gradient(#fff 5%,var(--red) 60%,#8a1230);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 22px #ff3b5c77)}
+.logo::after{content:attr(data-t);position:absolute;left:0;top:100%;padding-left:14px;transform:scaleY(-1);margin-top:-.14em;
+  background:linear-gradient(transparent 45%,var(--green));-webkit-background-clip:text;background-clip:text;color:transparent;opacity:.45;pointer-events:none}
+.logo.sm{font-size:56px;letter-spacing:8px}
+.logo.win{background-image:linear-gradient(#fff 5%,var(--green) 60%,#1c7a4a);filter:drop-shadow(0 0 22px #7dffb077)}
+.tag{color:#fff;font-size:17px;letter-spacing:1px}
+.tag em{font-style:normal;color:var(--red)}.tag i{font-style:normal;color:var(--green)}
+
+.btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+button{background:var(--panel);border:1px solid #444;color:#ddd;border-radius:8px;padding:10px 18px;font:inherit;font-size:15px;cursor:pointer;transition:.12s}
+button:hover{border-color:#fff;color:#fff;transform:translateY(-2px)}
+button.go{background:var(--red);border-color:var(--red);color:#fff;font-weight:bold;font-size:18px;padding:12px 30px;box-shadow:0 0 24px #ff3b5c55}
+button.go:hover{background:#ff5874}
+button.quiet{background:none;border-color:var(--line);color:#777;font-size:12px;padding:6px 12px}
+button .key{margin-left:8px;font-size:11px;opacity:.8}
+
+/* Animated creature portrait cut from a sprite sheet (8 frames in a row). */
+.spr{display:inline-block;flex:none;width:var(--s,48px);height:var(--s,48px);background-size:calc(var(--s,48px)*8) var(--s,48px);background-repeat:no-repeat;animation:spr .57s steps(8) infinite}
+@keyframes spr{to{background-position-x:calc(var(--s,48px)*-8)}}
+
+.slots{display:flex;gap:10px;justify-content:center}
+.slot{width:170px;height:56px;border:1px dashed var(--line);border-radius:10px;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:13px;color:#555;text-align:left;box-sizing:border-box}
+.slot.full{border:1px solid var(--green);background:#0f1a15;color:#ddd;box-shadow:0 0 12px #7dffb022}
+.slot b{display:block;font-size:13px}.slot span{font-size:11px;color:var(--dim)}
+.stats{display:flex;gap:10px;justify-content:center}
+.stat{min-width:92px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.stat b{display:block;font-size:22px;color:#fff}.stat span{font-size:11px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.stat.best b{color:var(--gold)}
+.how{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--dim)}
+
+.roster{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:920px;max-height:46vh;overflow:auto;padding:4px}
+.nem{width:210px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;display:flex;gap:8px;align-items:center;font-size:12px;color:#aaa;transition:.12s;box-sizing:border-box;position:relative}
+.nem:hover{border-color:#666}
+.nem>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.nem.on{border-color:var(--green);box-shadow:0 0 12px #7dffb044;background:#0f1a15}
+.nem b{font-size:14px}.nem .perks{color:var(--gold)}.nem .pick{color:#666;font-size:11px}.nem.on .pick{color:var(--green)}
+.nem.show{cursor:default;width:360px;padding:14px}
+.stamp{position:absolute;right:10px;top:10px;border:2px solid var(--green);color:var(--green);background:#07120c;font-weight:bold;font-size:13px;letter-spacing:2px;padding:3px 8px;border-radius:4px;transform:rotate(8deg);animation:stamp .45s .5s cubic-bezier(.2,2,.4,1) backwards}
+.stamp.no{border-color:#666;color:#888;background:#111}
+@keyframes stamp{from{transform:rotate(8deg) scale(3);opacity:0}}
+.killer{display:flex;align-items:center;gap:6px;justify-content:center}
+.killer .spr{filter:drop-shadow(0 0 14px var(--c))}
+
 .cards{display:flex;gap:16px}
 .card{width:180px;padding:20px 14px;border:1px solid #444;border-radius:10px;background:#15151f;cursor:pointer;transition:.15s}
-.card:hover{border-color:#ffd23f;transform:translateY(-4px)}
-.card b{display:block;font-size:18px;margin-bottom:8px;color:#ffd23f}
+.card:hover{border-color:var(--gold);transform:translateY(-4px)}
+.card b{display:block;font-size:18px;margin-bottom:8px;color:var(--gold)}
 .card span{color:#bbb;font-size:13px}
-button{background:none;border:1px solid #444;color:#777;border-radius:6px;padding:6px 12px;font-family:inherit;cursor:pointer}
-.pulse{animation:p 1.2s infinite}@keyframes p{50%{opacity:.4}}
-.big{font-size:20px}
-.soft{background:rgba(8,8,12,.7)}
-.roster{max-width:900px;max-height:42vh;overflow:auto}
-.nem{width:190px;padding:10px 12px;border:1px solid #333;border-radius:10px;background:#12121a;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:3px;font-size:12px;color:#aaa}
-.nem.on{border-color:#7dffb0;box-shadow:0 0 12px #7dffb044}
-.nem b{font-size:14px}.nem .perks{color:#ffd23f}.nem .tag{color:#666;font-size:11px}.nem.on .tag{color:#7dffb0}
-.card.ally b{color:#7dffb0}
+.card.ally b{color:var(--green)}
+@media (max-height:640px){.logo{font-size:64px}.ov{gap:10px}}
 </style></head><body>
 <canvas id="c"></canvas>
 
-<div id="start" class="ov hidden">
-  <h1>NEMESIS</h1>
-  <div class="sub">Survive the swarm. Your aim is automatic.<br><b style="color:#fff">Whatever kills you joins you, with the powers you died holding.</b><br>Pick up to 3 nemeses. Kill your true nemesis at 5:00.</div>
-  <div class="sub"><span class="key">WASD</span> / <span class="key">Arrows</span> to move · <span class="key">Esc</span> to pause</div>
-  <div class="sub" id="startParty"></div>
-  <div class="roster" id="startRoster"></div>
-  <div class="sub" id="startBest"></div>
-  <div class="big pulse">Press <span class="key">SPACE</span> to start</div>
-  <button id="reset">reset nemeses</button>
+<div id="start" class="ov menu hidden">
+  <h1 class="logo" data-t="NEMESIS">NEMESIS</h1>
+  <div class="tag">Whatever <em>kills you</em>, <i>joins you</i>.</div>
+  <div class="slots" id="startParty"></div>
+  <div class="sub" id="startBoss"></div>
+  <div class="btns">
+    <button class="go" id="bPlay">START RUN <span class="key">SPACE</span></button>
+    <button id="bRoster">ROSTER <span class="key">R</span></button>
+  </div>
+  <div class="stats" id="startStats"></div>
+  <div class="how"><span><span class="key">WASD</span> / <span class="key">Arrows</span> move</span><span>aim is automatic</span><span><span class="key">Esc</span> pause</span></div>
+</div>
+
+<div id="roster" class="ov menu hidden">
+  <h1 class="logo sm" data-t="ROSTER">ROSTER</h1>
+  <div class="sub" id="rosterHint"></div>
+  <div class="slots" id="rosterParty"></div>
+  <div class="roster" id="rosterList"></div>
+  <div class="btns">
+    <button class="go" id="bRosterPlay">START RUN <span class="key">SPACE</span></button>
+    <button id="bBack">BACK <span class="key">Esc</span></button>
+  </div>
+  <button class="quiet" id="reset">forget all nemeses</button>
 </div>
 
 <div id="dead" class="ov hidden">
+  <div class="killer" id="dKiller"></div>
   <h2 id="dTitle"></h2>
-  <div class="sub big" id="dJoin"></div>
-  <div class="sub" id="dStats"></div>
   <div class="roster" id="dCard"></div>
+  <div class="sub big" id="dJoin"></div>
+  <div class="stats" id="dStats"></div>
   <div class="sub" id="dTease"></div>
-  <div class="big pulse">Press <span class="key">SPACE</span> to go again</div>
-  <div class="sub"><span class="key">C</span> to change your party</div>
+  <div class="btns">
+    <button class="go" id="bAgain">GO AGAIN <span class="key">SPACE</span></button>
+    <button id="bDeadRoster">ROSTER <span class="key">R</span></button>
+    <button id="bDeadMenu">MENU <span class="key">Esc</span></button>
+  </div>
 </div>
 
 <div id="won" class="ov hidden">
-  <h1 style="color:#7dffb0;text-shadow:0 0 30px #7dffb088">NEMESIS SLAIN</h1>
-  <div class="sub" id="wStats"></div>
+  <h1 class="logo sm win" data-t="NEMESIS SLAIN">NEMESIS SLAIN</h1>
+  <div class="stats" id="wStats"></div>
   <div class="sub big" id="wNote"></div>
   <div class="roster" id="wParty"></div>
-  <div class="big pulse">Press <span class="key">SPACE</span> to go again</div>
-  <div class="sub"><span class="key">C</span> to change your party</div>
+  <div class="btns">
+    <button class="go" id="bWonAgain">GO AGAIN <span class="key">SPACE</span></button>
+    <button id="bWonRoster">ROSTER <span class="key">R</span></button>
+    <button id="bWonMenu">MENU <span class="key">Esc</span></button>
+  </div>
 </div>
 
 <div id="lvl" class="ov soft hidden">
-  <h2 style="color:#ffd23f">LEVEL UP</h2>
+  <h2 style="color:var(--gold)">LEVEL UP</h2>
   <div class="cards" id="cards"></div>
   <div class="sub">Click or press <span class="key">1</span> <span class="key">2</span> <span class="key">3</span></div>
 </div>
 
 <div id="pause" class="ov soft hidden">
   <h2>PAUSED</h2>
-  <div class="sub">Press <span class="key">Esc</span> to resume</div>
+  <div class="btns">
+    <button class="go" id="bResume">RESUME <span class="key">Esc</span></button>
+    <button id="bQuit">QUIT TO MENU <span class="key">Q</span></button>
+  </div>
 </div>
 
 <script type="module" src="/src/main.js"></script>

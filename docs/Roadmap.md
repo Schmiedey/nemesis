@@ -2,19 +2,19 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 in progress on branch `phase-2-art`: all 6 enemies and the player have Blender sprites in game; the boss is its enemy's sprite scaled up with a red aura. Next: menus, roster screen, death screen, logo, then sound.
+**Status:** Phase 2 in progress on branch `phase-2-art`: sprites for everything, plus logo, title menu, roster screen, death and win screens (with a RECRUITED stamp) and a pause menu. Next: sound effects and soundtrack in code, then Phase 2 is done.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
 - [x] Earned recruits, draft 3 allies, limited ally respawns
 - [x] Boss at ~5:00 and a win screen; killer inherits your build
-- [ ] Not done: per-type ally evolutions, distinct counter-play per enemy, visible "RECRUITED" moment
+- [ ] Not done: per-type ally evolutions, distinct counter-play per enemy, visible "RECRUITED" moment (stamp on the death screen added in Phase 2)
 - Done when: dying early on purpose is a bad strategy and you want to replay.
 
 ## Phase 2: Make it look and sound good
 - [x] Blender script that renders a creature to a sprite sheet (`art/make_sprites.py`), proven on the Bat
 - [x] Slime, Archer, Brute, Bomber, Wisp, player; boss = giant sprite of its type with a red aura
-- [ ] Menus, roster screen, death screen, logo
+- [x] Menus, roster screen, death screen, logo
 - [ ] Sound effects and soundtrack made in code
 - Done when: no placeholder shapes or silent actions remain.
 
