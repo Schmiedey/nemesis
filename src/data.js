@@ -98,3 +98,30 @@ export const FEATS = [
   { id: 'daily', n: 'Daily Grind', d: 'Survive 3:00 in a daily run', boon: 'blade', test: (s, r) => !!r.daily && r.t >= 180 },
 ];
 export const upName = id => (UP.find(u => u.id === id) || {}).n || id;
+
+// ---------- gear: weapons and abilities (rules in src/sim.js) ----------
+// A weapon replaces how you attack. `up` rewrites what Split Shot and Piercing do for it; `no` lists upgrades that do nothing for it.
+export const WEAPONS = {
+  blaster: { n: 'Blaster', i: '➤', d: 'Fires shots at the nearest enemy.' },
+  sword: { n: 'Greatsword', i: '⚔', d: 'Sweeps a wide arc, throwing back everything in reach.',
+    up: { shots: 'Sweep behind you too, then all around', pierce: 'Longer reach' } },
+  rang: { n: 'Boomerang', i: '☽', d: 'Flies out and returns, cutting both ways. Catch it to throw sooner.',
+    up: { shots: '+1 boomerang', pierce: 'Larger blade' } },
+  flame: { n: 'Flamewalker', i: '♨', d: 'You leave a burning trail where you walk.',
+    up: { shots: 'Wider trail', pierce: 'Fire lasts longer' }, no: ['chain'] },
+  rod: { n: 'Storm Rod', i: 'ϟ', d: 'Lightning strikes the nearest enemy and arcs to others.',
+    up: { shots: '+2 arcs', pierce: 'Arcs jump further' } },
+  totem: { n: 'Totem', i: '♜', d: 'Drops totems that shoot on their own.',
+    up: { shots: '+1 totem', pierce: 'Totems last longer' } },
+};
+// One ability is equipped and used with Space or the touch button. cd: cooldown in seconds.
+export const ABILITIES = {
+  dash: { n: 'Dash', i: '»', cd: 4, d: 'A burst of speed. Nothing can hit you, and you cut what you pass through.' },
+  shock: { n: 'Shockwave', i: '✺', cd: 10, d: 'Throws back and stuns everything near you, and clears enemy shots.' },
+  slow: { n: 'Time Slow', i: '⧖', cd: 18, d: 'Enemies and their shots crawl for 3 seconds.' },
+  decoy: { n: 'Decoy', i: '☻', cd: 20, d: 'Drops a copy of you that enemies chase. Then it explodes.' },
+  rally: { n: 'Rally', i: '⚑', cd: 20, d: 'Your nemeses jump to you, heal, and attack faster for 5 seconds.' },
+};
+export const START_GEAR = ['blaster', 'dash'];
+export const ALL_GEAR = [...Object.keys(WEAPONS), ...Object.keys(ABILITIES)];
+export const gearOf = id => WEAPONS[id] || ABILITIES[id] || null;

@@ -1,5 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, upName, evoOf, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today } from './save.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
@@ -47,7 +47,8 @@ function growthCards(rows) {
   }).join('');
 }
 
-export function hideAll() { ['start', 'roster', 'feats', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+export function hideAll() { ['start', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+const gearLines = ids => ids.map(id => `<div class="nem on show gear"><i class="ico">${gearOf(id).i}</i><div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
 
 const featLines = feats => feats.map(f => `<div class="feat got"><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div>`).join('');
 const KIND = { hard: 'Nemesis+', daily: 'Daily' };
@@ -57,9 +58,9 @@ export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
   on(['bPlay', 'bRosterPlay'], h.play);
   on(['bAgain', 'bWonAgain'], h.again);
-  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats);
+  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
-  on(['bBack', 'bFeatsBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
+  on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
   on(['bResume'], h.resume);
   on(['reset'], h.reset);
 }
@@ -84,8 +85,29 @@ export function showStart(save, bossType) {
   $('bBoon').classList.toggle('hidden', !boonsOf(save).length);
   $('bBoon').querySelector('b').textContent = save.boon ? upName(save.boon) : 'none';
   $('bFeats').querySelector('b').textContent = `${got}/${FEATS.length}`;
+  $('bLoadout').querySelector('b').textContent = `${WEAPONS[save.gear.loadout.weapon].n} + ${ABILITIES[save.gear.loadout.ability].n}`;
   if (save.bestHard) $('startStats').innerHTML += stat(fmt(save.bestHard), 'best N+');
   show('start');
+}
+
+// Loadout: pick one weapon and one ability from the gear you have found.
+export function showLoadout(save, onEquip) {
+  hideAll();
+  const col = (el, table, cur) => {
+    el.innerHTML = '';
+    for (const id in table) {
+      const have = save.gear.owned.includes(id), it = table[id];
+      const c = document.createElement('div');
+      c.className = 'nem gearcard' + (id === cur ? ' on' : '') + (have ? '' : ' locked');
+      c.innerHTML = `<i class="ico">${have ? it.i : '?'}</i><div><b>${have ? it.n : 'Not found yet'}</b><span>${have ? it.d : 'Dropped by your nemesis and by elite chests.'}</span>` +
+        (have ? `<span class="pick">${id === cur ? '✓ EQUIPPED' : 'click to equip'}</span>` : '') + '</div>';
+      if (have) c.onclick = () => onEquip(id);
+      el.appendChild(c);
+    }
+  };
+  col($('loWeapons'), WEAPONS, save.gear.loadout.weapon);
+  col($('loAbilities'), ABILITIES, save.gear.loadout.ability);
+  show('loadout');
 }
 
 // Feats: what each asks for and the boon it unlocks.
@@ -147,7 +169,7 @@ export function showDead(g, save, res, end) {
   $('dCard').innerHTML += growthCards(growth.filter(r => r.nem !== res.old));
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
     stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(best), 'best')) + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
-  $('dFeats').innerHTML = featLines(feats);
+  $('dFeats').innerHTML = gearLines(end.gear || []) + featLines(feats);
   const nxt = Object.values(T).filter(x => x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
   $('dTease').innerHTML = nxt ? `Something new shows up at <b>${fmt(nxt.unlock)}</b>...`
     : g.bossAt ? 'So close. Your nemesis was right there.' : 'Your true nemesis arrives at <b>5:00</b>.';
@@ -156,7 +178,7 @@ export function showDead(g, save, res, end) {
 
 export function showWon(g, save, end) {
   const { growth = [], feats = [], kind } = end;
-  $('wFeats').innerHTML = featLines(feats);
+  $('wFeats').innerHTML = gearLines(end.gear || []) + featLines(feats);
   $('wStats').innerHTML = stat(fmt(g.t), 'time', 'best') + stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + stat(save.wins, 'wins') + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
   $('wParty').innerHTML = growthCards(growth);
   $('wNote').textContent = growth.length ? 'Your party grew stronger from the victory.' : 'You did it alone.';
@@ -169,7 +191,8 @@ export function showLevel(g, onPick) {
   g.choices.forEach((u, i) => {
     const c = document.createElement('div'); c.className = 'card' + (u.ally ? ' ally' : '') + (g.chest ? ' chest' : '');
     const have = g.picks[u.id] || 0;
-    c.innerHTML = `<i class="ico">${u.i || '•'}</i><b>${u.n}</b><span>${u.d}</span>` +
+    const d = (WEAPONS[g.P.weapon].up || {})[u.id] || u.d;   // some upgrades mean something different per weapon
+    c.innerHTML = `<i class="ico">${u.i || '•'}</i><b>${u.n}</b><span>${d}</span>` +
       `<em>${u.ally ? 'for your nemeses' : have ? 'you have ' + have : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
     el.appendChild(c);

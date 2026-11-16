@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, step, pick, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME } from '../src/data.js';
-import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed } from '../src/save.js';
+import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -153,6 +153,63 @@ describe('sim', () => {
     step(g, 1 / 60, still());
     expect(g.boss.enraged).toBe(true);
   });
+
+  // A dummy enemy that stands still, for testing weapons and abilities.
+  const dummy = (g, dx, dy = 0) => {
+    const e = { type: 'slime', team: 'enemy', x: g.P.x + dx, y: g.P.y + dy, r: 13, hp: 1e6, maxhp: 1e6, dmg: 0, spd: 0, cd: 9, act: 99, flash: 0, ang: 0, haste: 1, dead: false, small: false, stun: 1e9 };
+    g.ents.push(e); return e;
+  };
+  const quiet = (opts) => { const g = createGame({ seed: 0, ...opts }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9; g.ents.length = 0; return g; };
+
+  it('every weapon damages an enemy in reach', () => {
+    for (const weapon of ['blaster', 'sword', 'rang', 'flame', 'rod', 'totem']) {
+      const g = quiet({ loadout: { weapon } });
+      const e = dummy(g, weapon === 'flame' ? 10 : 70);
+      for (let i = 0; i < 120; i++) step(g, 1 / 60, weapon === 'flame' ? { mx: i % 40 < 20 ? 1 : -1, my: 0 } : still());
+      expect(e.hp, weapon).toBeLessThan(1e6);
+    }
+  });
+
+  it('abilities: dash moves and protects, shockwave throws back, slow, decoy, rally, and a cooldown', () => {
+    let g = quiet({ loadout: { ability: 'dash' } });
+    const x0 = g.P.x;
+    step(g, 1 / 60, { mx: 1, my: 0, act: true });
+    expect(g.P.actT).toBeGreaterThan(3); expect(g.P.inv).toBeGreaterThan(0.2);
+    for (let i = 0; i < 12; i++) step(g, 1 / 60, { mx: 1, my: 0, act: true });
+    expect(g.P.x - x0).toBeGreaterThan(120);                 // far more than 13 frames of walking (about 43)
+    expect(g.P.actT).toBeLessThan(4);                        // holding the button does not re-trigger it
+
+    g = quiet({ loadout: { ability: 'shock' } });
+    let e = dummy(g, 60); e.stun = 0;
+    step(g, 1 / 60, { mx: 0, my: 0, act: true });
+    expect(e.x - g.P.x).toBeGreaterThan(120); expect(e.stun).toBeGreaterThan(1);
+
+    g = quiet({ loadout: { ability: 'slow' } });
+    step(g, 1 / 60, { mx: 0, my: 0, act: true });
+    expect(g.slowT).toBeGreaterThan(2.9);
+
+    g = quiet({ loadout: { ability: 'decoy' } });
+    step(g, 1 / 60, { mx: 0, my: 0, act: true });
+    expect(g.decoy).toBeTruthy();
+    e = dummy(g, 40);
+    for (let i = 0; i < 60 * 2.7; i++) step(g, 1 / 60, still());
+    expect(g.decoy).toBe(null); expect(e.hp).toBeLessThan(1e6);
+
+    g = createGame({ seed: 0, party: [nem(1, 'brute', 1)], loadout: { ability: 'rally' } });
+    const ally = g.ents.find(x => x.team === 'ally'); ally.x = 100; ally.y = 100; ally.hp = 1;
+    step(g, 1 / 60, { mx: 0, my: 0, act: true });
+    expect(Math.hypot(ally.x - g.P.x, ally.y - g.P.y)).toBeLessThan(120); expect(ally.hp).toBeGreaterThan(1);
+  });
+
+  it('the boss drops gear you do not own, only when ownership is known', () => {
+    const g = createGame({ seed: 1, owned: ['blaster', 'dash'] });
+    g.t = BOSS_TIME;
+    for (let i = 0; i < 5 && !g.boss; i++) step(g, 1 / 60, still());
+    g.boss.hp = 1; g.P.dmg = 1e6; g.P.hp = g.P.maxhp = 1e6;
+    for (let i = 0; i < 600 && g.state === 'play'; i++) step(g, 1 / 60, still());
+    expect(g.state).toBe('won'); expect(g.loot.length).toBe(1); expect(['blaster', 'dash']).not.toContain(g.loot[0]);
+    expect(createGame({ seed: 1 }).owned).toBe(null);
+  });
 });
 
 describe('save', () => {
@@ -231,5 +288,16 @@ describe('save', () => {
     expect(a.ents.length).toBe(b.ents.length); expect(a.layout).toBe(b.layout);
     const hard = createGame({ seed: 1, hard: true, boon: 'tough' }), norm = createGame({ seed: 1 });
     expect(hard.heat).toBeGreaterThan(norm.heat); expect(hard.P.maxhp).toBe(norm.P.maxhp + 25); expect(hard.picks.tough).toBe(1);
+  });
+
+  it('gear: old saves start with Blaster and Dash; found gear is kept and can be equipped', () => {
+    const s = sanitize({ runs: 3 });
+    expect(s.gear.owned).toEqual(['blaster', 'dash']); expect(s.gear.loadout).toEqual({ weapon: 'blaster', ability: 'dash' });
+    expect(addGear(s, ['sword', 'sword', 'bogus', 'shock'])).toEqual(['sword', 'shock']);
+    expect(equip(s, 'rod')).toBe(false);                     // not found yet
+    expect(equip(s, 'sword')).toBe(true); expect(equip(s, 'shock')).toBe(true);
+    const back = sanitize(JSON.parse(JSON.stringify(s)));
+    expect(back.gear.loadout).toEqual({ weapon: 'sword', ability: 'shock' }); expect(back.gear.owned.length).toBe(4);
+    expect(sanitize({ gear: { owned: [], loadout: { weapon: 'rod' } } }).gear.loadout.weapon).toBe('blaster');
   });
 });

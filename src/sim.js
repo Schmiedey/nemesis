@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { T, UP, PERKS, BOSS_TIME } from './data.js';
+import { T, UP, PERKS, BOSS_TIME, WEAPONS, ABILITIES, ALL_GEAR } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
@@ -50,16 +50,20 @@ export function recruitQuality(t, lvl, byBoss = false) {
 
 // party: up to 3 nemeses { id, type, name, title, q, perks }. bossType: enemy type of the 5:00 boss.
 // hard: Nemesis+ (bigger swarm, tougher enemies). boon: an upgrade id to start the run with.
-export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null } = {}) {
+// loadout: { weapon, ability } ids from src/data.js. owned: gear ids the player already has; gear only drops when this is given.
+export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null, loadout = {}, owned = null } = {}) {
   const g = {
     rand: mulberry32(seed), party: party.filter(n => T[n.type]).slice(0, 3), bossType: T[bossType] ? bossType : 'brute',
     state: 'play', t: 0, kills: 0, spawnT: 0.2, surgeT: 20, allyBuff: 1, allyHaste: 1, secondWind: false,
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
     layout: LAYOUTS[layout % LAYOUTS.length].name, rocks: LAYOUTS[layout % LAYOUTS.length].rocks,
+    owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
     chests: [], chest: false, opened: 0, hard: !!hard, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
-      dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
+      dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
+      weapon: WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster', ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
+      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
   g.heat = (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (g.hard ? 1.35 : 1);
@@ -288,6 +292,7 @@ function think(g, e, dt) {
   if (ally && e.type === 'bat') for (const gem of g.gems) if (!gem.pull && d2(e, gem) < 80 * 80) gem.pull = true;
   const pk = ally ? e.pk || {} : null;
   if (pk) {
+    if (e.rallyT > 0 && (e.rallyT -= dt) <= 0) e.haste /= 1.5;
     if (g.allyRegen) e.hp = Math.min(e.maxhp, e.hp + e.maxhp * g.allyRegen * dt);
     if (pk.regen) e.hp = Math.min(e.maxhp, e.hp + pk.regen * dt);
     // Inherited shots: a melee nemesis that took your Split Shot or Piercing also shoots.
@@ -306,7 +311,7 @@ function think(g, e, dt) {
     contact(g, e, foe); return;
   }
   // Enemies hunt the player; they only turn on a nemesis that gets in their way.
-  const tg = ally ? nearest(g, e, foe, 380) : (taunter(g, e) || nearest(g, e, foe, 110) || P);
+  const tg = ally ? nearest(g, e, foe, 380) : ((g.decoy && d2(e, g.decoy) < 260 * 260 && g.decoy) || taunter(g, e) || nearest(g, e, foe, 110) || P);
   if (!tg) {
     if (!ally) return;
     let gem = null, gd = 500 * 500;
@@ -408,7 +413,7 @@ function allyDown(g, e, delay, free = false) {
 function kill(g, e) {
   e.dead = true; burst(g, e.x, e.y, T[e.type].color, e.team === 'enemy' ? 10 : 6);
   snd(g, e.boss ? 'win' : e.team === 'enemy' ? 'kill' : 'allyDown');
-  if (e.boss) { g.state = 'won'; g.boss = null; burst(g, e.x, e.y, '#fff', 60, 400); shake(g, 20); return; }
+  if (e.boss) { dropGear(g); g.state = 'won'; g.boss = null; burst(g, e.x, e.y, '#fff', 60, 400); shake(g, 20); return; }
   if (T[e.type].split && !e.small) for (let i = 0; i < (e.evo === 'mother' ? 4 : 2); i++) {
     mk(g, 'slime', e.team, e.x + rr(g, -8, 8), e.y + rr(g, -8, 8), { small: true, hpMul: e.hpMul, dmgMul: e.dmgMul });
   }
@@ -458,13 +463,151 @@ function levelUp(g) {
 
 // Three different upgrades, at most one of them for your nemeses.
 function rollChoices(g) {
-  const pool = UP.filter(u => !u.ally || g.party.length);
+  const no = WEAPONS[g.P.weapon].no || [];
+  const pool = UP.filter(u => (!u.ally || g.party.length) && !no.includes(u.id));
   g.choices = [];
   while (g.choices.length < 3) {
     const u = pool[Math.floor(g.rand() * pool.length)];
     if (g.choices.includes(u) || (u.ally && g.choices.some(c => c.ally))) continue;
     g.choices.push(u);
   }
+}
+
+// ---------- weapons ----------
+const hitDmg = (g, base) => base * (g.P.crit > 0 && g.rand() < 0.15 * g.P.crit ? 3 : 1);
+// Chain Shot for weapons without bullets: a spark jumps from (x, y) to the nearest enemy not yet hit.
+function spark(g, x, y, hit, dmg, n) {
+  if (n <= 0) return;
+  let nx = null, nd = 190 * 190;
+  for (const q of g.ents) if (q.team === 'enemy' && !q.dead && !hit.has(q)) { const dq = (q.x - x) ** 2 + (q.y - y) ** 2; if (dq < nd) { nd = dq; nx = q; } }
+  if (!nx) return;
+  const c = shoot(g, x, y, Math.atan2(nx.y - y, nx.x - x), 540, dmg * 0.7, 'ally', 'player', 0, '#9fe8ff'); c.chain = n - 1; c.hit = new Set(hit);
+}
+
+function fireWeapon(g, dt) {
+  const P = g.P, w = P.weapon;
+  if (w === 'flame') {
+    // Flamewalker: fire where you walk (and a small patch under you while standing).
+    P.trailT -= P.moved > 0.5 ? dt : dt * 0.35;
+    if (P.trailT <= 0) {
+      P.trailT = 0.085; g.fires.push({ x: P.x, y: P.y, r: 20 + 8 * (P.multi - 1), life: 2.2 + 0.9 * P.pierce });
+      if (g.fires.length > 110) g.fires.shift();
+    }
+  } else if (w === 'totem') {
+    // Totem: drop one where you stand every few seconds; each shoots on its own.
+    P.totemT -= dt;
+    if (P.totemT <= 0 && g.totems.length < 1 + P.multi) { P.totemT = 3.8; g.totems.push({ x: P.x, y: P.y, life: 12 + 5 * P.pierce, fireT: 0.3 }); snd(g, 'thud'); }
+    else if (P.totemT <= 0 && g.totems.length) { P.totemT = 3.8; const o = g.totems.reduce((a, b) => (b.life < a.life ? b : a)); o.x = P.x; o.y = P.y; o.life = 12 + 5 * P.pierce; }
+  } else if (P.fireT <= 0) {
+    if (w === 'sword') {
+      const reach = 96 + 20 * P.pierce, tg = nearest(g, P, 'enemy', reach + 30);
+      if (tg) {
+        P.fireT = P.fire * 1.6; snd(g, 'sweep');
+        const a = Math.atan2(tg.y - P.y, tg.x - P.x), half = P.multi >= 3 ? Math.PI : 1.25, hit = new Set();
+        for (const back of P.multi === 2 ? [0, Math.PI] : [0]) {
+          g.fx.push({ k: 'sweep', x: P.x, y: P.y, a: a + back, r: reach, half });
+          for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !hit.has(o) && d2(o, P) < (reach + o.r) ** 2) {
+            const da = Math.atan2(Math.sin(Math.atan2(o.y - P.y, o.x - P.x) - a - back), Math.cos(Math.atan2(o.y - P.y, o.x - P.x) - a - back));
+            if (Math.abs(da) <= half) { hit.add(o); damage(g, o, hitDmg(g, P.dmg * 2.1 * (1 + 0.15 * Math.max(0, P.multi - 3))), 'player'); shove(P, o); }
+          }
+        }
+        if (hit.size) spark(g, tg.x, tg.y, hit, P.dmg * 2, P.chain);
+      }
+    } else if (w === 'rang') {
+      const tg = g.rangs.length < P.multi ? nearest(g, P, 'enemy', 440) : null;
+      if (tg) {
+        P.fireT = P.fire * 1.3; snd(g, 'shoot');
+        const a = Math.atan2(tg.y - P.y, tg.x - P.x) + (g.rangs.length - (P.multi - 1) / 2) * 0.35;
+        g.rangs.push({ x: P.x, y: P.y, vx: Math.cos(a) * 440, vy: Math.sin(a) * 440, out: 0.55, r: 15 + 6 * P.pierce, hit: new Set(), chained: false });
+      }
+    } else if (w === 'rod') {
+      let tg = nearest(g, P, 'enemy', 430);
+      if (tg) {
+        P.fireT = P.fire * 2.6; snd(g, 'bolt');
+        const pts = [{ x: P.x, y: P.y }], hit = new Set(), jump = 150 + 45 * P.pierce;
+        let dmg = hitDmg(g, P.dmg * 1.5), arcs = 2 + 2 * (P.multi - 1) + P.chain;
+        while (tg) {
+          hit.add(tg); pts.push({ x: tg.x, y: tg.y }); damage(g, tg, dmg, 'player'); dmg *= 0.7;
+          if (arcs-- <= 0) break;
+          let nx = null, nd = jump * jump;
+          for (const q of g.ents) if (q.team === 'enemy' && !q.dead && !hit.has(q)) { const dq = d2(tg, q); if (dq < nd) { nd = dq; nx = q; } }
+          tg = nx;
+        }
+        g.fx.push({ k: 'bolt', pts });
+      }
+    } else {                                            // blaster
+      const tg = nearest(g, P, 'enemy', 520);
+      if (tg) {
+        P.fireT = P.fire; const a = Math.atan2(tg.y - P.y, tg.x - P.x); snd(g, 'shoot');
+        for (let i = 0; i < P.multi; i++) {
+          const crit = P.crit > 0 && g.rand() < 0.15 * P.crit;
+          const b = shoot(g, P.x, P.y, a + (i - (P.multi - 1) / 2) * 0.16, 540, P.dmg * (crit ? 3 : 1), 'ally', 'player', P.pierce, crit ? '#ffd23f' : '#fff');
+          b.chain = P.chain;
+        }
+      }
+    }
+  }
+  // Things weapons leave in the world.
+  const tick = 0.3 * P.fire / 0.42;
+  if (g.fires.length) {
+    for (const f of g.fires) f.life -= dt;
+    g.fires = g.fires.filter(f => f.life > 0);
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && (o.burnT || 0) <= g.t) {
+      for (const f of g.fires) if ((o.x - f.x) ** 2 + (o.y - f.y) ** 2 < (f.r + o.r) ** 2) { o.burnT = g.t + tick; damage(g, o, hitDmg(g, P.dmg * 0.62), 'player'); break; }
+    }
+  }
+  for (const r of g.rangs) {
+    if (r.out > 0) { r.out -= dt; if (r.out <= 0) r.hit = new Set(); }
+    else {                                              // coming back: steer to the player
+      const a = Math.atan2(P.y - r.y, P.x - r.x); r.vx = Math.cos(a) * 500; r.vy = Math.sin(a) * 500;
+      if (d2(r, P) < 26 * 26) { r.done = true; P.fireT = Math.min(P.fireT, P.fire * 0.45); }
+    }
+    r.x += r.vx * dt; r.y += r.vy * dt;
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !r.hit.has(o) && d2(o, r) < (r.r + o.r) ** 2) {
+      r.hit.add(o); damage(g, o, hitDmg(g, P.dmg * 1.35), 'player');
+      if (!r.chained && P.chain) { r.chained = true; spark(g, o.x, o.y, new Set([o]), P.dmg * 1.35, P.chain); }
+    }
+  }
+  if (g.rangs.length) g.rangs = g.rangs.filter(r => !r.done);
+  for (const t of g.totems) {
+    t.life -= dt; t.fireT -= dt;
+    if (t.fireT <= 0) {
+      const tg = nearest(g, t, 'enemy', 400);
+      if (tg) { t.fireT = P.fire * 1.0; const b = shoot(g, t.x, t.y, Math.atan2(tg.y - t.y, tg.x - t.x), 520, hitDmg(g, P.dmg), 'ally', 'player', 0, '#ffd23f'); b.chain = P.chain; }
+    }
+  }
+  if (g.totems.length) g.totems = g.totems.filter(t => t.life > 0);
+}
+
+// ---------- abilities ----------
+function useAbility(g) {
+  const P = g.P, a = P.ability;
+  P.actT = P.actMax = ABILITIES[a].cd; g.fx.push({ k: 'act', id: a });
+  if (a === 'dash') { P.dashT = 0.18; P.inv = Math.max(P.inv, 0.3); burst(g, P.x, P.y, '#fff', 8, 160); snd(g, 'dash'); }
+  else if (a === 'shock') {
+    g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 170 }); shake(g, 8); snd(g, 'ring');
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, P) < (170 + o.r) ** 2) { damage(g, o, P.dmg * 1.5, 'player'); shove(P, o); shove(P, o); o.stun = 1.2; }
+    for (const b of g.bullets) if (b.team === 'enemy' && d2(b, P) < 170 * 170) b.life = 0;
+  } else if (a === 'slow') { g.slowT = 3; snd(g, 'slowmo'); }
+  else if (a === 'decoy') { g.decoy = { x: P.x, y: P.y, r: P.r, life: 2.5 }; burst(g, P.x, P.y, '#fff', 10, 140); snd(g, 'thud'); }
+  else {                                                // rally
+    snd(g, 'level'); burst(g, P.x, P.y, '#7dffb0', 24, 240);
+    for (const e of g.ents) if (e.team === 'ally' && !e.dead) {
+      e.x = P.x + rr(g, -55, 55); e.y = P.y + rr(g, -55, 55); e.hp = Math.min(e.maxhp, e.hp + e.maxhp * 0.4);
+      if (!(e.rallyT > 0)) e.haste *= 1.5;
+      e.rallyT = 5;
+    }
+  }
+}
+
+// Gear you do not own yet can drop from the boss and from elite chests. It is kept after the run.
+function dropGear(g) {
+  if (!g.owned) return false;
+  const left = ALL_GEAR.filter(id => !g.owned.has(id) && !g.loot.includes(id));
+  if (!left.length) return false;
+  const id = left[Math.floor(g.rand() * left.length)];
+  g.loot.push(id); g.fx.push({ k: 'gear', id }); snd(g, 'level');
+  return true;
 }
 
 export function pick(g, i) {
@@ -489,23 +632,21 @@ export function step(g, dt, input) {
   if (g.state !== 'play') return;
   const P = g.P;
   g.t += dt;
-  const ml = Math.hypot(input.mx, input.my) || 1;
-  P.x += input.mx / ml * P.spd * dt; P.y += input.my / ml * P.spd * dt;
+  const ml = Math.hypot(input.mx, input.my) || 1, moving = input.mx !== 0 || input.my !== 0;
+  if (moving) { P.fx = input.mx / ml; P.fy = input.my / ml; }
+  const x0 = P.x, y0 = P.y;
+  if (P.dashT > 0) {                                   // Dash: a burst along your facing that cuts what it passes
+    P.dashT -= dt; P.inv = Math.max(P.inv, 0.1); P.x += P.fx * 900 * dt; P.y += P.fy * 900 * dt;
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && (o.dashT || 0) <= g.t && d2(o, P) < (o.r + 22) ** 2) { o.dashT = g.t + 0.4; damage(g, o, hitDmg(g, P.dmg * 2), 'player'); }
+  } else { P.x += input.mx / ml * P.spd * dt; P.y += input.my / ml * P.spd * dt; }
+  P.moved = Math.hypot(P.x - x0, P.y - y0);
+  P.actT -= dt; g.slowT -= dt;
+  if (input.act && P.actT <= 0) useAbility(g);
   unstick(g, P);
   P.x = clamp(P.x, P.r, ARENA.w - P.r); P.y = clamp(P.y, P.r, ARENA.h - P.r);
   P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * dt);
   P.fireT -= dt;
-  if (P.fireT <= 0) {
-    const tg = nearest(g, P, 'enemy', 520);
-    if (tg) {
-      P.fireT = P.fire; const a = Math.atan2(tg.y - P.y, tg.x - P.x); snd(g, 'shoot');
-      for (let i = 0; i < P.multi; i++) {
-        const crit = P.crit > 0 && g.rand() < 0.15 * P.crit;
-        const b = shoot(g, P.x, P.y, a + (i - (P.multi - 1) / 2) * 0.16, 540, P.dmg * (crit ? 3 : 1), 'ally', 'player', P.pierce, crit ? '#ffd23f' : '#fff');
-        b.chain = P.chain;
-      }
-    }
-  }
+  fireWeapon(g, dt);
   if (!g.boss && !g.bossAt && g.t >= BOSS_TIME) spawnBoss(g);
   g.spawnT -= dt;
   if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.42, 0.85 - g.t * 0.003) * (g.boss ? 1.25 : 1) / g.heat; }
@@ -520,7 +661,12 @@ export function step(g, dt, input) {
   if (g.eliteT <= 0 && !g.boss) { g.eliteT = 60; spawnElite(g); }
   for (const q of g.respawnQ) if (!q.done && g.t >= q.at) { q.done = true; spawnAlly(g, q.nem, q.lives); }
   g.respawnQ = g.respawnQ.filter(q => !q.done);
-  for (const e of g.ents) if (!e.dead) think(g, e, dt);
+  const edt = g.slowT > 0 ? dt * 0.3 : dt;             // Time Slow: enemies and their shots crawl
+  for (const e of g.ents) if (!e.dead) think(g, e, e.team === 'enemy' ? edt : dt);
+  if (g.decoy && (g.decoy.life -= dt) <= 0) {
+    const d = g.decoy; g.decoy = null; burst(g, d.x, d.y, '#fff', 30, 280); shake(g, 8); snd(g, 'boom');
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, d) < (90 + o.r) ** 2) damage(g, o, P.dmg * 1.5, 'player');
+  }
   if (g.state !== 'play') return;
   // Orbiting blades cut anything they touch.
   for (let i = 0; i < P.blades; i++) {
@@ -558,7 +704,8 @@ export function step(g, dt, input) {
   for (const e of ents) if (!e.dead && !e.boss && !T[e.type].fly) unstick(g, e);
 
   for (const b of g.bullets) {
-    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    const bd = b.team === 'enemy' ? edt : dt;
+    b.x += b.vx * bd; b.y += b.vy * bd; b.life -= bd;
     // Job: a Wisp nemesis burns up enemy shots that come near it.
     if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && w.type === 'wisp' && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : 24 * 24)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
     if (b.life > 0 && b.team === 'enemy') for (const k of g.rocks) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
@@ -588,7 +735,9 @@ export function step(g, dt, input) {
   }
   g.gems = g.gems.filter(x => !x.got);
   for (const c of g.chests) if (!c.got && d2(c, P) < (P.r + 16) ** 2 && g.state === 'play') {
-    c.got = true; g.opened++; g.chest = true; g.state = 'lvl'; snd(g, 'level'); rollChoices(g);
+    c.got = true; g.opened++;
+    if (g.owned && g.rand() < 0.3 && dropGear(g)) continue;   // sometimes a chest holds gear instead of an upgrade
+    g.chest = true; g.state = 'lvl'; snd(g, 'level'); rollChoices(g);
   }
   g.chests = g.chests.filter(c => !c.got);
   g.ents = g.ents.filter(e => !e.dead);

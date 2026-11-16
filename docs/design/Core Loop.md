@@ -69,6 +69,32 @@ A giant of the type that has killed you most. It moves at 150 or more (you move 
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
 - Six new upgrades: Orbiting Blade, Chain Shot, Nova, Lucky Shot, and for nemeses Blood Bond and Iron Guard. A choice never offers more than one nemesis upgrade.
 
+## Weapons, abilities and gear (Phase 8)
+You equip one **weapon** and one **ability** on the loadout screen (`WEAPONS`, `ABILITIES` in `src/data.js`; rules in `fireWeapon` and `useAbility` in `src/sim.js`).
+
+| Weapon | How it attacks | Split Shot | Piercing |
+|---|---|---|---|
+| Blaster | Auto-aimed shots | +1 shot | pass through +1 |
+| Greatsword | Sweeps a 143-degree arc (reach 96) at the nearest enemy; 2.1x damage and knockback | sweep behind too, then all around | longer reach |
+| Boomerang | Flies out 0.55s and returns, 1.35x damage each way; catching it cuts the wait | +1 boomerang | larger blade |
+| Flamewalker | Leaves fire where you walk (2.2s); 0.62x damage per tick | wider trail | fire lasts longer |
+| Storm Rod | Instant bolt, 1.5x damage, arcs to 2 more at 70% each | +2 arcs | arcs jump further |
+| Totem | Drops a totem every 3.8s (2 at once) that shoots like a Blaster | +1 totem | totems last longer |
+
+Lucky Shot works with every weapon. Chain Shot works with all but Flamewalker (it is not offered there).
+
+| Ability (Space / touch button) | Cooldown | Effect |
+|---|---|---|
+| Dash | 4s | 0.18s burst along your facing; cannot be hit; 2x damage to what you pass through |
+| Shockwave | 10s | 1.5x damage, big knockback and 1.2s stun within 170; clears enemy shots |
+| Time Slow | 18s | enemies and their shots at 30% speed for 3s |
+| Decoy | 20s | enemies within 260 chase it for 2.5s, then it explodes (1.5x damage within 90) |
+| Rally | 20s | nemeses jump to you, heal 40%, attack 50% faster for 5s |
+
+**Found and kept.** New saves own Blaster and Dash. The boss always drops one piece of gear you do not own; an elite's chest holds gear instead of an upgrade 30% of the time. Gear found is kept even if you die (`addGear` in `src/save.js`, save version 6). The sim only drops gear when it is told what you own, so tests and the balance bot are unaffected.
+
+Solo survival by weapon (`node tests/balance.js --weapons`, 10 seeds, with Dash): Blaster 1:48, Greatsword 1:44, Boomerang 1:45, Flamewalker 1:53, Storm Rod 1:44, Totem 1:48. By ability (with Blaster): Dash 1:48, Shockwave 2:02, Time Slow 1:43, Decoy 2:25, Rally 2:02 (no party to rally).
+
 ## Reasons to return (Phase 6)
 - **Nemesis+**: unlocked by a first win, toggled on the title screen. Swarm x1.35, enemy health x1.25, enemy damage x1.15. Keeps its own best time and win count.
 - **Daily run**: one seed per UTC day (the date as a number), so the map and spawns are the same for everyone. You bring your own party. One best time per day; a quit run does not count.
@@ -86,10 +112,10 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 2:02 | 1/10 | 1 | 0:31 |
-| 3 runts | 2:34 | 1/10 | 1 | 0:56 |
-| 3 soldiers | 2:23 | 0/10 | 0 | 1:05 |
-| 3 veterans with perks | 4:02 | 4/10 | 2 | 1:47 |
-| 3 champions with perks | 5:51 | 10/10 | 5 | 3:42 |
+| None | 1:48 | 3/10 | 1 | 0:29 |
+| 3 runts | 2:32 | 1/10 | 1 | 1:17 |
+| 3 soldiers | 2:18 | 3/10 | 1 | 1:16 |
+| 3 veterans with perks | 6:25 | 6/10 | 3 | 0:56 |
+| 3 champions with perks | 5:50 | 10/10 | 8 | 3:17 |
 
-Known gaps: solo is slightly over target (2:02 vs 1:30-2:00). Runts and soldiers are not separated. A champion party is not hit until about 3:42, so its opening is still safe. Evolutions are not in the table, and the table only uses a Brute boss. The boss was made dangerous by measuring fights: before the fix a champion player lost 0-35 health in a whole boss fight; after it, 16-150.
+Known gaps (table uses Blaster + Dash, and the bot presses the ability when crowded): a champion party wins 8 of 10 again now that Dash exists (target about half); more boss health did not help (tried 0.85 scaling: 9 of 10), so the boss needs attacks Dash cannot simply skip. Decoy is the strongest ability (2:25 solo vs 1:48). Small number changes swing weapons wildly (Totem went 1:23 to 5:05 to 1:48), so re-run `--weapons` after any weapon change. Runts and soldiers are not separated. Evolutions, Nemesis+ and boons are not in the table.

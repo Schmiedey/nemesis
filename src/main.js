@@ -1,6 +1,6 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick } from './sim.js';
-import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, PARTY_SIZE } from './save.js';
+import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, PARTY_SIZE } from './save.js';
 import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
@@ -18,6 +18,7 @@ function toStart() { mode = 'start'; g = null; ui.showStart(save, bossTypeFor(sa
 function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
 function pickEvo(id, evoId) { if (evolve(save, id, evoId)) { audio.sfx('level'); checkFeats(save); writeSave(save); } ui.showRoster(save, toggleParty, pickEvo); }
 function toFeats() { mode = 'feats'; ui.showFeats(save); }
+function toLoadout() { mode = 'loadout'; ui.showLoadout(save, id => { if (equip(save, id)) writeSave(save); toLoadout(); }); }
 function flipHard() { if (save.wins > 0) { save.hard = !save.hard; writeSave(save); toStart(); } }
 // The boon button steps through: none, then each boon you have unlocked.
 function nextBoon() {
@@ -41,6 +42,7 @@ function begin(k = 'normal') {
     seed: kind === 'daily' ? dailySeed(today()) : (Math.random() * 2 ** 32) >>> 0,
     party: partyOf(save).map(n => ({ ...n, perks: { ...n.perks } })),
     bossType: bossTypeFor(save), hard: kind === 'hard', boon: save.boon,
+    loadout: save.gear.loadout, owned: save.gear.owned,
   });
   mode = 'play'; audio.sfx('start');
   if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again
@@ -65,7 +67,7 @@ function endRun(won) {
   const growth = growParty(save, g.party, won);
   const run = { t: g.t, kills: g.kills, won, dead: !won, party: g.party.length, runts: g.party.length === 3 && g.party.every(n => n.q < 0.7),
     hard: kind === 'hard', daily: kind === 'daily', opened: g.opened };
-  return { newBest: g.t > prev, best: Math.max(prev, g.t), growth, run, kind };
+  return { newBest: g.t > prev, best: Math.max(prev, g.t), growth, run, kind, gear: addGear(save, g.loot) };
 }
 
 function onDeath() {
@@ -100,11 +102,13 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyM' && !e.repeat) flipMute();
   const over = mode === 'dead' || mode === 'won';
   const menu = mode === 'start' || mode === 'roster';
+  if (e.code === 'Space' && mode === 'play') e.preventDefault();
   if (e.code === 'Space' && (menu || over)) { e.preventDefault(); begin(over ? kind : 'normal'); }
   else if (e.code === 'KeyD' && mode === 'start') begin('daily');
   else if (e.code === 'KeyF' && mode === 'start') toFeats();
+  else if (e.code === 'KeyL' && mode === 'start') toLoadout();
   else if ((e.code === 'KeyR' || e.code === 'KeyC') && (mode === 'start' || over)) toRoster();
-  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || over)) toStart();
+  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || over)) toStart();
   else if (e.code === 'KeyQ' && mode === 'pause') toStart();
   else if ((e.code === 'Escape' || e.code === 'KeyP') && (mode === 'play' || mode === 'pause')) {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
@@ -113,7 +117,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.code] = false);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats,
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout,
   roster: toRoster, menu: toStart, resume,
   reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
 });
@@ -141,9 +145,17 @@ for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if 
 addEventListener('contextmenu', e => e.preventDefault());
 pauseBtn.onclick = () => { pauseBtn.blur(); if (mode === 'play') { mode = 'pause'; ui.setPause(true); } };
 
+// The ability: Space, or the round touch button.
+const actBtn = document.getElementById('bAct');
+let touchAct = false;
+actBtn.addEventListener('pointerdown', e => { e.preventDefault(); touchAct = true; });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) actBtn.addEventListener(ev, () => { touchAct = false; });
+
 const input = () => {
-  if (joy && Math.hypot(joy.dx, joy.dy) > JOY_DEAD) return { mx: joy.dx, my: joy.dy };
+  const act = !!keys.Space || touchAct;
+  if (joy && Math.hypot(joy.dx, joy.dy) > JOY_DEAD) return { mx: joy.dx, my: joy.dy, act };
   return {
+    act,
     mx: (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0),
     my: (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0),
   };
@@ -179,7 +191,7 @@ function loop(now) {
   }
   if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(total);
   if (mode !== 'play' && joy) endJoy();
-  pauseBtn.classList.toggle('hidden', mode !== 'play');
+  pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
   audio.scene(mode, g);
   draw(cv, cx, g);
   workMs += (performance.now() - w0 - workMs) * 0.05;

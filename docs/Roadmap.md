@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-6 merged to main. Phase 7 (performance) built on branch `phase-7-perf`, not merged: waiting for the user to confirm with the frame counter (backquote key) that the lag is gone on their machine. Next: Phase 8 (weapons and abilities). Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload, 10-second clip, real-phone test.
+**Status:** Phases 1-7 merged to main. Phase 8 built on branch `phase-8-weapons`, not merged: six weapons, five abilities (Space or touch button), gear found and kept, loadout screen. Next: user plays it, merge, Phase 9 (power-ups and charms). Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload, 10-second clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -51,9 +51,9 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: the frame counter (backquote key) shows a steady 60 fps on the user's machine in a full-screen window.
 
 ## Phase 8: Weapons and active abilities
-- [ ] Six weapons (Blaster, Greatsword, Boomerang, Flamewalker, Storm Rod, Totem)
-- [ ] Five abilities on a button (Dash, Shockwave, Time Slow, Decoy, Rally)
-- [ ] Gear is found and kept; loadout screen
+- [x] Six weapons (Blaster, Greatsword, Boomerang, Flamewalker, Storm Rod, Totem)
+- [x] Five abilities on a button (Dash, Shockwave, Time Slow, Decoy, Rally)
+- [x] Gear is found and kept; loadout screen
 - Done when: how you attack is a choice and every weapon is within about 20% of the Blaster in the balance table.
 
 ## Phase 9: Power-up pickups and charms

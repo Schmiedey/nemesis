@@ -77,5 +77,8 @@ export function smart(g) {
     sc += 0.3 * (cd / 500) * (mx * cx + my * cy) / cd;
     if (sc > bs) { bs = sc; best = { mx, my }; }
   }
+  // Use the ability the way a person would: when things get close.
+  let close = 0; for (const e of enemies) if (Math.hypot(e.x - P.x, e.y - P.y) < 95 + e.r) close++;
+  best.act = close >= 3 || enemies.some(e => e.boss && Math.hypot(e.x - P.x, e.y - P.y) < e.r + 80);
   return best;
 }

@@ -8,8 +8,8 @@ const choose = g => { let b = 0; g.choices.forEach((u, i) => { if (PREF.indexOf(
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
-function run(seed, party) {
-  const g = createGame({ seed, party });
+function run(seed, party, loadout = {}) {
+  const g = createGame({ seed, party, loadout });
   let n = 0, firstHit = null, hp45 = null;
   while (g.state !== 'dead' && g.state !== 'won' && n++ < 900 * 60) {
     if (g.state === 'lvl') { pick(g, choose(g)); continue; }
@@ -21,8 +21,8 @@ function run(seed, party) {
   return { g, firstHit: firstHit ?? g.t, hp45: hp45 ?? 0 };
 }
 
-function report(label, party = []) {
-  const rs = SEEDS.map(s => run(s, party));
+function report(label, party = [], loadout = {}) {
+  const rs = SEEDS.map(s => run(s, party, loadout));
   const ts = rs.map(r => r.g.t).sort((a, b) => a - b), mid = ts[Math.floor(ts.length / 2)];
   const avg = f => rs.reduce((a, r) => a + f(r), 0) / rs.length;
   console.log(label.padEnd(22), 'median', fmt(mid), ' range', fmt(ts[0]) + '-' + fmt(ts[ts.length - 1]),
@@ -30,6 +30,13 @@ function report(label, party = []) {
     ' firstHit', fmt(avg(r => r.firstHit)), ' hp@0:45', Math.round(avg(r => r.hp45) * 100) + '%', ' lvl', Math.round(avg(r => r.g.P.lvl)));
 }
 
+// `node tests/balance.js --weapons`: solo survival per weapon and per ability, to keep them close to the Blaster and Dash.
+if (process.argv.includes('--weapons')) {
+  const only = (process.argv[process.argv.indexOf('--only') + 1] || '').split(',').filter(Boolean), want = id => !only.length || only.includes(id);
+  for (const w of ['blaster', 'sword', 'rang', 'flame', 'rod', 'totem']) if (want(w)) report('solo ' + w, [], { weapon: w });
+  for (const a of ['shock', 'slow', 'decoy', 'rally']) if (want(a)) report('solo blaster+' + a, [], { ability: a });
+  process.exit(0);
+}
 report('no party');
 report('3 runts', [nem(1, 'bat', 0.4), nem(2, 'slime', 0.4), nem(3, 'bat', 0.4)]);
 report('3 soldiers', [nem(1, 'bat', 1), nem(2, 'slime', 1), nem(3, 'bat', 1)]); // same mix as the runts, so only rank differs

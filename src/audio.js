@@ -80,6 +80,10 @@ const SFX = {
   level: t => notes([69, 73, 76, 81], 0.06, 0.28, 0.1, 'triangle', t),
   pick: t => notes([76, 83], 0.05, 0.12, 0.09, 'square', t),
   ui: t => tone('sine', 620, 700, 0.04, 0.06, { at: t }),
+  sweep: t => noise(0.12, 0.16, 'bandpass', 900, 3200, { at: t }),
+  bolt: t => { noise(0.1, 0.2, 'highpass', 3000, 5000, { at: t }); tone('square', 1400, 200, 0.12, 0.07, { at: t }); },
+  dash: t => noise(0.16, 0.16, 'bandpass', 500, 4000, { at: t }),
+  slowmo: t => tone('sine', 600, 90, 0.7, 0.2, { at: t }),
   windup: t => tone('sawtooth', 140, 420, 0.3, 0.07, { at: t, lp: 1400 }),
   thud: t => { noise(0.14, 0.3, 'lowpass', 400, 90, { at: t }); tone('sine', 110, 50, 0.16, 0.3, { at: t }); },
   start: t => { tone('sawtooth', 110, 440, 0.3, 0.12, { at: t, lp: 2000 }); noise(0.3, 0.08, 'highpass', 500, 6000, { at: t }); },
@@ -95,7 +99,7 @@ const SFX = {
   stamp: t => { noise(0.12, 0.3, 'lowpass', 500, 120, { at: t }); tone('sine', 90, 45, 0.18, 0.4, { at: t }); notes([76, 81, 88], 0.07, 0.35, 0.08, 'triangle', t + 0.06); },
 };
 // Shortest allowed gap between two plays of the same effect, in seconds.
-const GAP = { windup: 0.12, hit: 0.05, kill: 0.04, gem: 0.03, shoot: 0.05, boom: 0.08, hurt: 0.1, ui: 0.03 };
+const GAP = { sweep: 0.05, bolt: 0.08, windup: 0.12, hit: 0.05, kill: 0.04, gem: 0.03, shoot: 0.05, boom: 0.08, hurt: 0.1, ui: 0.03 };
 const lastAt = {};
 
 export function sfx(name, delay = 0) {

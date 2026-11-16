@@ -1,5 +1,5 @@
 // Draws the game. Fixed 960x600 view scaled to the window, camera follows the player.
-import { T, BOSS_TIME } from './data.js';
+import { T, BOSS_TIME, ABILITIES, gearOf } from './data.js';
 import { ARENA, VIEW, BOSS_BLAST, BLADE_R } from './sim.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -52,7 +52,8 @@ let pAng = 0, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 500; // cap so a huge fight cannot flood the screen with particles
 let rings = []; // expanding shockwave rings
 let nums = [];  // floating damage numbers
-export function resetFx() { parts = []; rings = []; nums = []; shakeAmt = 0; surge = null; }
+let sweeps = [], bolts = [], banner = null; // sword arcs, lightning, and the 'new gear' banner
+export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; banner = null; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
 export function consumeFx(g) {
@@ -60,6 +61,10 @@ export function consumeFx(g) {
     if (f.k === 'shake') shakeAmt = Math.max(shakeAmt, f.v);
     else if (f.k === 'surge') surge = { a: f.a, life: 2 };
     else if (f.k === 'snd') continue;
+    else if (f.k === 'sweep') sweeps.push({ ...f, life: 0.16 });
+    else if (f.k === 'bolt') bolts.push({ pts: f.pts, life: 0.14 });
+    else if (f.k === 'gear') banner = { text: 'NEW GEAR: ' + gearOf(f.id).n, life: 3.5 };
+    else if (f.k === 'act') continue;
     else if (f.k === 'num') { if (nums.length < 50) nums.push({ x: f.x + rnd(-6, 6), y: f.y - 8, v: Math.round(f.v), life: 0.6 }); }
     else if (f.k === 'nova') rings.push({ x: f.x, y: f.y, r: f.r, life: 0.35 });
     else for (let i = 0; i < f.n; i++) {
@@ -75,6 +80,9 @@ export function updateFx(dt) {
   parts = parts.filter(p => p.life > 0);
   for (const r of rings) r.life -= dt; rings = rings.filter(r => r.life > 0);
   for (const n of nums) { n.life -= dt; n.y -= 34 * dt; } nums = nums.filter(n => n.life > 0);
+  for (const s of sweeps) s.life -= dt; sweeps = sweeps.filter(s => s.life > 0);
+  for (const b of bolts) b.life -= dt; bolts = bolts.filter(b => b.life > 0);
+  if (banner && (banner.life -= dt) <= 0) banner = null;
   if (surge && (surge.life -= dt) <= 0) surge = null;
   shakeAmt *= 0.88; if (shakeAmt < .3) shakeAmt = 0;
 }
@@ -268,6 +276,24 @@ export function draw(cv, cx, g) {
   if (!lowDetail) cx.drawImage(lightCv, P.x - LIGHT_R, P.y - LIGHT_R, LIGHT_R * 2, LIGHT_R * 2);
 
   for (const gem of g.gems) { cx.fillStyle = gem.v >= 5 ? '#ffd23f' : '#7dffb0'; cx.fillRect(gem.x - 3, gem.y - 3, 6, 6); }
+  for (const f of g.fires) {                             // Flamewalker trail
+    const k = Math.min(1, f.life / 0.6), fl = 0.75 + 0.25 * Math.sin(g.t * 18 + f.x);
+    cx.fillStyle = `rgba(255,120,30,${0.3 * k * fl})`; cx.beginPath(); cx.arc(f.x, f.y, f.r, 0, 7); cx.fill();
+    cx.fillStyle = `rgba(255,220,90,${0.4 * k * fl})`; cx.beginPath(); cx.arc(f.x, f.y, f.r * 0.5, 0, 7); cx.fill();
+  }
+  for (const t of g.totems) {                            // Totems
+    cx.fillStyle = 'rgba(255,210,63,.14)'; cx.beginPath(); cx.arc(t.x, t.y, 20 + Math.sin(g.t * 4) * 2, 0, 7); cx.fill();
+    cx.fillStyle = '#5a3b16'; cx.fillRect(t.x - 6, t.y - 20, 12, 24); cx.fillStyle = '#ffd23f'; cx.fillRect(t.x - 6, t.y - 20, 12, 4); cx.fillRect(t.x - 3, t.y - 12, 6, 4);
+    cx.strokeStyle = '#2a1a08'; cx.lineWidth = 1.5; cx.strokeRect(t.x - 6, t.y - 20, 12, 24);
+    if (t.life < 3) { cx.fillStyle = '#000a'; cx.fillRect(t.x - 8, t.y + 7, 16, 2); cx.fillStyle = '#ffd23f'; cx.fillRect(t.x - 8, t.y + 7, 16 * t.life / 3, 2); }
+  }
+  if (g.decoy) {                                         // Decoy: a ghost of you with a shrinking fuse ring
+    const sp = sprites.player, d = g.decoy;
+    cx.save(); cx.translate(d.x, d.y); cx.globalAlpha = 0.55;
+    if (sp) blit(cx, sp, pAng, 0, P.r * sp.draw * SPRITE_SCALE, 0); else { cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(0, 0, P.r, 0, 7); cx.fill(); }
+    cx.globalAlpha = 1; cx.strokeStyle = '#fff'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, 12 + 98 * (d.life / 2.5), 0, 7); cx.stroke();
+    cx.restore();
+  }
   for (const c of g.chests) {
     const b = Math.sin(g.t * 5) * 2;
     cx.fillStyle = 'rgba(255,210,63,.18)'; cx.beginPath(); cx.arc(c.x, c.y, 22 + b, 0, 7); cx.fill();
@@ -276,6 +302,23 @@ export function draw(cv, cx, g) {
     cx.strokeStyle = '#3a2408'; cx.lineWidth = 1.5; cx.strokeRect(c.x - 11, c.y - 8, 22, 16);
   }
   for (const e of g.ents) drawEnt(cx, g, e);
+  for (const r of g.rangs) {                             // Boomerangs
+    cx.save(); cx.translate(r.x, r.y); cx.rotate(g.t * 22); cx.strokeStyle = '#e8f6ff'; cx.lineWidth = 4; cx.lineCap = 'round';
+    cx.beginPath(); cx.moveTo(-r.r, -r.r * 0.5); cx.lineTo(0, r.r * 0.4); cx.lineTo(r.r, -r.r * 0.5); cx.stroke(); cx.restore();
+  }
+  for (const s of sweeps) {                              // Greatsword arcs
+    const k = s.life / 0.16;
+    cx.fillStyle = `rgba(232,246,255,${0.5 * k})`; cx.beginPath(); cx.moveTo(s.x, s.y); cx.arc(s.x, s.y, s.r, s.a - s.half, s.a + s.half); cx.closePath(); cx.fill();
+    cx.strokeStyle = `rgba(255,255,255,${k})`; cx.lineWidth = 3; cx.beginPath(); cx.arc(s.x, s.y, s.r, s.a - s.half, s.a + s.half); cx.stroke();
+  }
+  for (const b of bolts) {                               // Storm Rod lightning: a jagged line through each target
+    cx.strokeStyle = `rgba(160,235,255,${b.life / 0.14})`; cx.lineWidth = 3; cx.beginPath();
+    b.pts.forEach((p, i) => {
+      if (!i) return cx.moveTo(p.x, p.y);
+      const q = b.pts[i - 1]; cx.lineTo((p.x + q.x) / 2 + rnd(-10, 10), (p.y + q.y) / 2 + rnd(-10, 10)); cx.lineTo(p.x, p.y);
+    });
+    cx.stroke();
+  }
   for (let i = 0; i < P.blades && g.state !== 'dead'; i++) {
     const a = g.t * 3.2 + i * 6.283 / P.blades, bx = P.x + Math.cos(a) * BLADE_R, by = P.y + Math.sin(a) * BLADE_R;
     cx.save(); cx.translate(bx, by); cx.rotate(g.t * 14);
@@ -321,6 +364,20 @@ export function draw(cv, cx, g) {
   const bw = 260; cx.fillStyle = '#222'; cx.fillRect(W / 2 - bw / 2, H - 30, bw, 10);
   cx.fillStyle = '#ff3b5c'; cx.fillRect(W / 2 - bw / 2, H - 30, bw * P.hp / P.maxhp, 10);
   minimap(cx, g, camX, camY, H);
+  if (g.slowT > 0) { cx.fillStyle = 'rgba(90,150,255,.10)'; cx.fillRect(0, 0, W, H); }   // Time Slow tint
+  // Ability: an icon with a cooldown wipe, bottom-right.
+  {
+    const ab = ABILITIES[P.ability], ax = W - 44, ay = H - 44, left = Math.max(0, P.actT), ready = left <= 0;
+    cx.fillStyle = 'rgba(6,6,10,.72)'; cx.beginPath(); cx.arc(ax, ay, 26, 0, 7); cx.fill();
+    if (!ready) { cx.fillStyle = 'rgba(255,255,255,.16)'; cx.beginPath(); cx.moveTo(ax, ay); cx.arc(ax, ay, 26, -Math.PI / 2, -Math.PI / 2 + 6.283 * (1 - left / (P.actMax || ab.cd))); cx.closePath(); cx.fill(); }
+    cx.strokeStyle = ready ? '#7dffb0' : '#555'; cx.lineWidth = 2; cx.beginPath(); cx.arc(ax, ay, 26, 0, 7); cx.stroke();
+    cx.textAlign = 'center'; cx.fillStyle = ready ? '#fff' : '#888'; cx.font = '22px ' + font; cx.fillText(ab.i, ax, ay + 8);
+    cx.font = '10px ' + font; cx.fillStyle = ready ? '#7dffb0' : '#888'; cx.fillText(ready ? ab.n.toUpperCase() : Math.ceil(left) + 's', ax, ay + 40);
+  }
+  if (banner) {
+    cx.globalAlpha = Math.min(1, banner.life); cx.textAlign = 'center'; cx.font = 'bold 22px ' + font;
+    cx.fillStyle = '#000'; cx.fillText(banner.text, W / 2 + 1, 101); cx.fillStyle = '#ffd23f'; cx.fillText(banner.text, W / 2, 100); cx.globalAlpha = 1;
+  }
   // Surge warning: a red arc on the side the wave is coming from.
   if (surge) {
     cx.globalAlpha = Math.min(1, surge.life) * (0.5 + 0.5 * Math.sin(g.t * 16));
