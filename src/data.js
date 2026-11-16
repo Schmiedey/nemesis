@@ -49,5 +49,27 @@ export const PERKS = {
   regen: { label: 'Regrowth', title: 'the Undying' },
 };
 
+// What each nemesis type does for you at any rank, shown on its card.
+export const JOB = {
+  bat: 'Fetches gems for you',
+  slime: 'Draws enemies onto itself; takes 40% less damage',
+  archer: 'Its shots slow enemies',
+  brute: 'Knocks enemies back and stuns them',
+  bomber: 'Blows up, then comes straight back',
+  wisp: 'Burns up enemy shots near you',
+};
+
+// A Champion picks one of two evolutions, for good. Keys are read by src/sim.js.
+export const EVOS = {
+  bat: [{ id: 'brood', n: 'Brood', d: 'A pack of 5 instead of 3' }, { id: 'vampire', n: 'Vampire', d: 'Each bite heals you 1 HP' }],
+  slime: [{ id: 'mother', n: 'Mother', d: 'Splits into 4 when it falls' }, { id: 'bulwark', n: 'Bulwark', d: 'Takes 70% less damage' }],
+  archer: [{ id: 'volley', n: 'Volley', d: 'Fires 2 extra arrows' }, { id: 'frost', n: 'Frost', d: 'Slow is stronger and lasts twice as long' }],
+  brute: [{ id: 'quake', n: 'Quake', d: 'Every hit knocks back all enemies nearby' }, { id: 'juggernaut', n: 'Juggernaut', d: 'Double health' }],
+  bomber: [{ id: 'cluster', n: 'Cluster', d: 'Much bigger blast' }, { id: 'fuse', n: 'Short Fuse', d: 'Returns twice as fast' }],
+  wisp: [{ id: 'storm', n: 'Storm', d: 'Two wisps orbit you' }, { id: 'ward', n: 'Ward', d: 'Burns shots from twice as far; strikes faster' }],
+};
+export const evoOf = n => (EVOS[n.type] || []).find(e => e.id === n.evo) || null;
+export const CHAMPION_Q = 2;
+
 export const rankName = q => q < 0.7 ? 'Runt' : q < 1.3 ? 'Soldier' : q < 2 ? 'Veteran' : 'Champion';
 export const BOSS_TIME = 300;

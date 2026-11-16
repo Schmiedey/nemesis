@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked). Phase 3 in progress on branch `phase-3-ship`: map, touch controls and performance done; the build uses relative paths and runs from any folder. Not tried on a real phone. Final name is NEMESIS. Next: itch.io upload (`nemesis-web.zip`, made by zipping `dist/`), 10-second clip.
+**Status:** Phases 1-3 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 4 built on branch `phase-4-recruits`, not merged: ally jobs, growth and evolutions. Champions now win 9/10 (too easy): fix with the boss rework in Phase 5. Next: user plays it, merge, Phase 5.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -27,6 +27,24 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [ ] itch.io upload, 10-second clip
 - [ ] Steam only if the web version gets traction ($100)
 - Done when: a stranger can play it from a link.
+
+## Phase 4: Recruits that matter
+- [x] A job for each ally type that works at any rank
+- [x] Allies earn XP across runs, rank up, and evolve at Champion
+- [x] Ally kills and growth shown on the death and win screens
+- Done when: 3 runts last 20s longer than solo and 3 soldiers 40s longer, by `node tests/balance.js`.
+
+## Phase 5: Variety per run
+- [ ] Counter-play and a visible tell per enemy (Brute charge, Archer aim line, Bat dive, Bomber fuse)
+- [ ] A real boss per type with a second stage at half health
+- [ ] About 6 new upgrades; elites that drop a chest; three map layouts
+- Done when: two runs in a row feel different.
+
+## Phase 6: Depth, feel, and reasons to return
+- [ ] Depth in 2D: shadows, light pool, sprites re-rendered tilted in 8 directions, drawn larger
+- [ ] Feel: tinted hit flash, damage numbers, hit-stop, restyled level-up screen
+- [ ] Nemesis+ mode, daily run, feats that unlock starting perks, nemesis history on roster cards
+- Done when: it looks finished and there is always a next thing to chase.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

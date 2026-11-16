@@ -18,7 +18,7 @@ function unstick(o) {
     if (dd < r * r) { const l = Math.sqrt(dd) || 0.01; o.x = k.x + dx / l * r; o.y = k.y + dy / l * r; }
   }
 }
-export const BOSS_HP = 9000;
+export const BOSS_HP = 11500;
 const ALLY_LIVES = 3, BOMBER_LIVES = 6;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -49,10 +49,12 @@ export function createGame({ seed = 1, party = [], bossType = 'brute' } = {}) {
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = 1 + 0.03 * g.party.reduce((a, n) => a + n.q, 0);
+  g.heat = 1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0);
   for (const nem of g.party) {
     const lives = nem.type === 'bomber' ? BOMBER_LIVES : ALLY_LIVES;
-    for (let i = 0; i < (T[nem.type].pack || 1); i++) spawnAlly(g, nem, lives);
+    const n = nem.evo === 'brood' ? 5 : nem.evo === 'storm' ? 2 : T[nem.type].pack || 1;
+    nem.kills = 0;
+    for (let i = 0; i < n; i++) spawnAlly(g, nem, lives);
   }
   return g;
 }
@@ -78,12 +80,13 @@ const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hp
 function spawnAlly(g, nem, lives) {
   const pk = nem.perks || {};
   const e = mk(g, nem.type, 'ally', g.P.x + rr(g, -50, 50), g.P.y + rr(g, -50, 50), {
-    hpMul: (1 + 1.5 * nem.q) * (1 + 0.25 * (pk.tough || 0)) * g.allyBuff * (1 + g.t / 150),
-    dmgMul: (0.6 + 1.2 * nem.q) * (1 + 0.2 * (pk.dmg || 0)) * g.allyBuff * (1 + g.t / 150),
+    hpMul: (2.6 + 1.3 * nem.q) * (1 + 0.25 * (pk.tough || 0)) * g.allyBuff * (1 + g.t / 150) * (nem.evo === 'juggernaut' ? 2 : 1),
+    dmgMul: (0.7 + 1.3 * nem.q) * (1 + 0.2 * (pk.dmg || 0)) * g.allyBuff * (1 + g.t / 150),
     spdMul: 1.1 * (1 + 0.08 * (pk.spd || 0)),
   });
   e.nem = nem; e.pk = pk; e.lives = lives; e.shotT = 1;
-  e.haste = (1 + 0.2 * (pk.haste || 0)) * g.allyHaste;
+  e.haste = (1 + 0.2 * (pk.haste || 0)) * g.allyHaste * (nem.evo === 'ward' ? 1.5 : 1);
+  e.evo = nem.evo || null;
   burst(g, e.x, e.y, '#7dffb0', 8);
   return e;
 }
@@ -144,16 +147,23 @@ function moveTo(e, x, y, dt, stop = 0) {
     const diff = Math.atan2(Math.sin(want - e.ang), Math.cos(want - e.ang));
     e.ang += clamp(diff, -TURN * dt, TURN * dt);
   } else e.ang = want;
-  e.x += Math.cos(e.ang) * e.spd * dt; e.y += Math.sin(e.ang) * e.spd * dt;
+  const spd = e.spd * (e.slowT > 0 ? e.slowK : 1);
+  e.x += Math.cos(e.ang) * spd * dt; e.y += Math.sin(e.ang) * spd * dt;
 }
 
 function shoot(g, x, y, a, sp, dmg, team, src, pierce, color, boss = false) {
-  g.bullets.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, team, src, pierce, color, boss, life: 2.5, hit: new Set() });
+  const b = { x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg, team, src, pierce, color, boss, life: 2.5, hit: new Set() };
+  g.bullets.push(b); return b;
 }
 
 function volley(g, e, tg, n, sp, dmg, pierce) {
   const a = Math.atan2(tg.y - e.y, tg.x - e.x);
-  for (let i = 0; i < n; i++) shoot(g, e.x, e.y, a + (i - (n - 1) / 2) * 0.18, sp, dmg, e.team, e.type, pierce, T[e.type].color);
+  for (let i = 0; i < n; i++) {
+    const b = shoot(g, e.x, e.y, a + (i - (n - 1) / 2) * 0.18, sp, dmg, e.team, e.type, pierce, T[e.type].color);
+    b.nem = e.nem;
+    // Job: an Archer nemesis slows whatever it hits.
+    if (e.team === 'ally' && e.type === 'archer') { b.slowT = e.evo === 'frost' ? 4 : 2; b.slowK = e.evo === 'frost' ? 0.3 : 0.55; }
+  }
 }
 
 const targetsOf = (g, team) => team === 'ally'
@@ -164,14 +174,41 @@ function contact(g, e, foe) {
   if (e.cd > 0) return;
   for (const o of targetsOf(g, foe)) {
     const r = e.r + o.r + 2;
-    if (d2(e, o) < r * r) { damage(g, o, e.dmg, e.type, e.boss); e.cd = 0.6 / e.haste; return; }
+    if (d2(e, o) < r * r) {
+      damage(g, o, e.dmg, e.type, e.boss, e.nem); e.cd = 0.6 / e.haste;
+      if (e.team === 'ally' && e.type === 'brute') {
+        // Job: a Brute nemesis knocks enemies back and stuns them. Quake hits everything close by.
+        shove(e, o);
+        if (e.evo === 'quake') for (const q of targetsOf(g, foe)) if (q !== o && !q.dead && d2(e, q) < (80 + q.r) ** 2) { damage(g, q, e.dmg * 0.5, e.type, false, e.nem); shove(e, q); }
+        burst(g, o.x, o.y, '#ff7a2f', 5, 120);
+      }
+      if (e.evo === 'vampire') g.P.hp = Math.min(g.P.maxhp, g.P.hp + 1);
+      return;
+    }
   }
+}
+
+function shove(e, o) {
+  if (o.boss || o.dead) return;
+  const dx = o.x - e.x, dy = o.y - e.y, l = Math.hypot(dx, dy) || 1;
+  o.x += dx / l * 46; o.y += dy / l * 46; o.stun = 0.6;
+}
+
+// Job: a Slime nemesis draws walking enemies onto itself.
+function taunter(g, e) {
+  if (T[e.type].fly || T[e.type].ranged) return null;
+  for (const o of g.ents) if (o.team === 'ally' && o.type === 'slime' && !o.small && !o.dead && d2(e, o) < 150 * 150) return o;
+  return null;
 }
 
 function think(g, e, dt) {
   if (e.boss) return bossThink(g, e, dt);
   const d = T[e.type], foe = e.team === 'enemy' ? 'ally' : 'enemy', ally = e.team === 'ally', P = g.P;
   e.cd -= dt; e.flash -= dt; e.act -= dt;
+  if (e.slowT > 0) e.slowT -= dt;
+  if (e.stun > 0) { e.stun -= dt; return; }
+  // Job: Bat nemeses fetch gems. Any gem they pass flies to you.
+  if (ally && e.type === 'bat') for (const gem of g.gems) if (!gem.pull && d2(e, gem) < 80 * 80) gem.pull = true;
   const pk = ally ? e.pk || {} : null;
   if (pk) {
     if (pk.regen) e.hp = Math.min(e.maxhp, e.hp + pk.regen * dt);
@@ -191,8 +228,14 @@ function think(g, e, dt) {
     contact(g, e, foe); return;
   }
   // Enemies hunt the player; they only turn on a nemesis that gets in their way.
-  const tg = ally ? nearest(g, e, foe, 380) : (nearest(g, e, foe, 110) || P);
-  if (!tg) { if (ally) moveTo(e, P.x, P.y, dt, 70); return; }
+  const tg = ally ? nearest(g, e, foe, 380) : (taunter(g, e) || nearest(g, e, foe, 110) || P);
+  if (!tg) {
+    if (!ally) return;
+    let gem = null, gd = 500 * 500;
+    if (e.type === 'bat') for (const x of g.gems) { const q = d2(e, x); if (!x.pull && q < gd) { gd = q; gem = x; } }
+    if (gem) moveTo(e, gem.x, gem.y, dt); else moveTo(e, P.x, P.y, dt, 70);
+    return;
+  }
   const dist = Math.sqrt(d2(e, tg));
   if (d.ranged) {
     if (ally && Math.sqrt(d2(e, P)) > 190) moveTo(e, P.x, P.y, dt);
@@ -200,7 +243,7 @@ function think(g, e, dt) {
     else if (dist < 170) moveTo(e, 2 * e.x - tg.x, 2 * e.y - tg.y, dt);
     if (e.act <= 0 && dist < 400) {
       e.act = (ally ? 1.1 : 1.3) / e.haste;
-      volley(g, e, tg, 1 + (pk?.shots || 0), ally ? 380 : 300, e.dmg, pk?.pierce || 0);
+      volley(g, e, tg, 1 + (pk?.shots || 0) + (e.evo === 'volley' ? 2 : 0), ally ? 380 : 300, e.dmg, pk?.pierce || 0);
     }
     e.x = clamp(e.x, -40, ARENA.w + 40); e.y = clamp(e.y, -40, ARENA.h + 40);
     return;
@@ -216,7 +259,7 @@ function think(g, e, dt) {
   contact(g, e, foe);
 }
 
-function damage(g, o, amt, src, byBoss = false) {
+function damage(g, o, amt, src, byBoss = false, by = null) {
   const P = g.P;
   if (o === P) {
     if (P.inv > 0 || g.state !== 'play') return;
@@ -224,14 +267,20 @@ function damage(g, o, amt, src, byBoss = false) {
     if (P.hp <= 0) { P.hp = 0; die(g, src, byBoss); }
     return;
   }
+  // Job: a Slime nemesis is a shield. It shrugs off 40% of damage (70% as a Bulwark).
+  if (o.team === 'ally' && o.type === 'slime') amt *= o.evo === 'bulwark' ? 0.3 : 0.6;
   o.hp -= amt; o.flash = 0.08;
-  if (o.hp <= 0 && !o.dead) kill(g, o);
+  if (o.hp <= 0 && !o.dead) {
+    if (by && o.team === 'enemy') by.kills = (by.kills || 0) + 1; // credited to the nemesis; turns into XP after the run
+    kill(g, o);
+  }
 }
 
 // An ally that falls comes back while it has lives left, then is gone for the run.
-function allyDown(g, e, delay) {
+function allyDown(g, e, delay, free = false) {
   if (e.small) return;
-  if (e.lives > 1) g.respawnQ.push({ nem: e.nem, lives: e.lives - 1, at: g.t + delay });
+  if (free) g.respawnQ.push({ nem: e.nem, lives: e.lives, at: g.t + delay });
+  else if (e.lives > 1) g.respawnQ.push({ nem: e.nem, lives: e.lives - 1, at: g.t + delay });
   else g.fallen.push(e.nem);
 }
 
@@ -239,7 +288,7 @@ function kill(g, e) {
   e.dead = true; burst(g, e.x, e.y, T[e.type].color, e.team === 'enemy' ? 10 : 6);
   snd(g, e.boss ? 'win' : e.team === 'enemy' ? 'kill' : 'allyDown');
   if (e.boss) { g.state = 'won'; g.boss = null; burst(g, e.x, e.y, '#fff', 60, 400); shake(g, 20); return; }
-  if (T[e.type].split && !e.small) for (let i = 0; i < 2; i++) {
+  if (T[e.type].split && !e.small) for (let i = 0; i < (e.evo === 'mother' ? 4 : 2); i++) {
     mk(g, 'slime', e.team, e.x + rr(g, -8, 8), e.y + rr(g, -8, 8), { small: true, hpMul: e.hpMul, dmgMul: e.dmgMul });
   }
   if (e.team === 'enemy') { g.kills++; g.gems.push({ x: e.x, y: e.y, v: e.small ? 1 : T[e.type].xp }); }
@@ -250,8 +299,10 @@ function explode(g, e) {
   if (e.dead) return; e.dead = true;
   burst(g, e.x, e.y, '#ff3b5c', 26, 260); burst(g, e.x, e.y, '#ffd23f', 14, 180); shake(g, 10); snd(g, 'boom');
   const foe = e.team === 'enemy' ? 'ally' : 'enemy';
-  for (const o of targetsOf(g, foe)) { const r = 70 + o.r; if (d2(e, o) < r * r) damage(g, o, e.dmg, 'bomber'); }
-  if (e.team === 'ally') allyDown(g, e, 5);
+  const reach = e.evo === 'cluster' ? 110 : 70;
+  for (const o of targetsOf(g, foe)) { const r = reach + o.r; if (d2(e, o) < r * r) damage(g, o, e.dmg, 'bomber', false, e.nem); }
+  // Job: a Bomber nemesis that blows itself up comes straight back without losing a life.
+  if (e.team === 'ally') allyDown(g, e, e.evo === 'fuse' ? 1.5 : 3, true);
 }
 
 const NAME_A = ['Mor', 'Vex', 'Gru', 'Zal', 'Kra', 'Ith', 'Bol', 'Sne', 'Ur', 'Dra', 'Hex', 'Nyx'];
@@ -353,14 +404,16 @@ export function step(g, dt, input) {
 
   for (const b of g.bullets) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-    if (b.team === 'enemy') for (const k of ROCKS) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
+    // Job: a Wisp nemesis burns up enemy shots that come near it.
+    if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && w.type === 'wisp' && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : 24 * 24)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
+    if (b.life > 0 && b.team === 'enemy') for (const k of ROCKS) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
     if (b.x < -50 || b.y < -50 || b.x > ARENA.w + 50 || b.y > ARENA.h + 50) b.life = 0;
     if (b.life <= 0) continue;
     for (const o of targetsOf(g, b.team === 'ally' ? 'enemy' : 'ally')) {
       if (b.hit.has(o)) continue;
       const r = o.r + 3;
       if (d2(b, o) < r * r) {
-        damage(g, o, b.dmg, b.src, b.boss); b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80); if (b.team === 'ally') snd(g, 'hit');
+        damage(g, o, b.dmg, b.src, b.boss, b.nem); if (b.slowT && !o.boss && o !== g.P) { o.slowT = b.slowT; o.slowK = b.slowK; } b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80); if (b.team === 'ally') snd(g, 'hit');
         if (b.pierce > 0) b.pierce--; else { b.life = 0; break; }
       }
     }
@@ -369,7 +422,7 @@ export function step(g, dt, input) {
 
   for (const gem of g.gems) {
     const dd = Math.sqrt(d2(gem, P)) || 0.01;
-    if (dd < P.magnet) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
+    if (dd < P.magnet || gem.pull) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
     if (dd < P.r + 6) { gem.got = true; P.xp += gem.v; snd(g, 'gem'); }
   }
   g.gems = g.gems.filter(x => !x.got);

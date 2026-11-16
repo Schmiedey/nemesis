@@ -1,13 +1,15 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS } from './data.js';
+import { T, PERKS, EVOS, CHAMPION_Q, rankName } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
-const VERSION = 3;
+const VERSION = 4;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
 const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1 });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const count = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
 
 function cleanNem(n, id) {
   if (!n || !T[n.type]) return null;
@@ -17,6 +19,9 @@ function cleanNem(n, id) {
     id, type: n.type, perks, q: clamp(Number(n.q) || 0.3, 0.3, 3),
     name: typeof n.name === 'string' ? n.name.slice(0, 16) : T[n.type].name,
     title: typeof n.title === 'string' ? n.title.slice(0, 24) : 'the Unproven',
+    // Added in v4: lifetime record and the evolution picked at Champion.
+    kills: count(n.kills), runs: count(n.runs), wins: count(n.wins),
+    evo: (EVOS[n.type] || []).some(e => e.id === n.evo) ? n.evo : null,
   };
 }
 
@@ -35,7 +40,7 @@ export function sanitize(raw) {
     // Saves from before named nemeses: each old ally becomes a plain soldier.
     for (const k in raw.roster) {
       const n = Math.min(MAX_PER_TYPE, Math.floor(Number(raw.roster[k])) || 0);
-      for (let i = 0; i < n && T[k]; i++) s.nemeses.push({ id: s.nextId++, type: k, perks: {}, q: 0.8, name: 'Old ' + T[k].name, title: 'the Remembered' });
+      for (let i = 0; i < n && T[k]; i++) s.nemeses.push({ id: s.nextId++, type: k, perks: {}, q: 0.8, name: 'Old ' + T[k].name, title: 'the Remembered', kills: 0, runs: 0, wins: 0, evo: null });
     }
   }
   if (Array.isArray(raw.party)) for (const id of raw.party) {
@@ -56,16 +61,38 @@ export function sanitize(raw) {
 export function addRecruit(save, rec) {
   const same = save.nemeses.filter(n => n.type === rec.type);
   if (same.length < MAX_PER_TYPE) {
-    const nem = { id: save.nextId++, ...rec };
+    const nem = { id: save.nextId++, kills: 0, runs: 0, wins: 0, evo: null, ...rec };
     save.nemeses.push(nem);
     if (save.party.length < PARTY_SIZE) save.party.push(nem.id);
     return { status: 'joined', nem };
   }
   const old = same.reduce((a, b) => (b.q < a.q ? b : a));
   if (rec.q <= old.q) return { status: 'rejected', old };
-  const nem = { id: old.id, ...rec };
+  const nem = { id: old.id, kills: 0, runs: 0, wins: 0, evo: null, ...rec };
   save.nemeses[save.nemeses.indexOf(old)] = nem;
   return { status: 'replaced', nem, old };
+}
+
+// After a run, each party member grows from the kills it made (and from a win).
+// runParty: the party objects the sim ran with (they carry .kills). Returns one row per member for the end screen.
+export function growParty(save, runParty, won) {
+  const rows = [];
+  for (const r of runParty) {
+    const n = save.nemeses.find(x => x.id === r.id);
+    if (!n) continue;
+    const kills = count(r.kills), before = n.q;
+    n.q = Math.min(3, n.q + Math.min(0.3, kills * 0.006) + (won ? 0.25 : 0));
+    n.kills = (n.kills || 0) + kills; n.runs = (n.runs || 0) + 1; if (won) n.wins = (n.wins || 0) + 1;
+    rows.push({ nem: n, kills, before, after: n.q, rankUp: rankName(before) !== rankName(n.q), canEvolve: canEvolve(n) });
+  }
+  return rows;
+}
+
+export const canEvolve = n => n.q >= CHAMPION_Q && !n.evo && !!EVOS[n.type];
+export function evolve(save, id, evoId) {
+  const n = save.nemeses.find(x => x.id === id);
+  if (!n || !canEvolve(n) || !EVOS[n.type].some(e => e.id === evoId)) return false;
+  n.evo = evoId; return true;
 }
 
 // The enemy type that has killed you most becomes the boss.

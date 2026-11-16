@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, step, pick, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME } from '../src/data.js';
-import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor } from '../src/save.js';
+import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -62,7 +62,7 @@ describe('sim', () => {
   it('the boss arrives at 5:00 and killing it wins the run', () => {
     const g = createGame({ seed: 5, bossType: 'bat' });
     g.t = BOSS_TIME - 0.05;
-    for (let i = 0; i < 30; i++) step(g, 1 / 60, still());
+    for (let i = 0; i < 90; i++) step(g, 1 / 60, still());
     expect(g.boss?.type).toBe('bat');
     g.boss.hp = 1; g.P.dmg = 999;
     for (let i = 0; i < 60 * 60 && g.state === 'play'; i++) { g.P.hp = g.P.maxhp; step(g, 1 / 60, still()); if (g.state === 'lvl') pick(g, 0); }
@@ -74,6 +74,32 @@ describe('sim', () => {
     for (let i = 0; i < 60 * 20 && g.state !== 'dead'; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, { mx: 1, my: 1 }); }
     expect(g.P.x).toBeLessThanOrEqual(ARENA.w);
     expect(g.P.y).toBeLessThanOrEqual(ARENA.h);
+  });
+
+  it('nemeses are credited with their kills', () => {
+    const party = [nem(1, 'brute', 2)];
+    const g = createGame({ seed: 4, party });
+    for (let i = 0; i < 60 * 40 && g.state !== 'dead'; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    expect(g.party[0].kills).toBeGreaterThan(0);
+  });
+
+  it('jobs: a slime draws walkers, a bomber returns without losing a life, a brood is 5 bats', () => {
+    const g = createGame({ seed: 2, party: [nem(1, 'slime', 1)] });
+    const slime = g.ents.find(e => e.team === 'ally');
+    g.ents.push({ ...slime, team: 'enemy', type: 'brute', x: slime.x + 100, y: slime.y, nem: null, dmg: 0, hp: 1e6, maxhp: 1e6, spd: 60, ang: Math.PI / 2 });
+    const brute = g.ents[g.ents.length - 1];
+    g.P.x = slime.x + 300; g.P.y = slime.y;                 // the player is on the far side of the brute
+    const x0 = brute.x; slime.spd = 0;
+    for (let i = 0; i < 90; i++) step(g, 1 / 60, still());
+    expect(brute.x).toBeLessThan(x0);                        // it walked toward the slime, away from the player
+
+    const b = createGame({ seed: 2, party: [nem(1, 'bomber', 1)] });
+    const lives = b.ents.find(e => e.team === 'ally').lives;
+    for (let i = 0; i < 60 * 30 && !b.respawnQ.length; i++) { step(b, 1 / 60, still()); b.P.hp = b.P.maxhp; if (b.state === 'lvl') pick(b, 0); }
+    expect(b.respawnQ[0].lives).toBe(lives);
+
+    const br = createGame({ seed: 2, party: [{ ...nem(1, 'bat', 2.5), evo: 'brood' }] });
+    expect(br.ents.filter(e => e.team === 'ally').length).toBe(5);
   });
 });
 
@@ -116,5 +142,21 @@ describe('save', () => {
   it('the boss is whatever has killed you most', () => {
     expect(bossTypeFor({ deaths: {} })).toBe('brute');
     expect(bossTypeFor({ deaths: { bat: 2, wisp: 5 } })).toBe('wisp');
+  });
+
+  it('old nemeses gain a record; growth comes from kills and wins; champions evolve once', () => {
+    const s = sanitize({ nemeses: [{ id: 7, type: 'bat', q: 0.6, perks: {}, name: 'A', title: 'the B' }], party: [7] });
+    const n = s.nemeses[0];
+    expect([n.kills, n.runs, n.wins, n.evo]).toEqual([0, 0, 0, null]);
+    const rows = growParty(s, [{ id: n.id, kills: 30 }], false);
+    expect(n.q).toBeCloseTo(0.78); expect(rows[0].rankUp).toBe(true); expect(n.kills).toBe(30);
+    growParty(s, [{ id: n.id, kills: 1000 }], true);
+    expect(n.q).toBeCloseTo(0.78 + 0.3 + 0.25); expect(n.wins).toBe(1);
+    expect(evolve(s, n.id, 'brood')).toBe(false);          // not a Champion yet
+    n.q = 2.2;
+    expect(evolve(s, n.id, 'mother')).toBe(false);         // not a Bat evolution
+    expect(evolve(s, n.id, 'brood')).toBe(true);
+    expect(evolve(s, n.id, 'vampire')).toBe(false);        // only once
+    expect(sanitize(JSON.parse(JSON.stringify(s))).nemeses[0].evo).toBe('brood');
   });
 });

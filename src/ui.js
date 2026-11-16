@@ -1,5 +1,6 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, evoOf, rankName } from './data.js';
+import { canEvolve } from './save.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
 
@@ -16,7 +17,8 @@ const stat = (v, label, cls = '') => `<div class="stat ${cls}"><b>${v}</b><span>
 function nemCard(n, picked) {
   const d = T[n.type];
   return spr(n.type) + `<div><b style="color:${d.color}">${esc(n.name)} ${esc(n.title)}</b>` +
-    `<span>${rankName(n.q)} ${d.name}</span>` +
+    `<span>${rankName(n.q)} ${d.name}${evoOf(n) ? ` · <b class="evo">${evoOf(n).n}</b>` : ''}</span>` +
+    `<span class="job">${evoOf(n) ? evoOf(n).d + '. ' : ''}${JOB[n.type]}</span>` +
     `<span class="perks">${perkText(n.perks) || 'no inherited powers'}</span>` +
     (picked === undefined ? '' : `<span class="pick">${picked ? '✓ IN PARTY' : 'click to add'}</span>`) + '</div>';
 }
@@ -30,6 +32,18 @@ function slots(save) {
       : '<div class="slot">empty slot</div>';
   }
   return h;
+}
+
+// One row per party member after a run: kills made, growth toward the next rank.
+function growthCards(rows) {
+  return rows.map(r => {
+    const d = T[r.nem.type], pct = q => Math.round(Math.min(1, (q - 0.3) / 2.7) * 100);
+    return `<div class="nem on show grow">${spr(r.nem.type)}<div><b style="color:${d.color}">${esc(r.nem.name)} ${esc(r.nem.title)}</b>` +
+      `<span>${rankName(r.after)} ${d.name} · ${r.kills} kill${r.kills === 1 ? '' : 's'} this run</span>` +
+      `<span class="bar"><i style="width:${pct(r.before)}%"></i><i class="gain" style="left:${pct(r.before)}%;width:${pct(r.after) - pct(r.before)}%"></i></span>` +
+      (r.canEvolve ? '<span class="pick" style="color:var(--gold)">Ready to evolve: open the roster</span>' : '') + '</div>' +
+      (r.rankUp ? '<span class="stamp">RANK UP</span>' : '') + '</div>';
+  }).join('');
 }
 
 export function hideAll() { ['start', 'roster', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
@@ -59,7 +73,7 @@ export function showStart(save, bossType) {
 }
 
 // Roster: every nemesis you have earned. Click to move one in or out of the party.
-export function showRoster(save, onToggle) {
+export function showRoster(save, onToggle, onEvo) {
   hideAll();
   const el = $('rosterList'); el.innerHTML = '';
   $('rosterHint').innerHTML = save.nemeses.length
@@ -73,13 +87,25 @@ export function showRoster(save, onToggle) {
     c.className = 'nem' + (picked ? ' on' : '');
     c.innerHTML = nemCard(n, picked);
     c.onclick = () => onToggle(n.id);
+    if (canEvolve(n)) {
+      // A Champion chooses one of two evolutions, once.
+      c.classList.add('evolve');
+      const box = document.createElement('div'); box.className = 'evos';
+      box.innerHTML = '<span class="pick" style="color:var(--gold)">CHAMPION: choose an evolution</span>';
+      for (const ev of EVOS[n.type]) {
+        const b = document.createElement('button'); b.innerHTML = `<b>${ev.n}</b><span>${ev.d}</span>`;
+        b.onclick = e => { e.stopPropagation(); onEvo(n.id, ev.id); };
+        box.appendChild(b);
+      }
+      c.appendChild(box);
+    }
     el.appendChild(c);
   }
   $('reset').classList.toggle('hidden', !save.nemeses.length && !save.runs);
   show('roster');
 }
 
-export function showDead(g, save, res, newBest) {
+export function showDead(g, save, res, newBest, growth = []) {
   const d = T[g.killer], r = g.recruit;
   $('dKiller').style.setProperty('--c', d.color);
   $('dKiller').innerHTML = spr(g.killer, 112);
@@ -91,6 +117,7 @@ export function showDead(g, save, res, newBest) {
     `${who}, is too weak to earn a place. Survive longer to earn a stronger one.`;
   $('dCard').innerHTML = res.status === 'rejected' ? ''
     : `<div class="nem on show">${nemCard(res.nem)}<span class="stamp">RECRUITED</span></div>`;
+  $('dCard').innerHTML += growthCards(growth.filter(r => r.nem !== res.old));
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
     stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(save.best), 'best'));
   const nxt = Object.values(T).filter(x => x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
@@ -99,10 +126,10 @@ export function showDead(g, save, res, newBest) {
   show('dead');
 }
 
-export function showWon(g, save, promoted) {
+export function showWon(g, save, growth) {
   $('wStats').innerHTML = stat(fmt(g.t), 'time', 'best') + stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + stat(save.wins, 'wins');
-  $('wParty').innerHTML = promoted.map(n => `<div class="nem on show">${nemCard(n)}<span class="stamp">STRONGER</span></div>`).join('');
-  $('wNote').textContent = promoted.length ? 'Your party grew stronger from the victory.' : 'You did it alone.';
+  $('wParty').innerHTML = growthCards(growth);
+  $('wNote').textContent = growth.length ? 'Your party grew stronger from the victory.' : 'You did it alone.';
   show('won');
 }
 

@@ -1,6 +1,6 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick } from './sim.js';
-import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, PARTY_SIZE } from './save.js';
+import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, PARTY_SIZE } from './save.js';
 import { draw, resize, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
@@ -14,14 +14,15 @@ let mode = 'start'; // start | roster | play | lvl | pause | dead | won
 const keys = {};
 
 function toStart() { mode = 'start'; g = null; ui.showStart(save, bossTypeFor(save)); }
-function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty); }
+function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
+function pickEvo(id, evoId) { if (evolve(save, id, evoId)) { audio.sfx('level'); writeSave(save); } ui.showRoster(save, toggleParty, pickEvo); }
 function resume() { if (mode === 'pause') { mode = 'play'; ui.setPause(false); } }
 
 function toggleParty(id) {
   const i = save.party.indexOf(id);
   if (i >= 0) save.party.splice(i, 1);
   else if (save.party.length < PARTY_SIZE) save.party.push(id);
-  audio.sfx('ui'); writeSave(save); ui.showRoster(save, toggleParty);
+  audio.sfx('ui'); writeSave(save); ui.showRoster(save, toggleParty, pickEvo);
 }
 
 function begin() {
@@ -51,20 +52,20 @@ function onDeath() {
   mode = 'dead';
   const newBest = endRun();
   save.deaths[g.killer] = (save.deaths[g.killer] || 0) + 1;
+  const growth = growParty(save, g.party, false);
   const res = addRecruit(save, g.recruit);
   writeSave(save);
   const run = g;
-  setTimeout(() => { if (g === run && mode === 'dead') { ui.showDead(run, save, res, newBest); if (res.status !== 'rejected') audio.sfx('stamp', 0.5); } }, 700);
+  setTimeout(() => { if (g === run && mode === 'dead') { ui.showDead(run, save, res, newBest, growth); if (res.status !== 'rejected') audio.sfx('stamp', 0.5); } }, 700);
 }
 
 function onWin() {
   mode = 'won';
   endRun(); save.wins++;
-  const promoted = partyOf(save);
-  for (const n of promoted) n.q = Math.min(3, n.q + 0.25); // survivors of a win rank up
+  const growth = growParty(save, g.party, true); // a win is worth extra growth for everyone who came
   writeSave(save);
   const run = g;
-  setTimeout(() => { if (g === run && mode === 'won') ui.showWon(run, save, promoted); }, 900);
+  setTimeout(() => { if (g === run && mode === 'won') ui.showWon(run, save, growth); }, 900);
 }
 
 const muteBtn = document.getElementById('mute');

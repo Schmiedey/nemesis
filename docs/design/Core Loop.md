@@ -28,8 +28,23 @@ A giant version of the enemy type that has killed you most. Chases you, summons 
 - Enemies steer at 3 radians per second instead of snapping onto you, so a sharp turn shakes them off. Within 90 units they turn freely.
 - **Enemies hunt the player.** They only turn on a nemesis within 110 units, so allies help but do not hide you.
 - **Surge** every 20s: a wave closes in from one side (3 groups, +1 every 50s), with a red arc warning.
-- A stronger party draws a slightly bigger swarm (+3% spawns per point of total quality).
-- Boss has 9000 HP.
+- A stronger party draws a slightly bigger swarm (+4.5% spawns per point of total quality).
+- Boss has 11500 HP.
+
+## Nemesis jobs, growth and evolutions (Phase 4)
+Every nemesis has a job that works at any rank, so even a Runt changes a run (`JOB` in `src/data.js`, rules in `src/sim.js`):
+- **Bat**: fetches gems; any gem a bat passes flies to you, and idle bats go looking for gems.
+- **Slime**: draws walking enemies within 150 units onto itself and takes 40% less damage.
+- **Archer**: its shots slow enemies to 55% speed for 2s.
+- **Brute**: each hit knocks the enemy back and stuns it for 0.6s.
+- **Bomber**: blows itself up, then returns in 3s without losing a life (being killed still costs one).
+- **Wisp**: burns up enemy shots that come near it (not the boss's).
+
+Ally strength: health x(2.6 + 1.3q), damage x(0.7 + 1.3q), where q is quality. The floor is what keeps Runts alive long enough to matter.
+
+**Growth.** A nemesis is credited with its own kills. After each run it gains quality: 0.006 per kill (at most 0.3 a run), plus 0.25 for a win (`growParty` in `src/save.js`). Its lifetime kills, runs and wins are saved.
+
+**Evolutions.** At Champion (q of 2 or more) a nemesis picks one of two evolutions on the roster screen, once and for good (`EVOS` in `src/data.js`): Bat Brood/Vampire, Slime Mother/Bulwark, Archer Volley/Frost, Brute Quake/Juggernaut, Bomber Cluster/Short Fuse, Wisp Storm/Ward.
 
 ## Map
 - One fixed arena (1600x1000), the same every run so it can be learned: 16 rocks and pillars (`ROCKS` in `src/sim.js`), four pillars around the centre, big rocks on each side, clusters in the corners.
@@ -42,14 +57,15 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 - Alone: die around 1:30–2:00, first hit before 0:30.
 - Each party tier lasts clearly longer than the one below.
 - A top party reaches the boss most runs and wins about half.
+- Even weak recruits matter: 3 runts last at least 20s longer than solo, 3 soldiers at least 40s.
 
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
 | None | 1:48 | 2/10 | 1 | 0:26 |
-| 3 runts | 1:50 | 0/10 | 0 | 0:36 |
-| 3 soldiers | 1:50 | 0/10 | 0 | 0:43 |
-| 3 veterans with perks | 3:36 | 3/10 | 2 | 1:41 |
-| 3 champions with perks | 5:12 | 8/10 | 6 | 3:15 |
+| 3 runts | 2:29 | 1/10 | 1 | 1:10 |
+| 3 soldiers | 2:24 | 0/10 | 0 | 1:01 |
+| 3 veterans with perks | 3:04 | 3/10 | 3 | 1:21 |
+| 3 champions with perks | 5:11 | 10/10 | 9 | 2:26 |
 
-Known gaps: a champion party is not hit until about 3:15, so its opening is still safe; runt and soldier parties last no longer than playing alone.
+Known gaps: runts and soldiers (same mix: bat, slime, bat) both beat solo by about 40s but are not separated from each other; a champion party now wins 9 of 10, which is too easy (target is about half) and is to be re-tuned with the boss rework in Phase 5; a champion party is not hit until about 2:26. Evolutions are not in the balance table.

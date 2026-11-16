@@ -50,7 +50,7 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
 .stat.best b{color:var(--gold)}
 .how{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--dim)}
 
-.roster{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:920px;max-height:46vh;overflow:auto;padding:4px}
+.roster{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:flex-start;max-width:920px;max-height:46vh;overflow:auto;padding:4px}
 .nem{width:210px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;display:flex;gap:8px;align-items:center;font-size:12px;color:#aaa;transition:.12s;box-sizing:border-box;position:relative}
 .nem:hover{border-color:#666}
 .nem>div{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -60,6 +60,16 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
 .stamp{position:absolute;right:10px;top:10px;border:2px solid var(--green);color:var(--green);background:#07120c;font-weight:bold;font-size:13px;letter-spacing:2px;padding:3px 8px;border-radius:4px;transform:rotate(8deg);animation:stamp .45s .5s cubic-bezier(.2,2,.4,1) backwards}
 .stamp.no{border-color:#666;color:#888;background:#111}
 @keyframes stamp{from{transform:rotate(8deg) scale(3);opacity:0}}
+.nem .job{color:#8fd0ff}.nem .evo{color:var(--gold);font-size:12px}
+.nem.grow{width:320px}
+.bar{display:block;position:relative;height:6px;border-radius:3px;background:#262634;margin-top:4px;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;left:0;background:var(--green);opacity:.55}
+.bar i.gain{background:var(--gold);opacity:1;animation:gain .8s .4s ease-out backwards}
+@keyframes gain{from{width:0}}
+.nem.evolve{flex-wrap:wrap;border-color:var(--gold);width:260px}
+.evos{display:flex;flex-direction:column;gap:6px;width:100%}
+.evos button{text-align:left;padding:6px 10px;font-size:12px;border-color:var(--gold)}
+.evos button b{color:var(--gold);display:block;font-size:13px}.evos button span{color:#bbb}
 .killer{display:flex;align-items:center;gap:6px;justify-content:center}
 .killer .spr{filter:drop-shadow(0 0 14px var(--c))}
 

@@ -32,6 +32,6 @@ function report(label, party = []) {
 
 report('no party');
 report('3 runts', [nem(1, 'bat', 0.4), nem(2, 'slime', 0.4), nem(3, 'bat', 0.4)]);
-report('3 soldiers', [nem(1, 'bat', 1), nem(2, 'slime', 1), nem(3, 'archer', 1)]);
+report('3 soldiers', [nem(1, 'bat', 1), nem(2, 'slime', 1), nem(3, 'bat', 1)]); // same mix as the runts, so only rank differs
 report('3 veterans + perks', [nem(1, 'brute', 1.7, { shots: 2, pierce: 1 }), nem(2, 'archer', 1.7, { dmg: 2, haste: 2 }), nem(3, 'wisp', 1.7, { dmg: 2 })]);
 report('3 champions + perks', [nem(1, 'brute', 2.8, { shots: 3, pierce: 2, dmg: 3 }), nem(2, 'archer', 2.8, { dmg: 3, haste: 3, shots: 3 }), nem(3, 'bomber', 2.8, { dmg: 3 })]);
