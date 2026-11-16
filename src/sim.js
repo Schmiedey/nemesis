@@ -670,8 +670,8 @@ function die(g, src, byBoss) {
 }
 
 // Experience needed for the next level, from the current requirement. Phase 22 tunes the pace.
-export const XP_START = 12, XP_STEP = 14;              // linear: a steady beat of level-ups all the way to the boss
-export const nextXp = n => n + XP_STEP;
+export const XP_START = 5, XP_STEP = 26;               // grows x1.22 early, then never more than +26 a level: a steady beat to the boss
+export const nextXp = n => Math.floor(Math.min(n * 1.22 + 3, n + XP_STEP));
 // How many more level-ups the experience you hold already covers (shown as "+2 MORE").
 export function pendingLevels(g) { let x = g.P.xp, n = g.P.next, c = 0; while (x >= n && c < 9) { x -= n; n = nextXp(n); c++; } return c; }
 function levelUp(g) {

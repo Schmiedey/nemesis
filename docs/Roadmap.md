@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-19 merged to main (the hook re-centred in 17-19). Public repo: https://github.com/Schmiedey/nemesis. Next: measure the party table with inherited builds and grudge powers; fix party tier order and champion win rate. Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-19 merged to main (the hook re-centred in 17-19). Public repo: https://github.com/Schmiedey/nemesis. Phases 20-22 (level-ups) on main. Next: retune classes after the level-up changes; measure the party table with inherited builds and grudge powers. Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -130,7 +130,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: players chase a recipe on purpose.
 
 ## Phase 22: Pace and feel
-- [x] XP curve tuned with the bot (targets below)
+- [x] XP curve tuned with the bot (capped growth; see Core Loop)
+- [ ] Retune classes after the level-up changes (Ranger, Warden strong; Necromancer, Engineer weak)
 - [x] Several levels at once: "+N MORE" and a shorter pause between picks
 - [x] Cards tagged WEAPON / PASSIVE / PARTY; deeper frame from rank 3
 - [x] Build summary on the death screen, lighting what the recruit took
