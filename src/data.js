@@ -272,5 +272,10 @@ export const MISSIONS = [
   { id: 'powerups', stat: 'powerups', sum: true, n: [4, 8], pay: 25, text: n => `Use ${n} power-ups` },
   { id: 'elites', stat: 'elites', sum: true, n: [3, 6], pay: 30, text: n => `Kill ${n} elites` },
   { id: 'ability', stat: 'acts', sum: true, n: [15, 30], pay: 20, text: n => `Use your ability ${n} times` },
+  // Missions that point at the hook: choose your killer, grow your party, settle the grudge.
+  { id: 'prize', stat: 'prize', sum: true, n: [1, 2], pay: 35, text: n => n > 1 ? `Fall to ${n} elite or golden enemies` : 'Fall to an elite or golden enemy' },
+  { id: 'veteran', stat: 'vet', sum: true, n: [1, 2, 3], pay: 35, text: n => n > 1 ? `Recruit ${n} Veterans or better` : 'Recruit a Veteran or better' },
+  { id: 'party', stat: 'nemKills', n: [60, 120, 200], pay: 30, text: n => `Your nemeses kill ${n} in one run` },
+  { id: 'slay', stat: 'slay', sum: true, n: [1, 2], pay: 60, text: n => n > 1 ? `Slay your nemesis ${n} times` : 'Slay your nemesis' },
   { id: 'epic', stat: 'epics', sum: true, n: [2, 4], pay: 35, text: n => `Pick ${n} Epic or Legendary upgrades` },
 ];

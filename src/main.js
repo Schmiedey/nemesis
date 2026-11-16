@@ -1,7 +1,7 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick, reroll, recruitQuality } from './sim.js';
-import { loadSave, writeSave, resetSave, setSlot, currentSlot, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
-import { masteryLevel } from './data.js';
+import { loadSave, writeSave, resetSave, setSlot, currentSlot, addRecruit, bossTypeFor, grudgeFor, feedGrudge, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
+import { masteryLevel, LEG_TRAIT } from './data.js';
 import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites, levelFx, pickFx } from './render.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
@@ -66,7 +66,7 @@ function begin(k = 'normal') {
   g = createGame({
     seed: kind === 'daily' ? dailySeed(today()) : (Math.random() * 2 ** 32) >>> 0,
     party: partyOf(save).map(n => ({ ...n, perks: { ...n.perks } })),
-    bossType: bossTypeFor(save), tier: kind === 'hard' ? save.tier : 0, boon: save.boon, meta: save.meta, mastery: masteryLevel(save.mastery[save.cls] || 0),
+    bossType: bossTypeFor(save), grudge: grudgeFor(save), tier: kind === 'hard' ? save.tier : 0, boon: save.boon, meta: save.meta, mastery: masteryLevel(save.mastery[save.cls] || 0),
     loadout: save.gear.loadout, owned: save.gear.owned, cls: save.cls,
   });
   for (const k in keys) keys[k] = false;                 // a new run never starts with a direction already held
@@ -103,7 +103,8 @@ function endRun(won) {
   const run = { t: g.t, kills: g.kills, won, dead: !won, party: g.party.length, runts: g.party.length === 3 && g.party.every(n => n.q < 0.7),
     hard: kind === 'hard', daily: kind === 'daily', opened: g.opened, tier: g.tier, boss: !!g.bossAt, cls: g.cls, bonus: g.bonusSouls, soulMul: g.soulMul, streak: g.bestStreak,
     // the numbers missions are measured against
-    ms: { kills: g.kills, t: g.t, lvl: g.P.lvl, opened: g.opened, powerups: g.powerups, elites: g.elites, streak: g.bestStreak, acts: g.acts, epics: g.epics,
+    ms: { kills: g.kills, t: g.t, lvl: g.P.lvl, opened: g.opened, powerups: g.powerups, elites: g.elites, streak: g.bestStreak, acts: g.acts, epics: g.epics, slay: won ? 1 : 0, nemKills: g.party.reduce((a, n) => a + (n.kills || 0), 0),
+      prize: !won && g.recruit?.prize ? 1 : 0, vet: !won && g.recruit?.q >= 1.3 ? 1 : 0,
       ...Object.fromEntries(Object.entries(g.killsBy).map(([k, v]) => ['k_' + k, v])) } };
   const mm = Math.floor(g.t / 60) + ':' + String(Math.floor(g.t % 60)).padStart(2, '0');
   lastResult = `NEMESIS${kind === 'daily' ? ' daily ' + today() : kind === 'hard' ? ' N+' + g.tier : ''} | ${g.cls || 'no class'} | ${won ? 'NEMESIS SLAIN in ' : 'survived '}${mm} | ${g.kills} kills | best streak ${g.bestStreak}`;
@@ -114,6 +115,7 @@ function onDeath() {
   mode = 'dead';
   const end = endRun(false);
   save.deaths[g.killer] = (save.deaths[g.killer] || 0) + 1;
+  grudgeFor(save); feedGrudge(save, Object.keys(g.picks).filter(k => LEG_TRAIT[k] && g.picks[k]), false, !!g.bossAt);
   const res = addRecruit(save, g.recruit);
   end.feats = checkFeats(save, end.run);
   writeSave(save);
@@ -124,6 +126,7 @@ function onDeath() {
 function onWin() {
   mode = 'won';
   const end = endRun(true); // a win is worth extra growth for everyone who came
+  end.grudge = g.grudge; feedGrudge(save, [], true, true);
   end.feats = checkFeats(save, end.run);
   writeSave(save);
   const run = g;

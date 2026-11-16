@@ -53,7 +53,7 @@ export function recruitQuality(t, lvl, byBoss = false, prize = null) {
 // party: up to 3 nemeses { id, type, name, title, q, perks }. bossType: enemy type of the 5:00 boss.
 // hard: Nemesis+ (bigger swarm, tougher enemies). boon: an upgrade id to start the run with.
 // loadout: { weapon, ability } ids from src/data.js. owned: gear ids the player already has; gear only drops when this is given.
-export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null, loadout = {}, owned = null, cls = null, tier = 0, meta = {}, mastery = 0 } = {}) {
+export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null, loadout = {}, owned = null, cls = null, tier = 0, meta = {}, mastery = 0, grudge = null } = {}) {
   // tier: Nemesis+ level 0..5 (`hard` means tier 2). meta: Shrine ranks by id. mastery: class level 0..4.
   const tr = clamp(hard ? Math.max(2, tier) : tier, 0, MAX_TIER), mr = id => Math.max(0, meta[id] | 0);
   const g = {
@@ -70,7 +70,9 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     ult: 0, ultT: 0, ultN: 0, ultTick: 0, laser: null, blockT: 0, shotN: 0,
     cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
-    owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
+    owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0, zaps: [],
+    // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
+    grudge: grudge && T[bossType] ? { name: String(grudge.name || ''), kills: grudge.kills | 0, powers: (grudge.powers || []).filter(k => GRUDGE_POWERS[k]).slice(0, 2) } : null,
     chests: [], chest: false, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
@@ -148,6 +150,16 @@ function inherited(g, e, pk, dt) {
   }
 }
 
+// The Legendary powers you used, as the boss uses them. Kept milder than yours: it has a lot of health already.
+export const ZAP_T = 0.9, ZAP_R = 46;
+export const GRUDGE_POWERS = {
+  storm: e => { e.stormT = 3; },                                 // marks where you stand; lightning follows
+  phoenix: e => { e.rise = true; },                              // rises once at 40% health
+  midas: e => { e.gilded = true; },                              // some of its kin come golden
+  titan: e => { e.hp = e.maxhp = e.maxhp * 1.35; },
+  twin: e => { e.twin = true; },                                 // summons twice as many
+};
+
 const prizeOf = e => (e.elite ? 'elite' : e.gold ? 'gold' : null);
 
 // A class minion (or a raised Skeleton). Not a nemesis: no rank, no perks. It returns a few seconds after it falls.
@@ -209,6 +221,7 @@ function spawnBoss(g) {
   e.boss = true; e.spT = 4; e.aimT = 2; e.spd = Math.max(e.spd, 150); // never slow enough to simply walk away from
    e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 0.6 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + g.P.lvl * 0.02); // a stronger party faces a tougher nemesis e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
+  if (g.grudge) { e.name = g.grudge.name; e.powers = g.grudge.powers; for (const k of e.powers) GRUDGE_POWERS[k](e); }
   g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);
 }
 
@@ -235,6 +248,7 @@ function bossThink(g, e, dt) {
     if (e.wind <= 0) bossSpecial(g, e);
     return;
   }
+  if (e.stormT !== undefined && (e.stormT -= dt) <= 0) { e.stormT = e.enraged ? 2.6 : 3.6; g.zaps.push({ x: P.x, y: P.y, t: ZAP_T }); snd(g, 'windup'); }
   e.spT -= dt;
   if (e.spT <= 0 && d2(e, P) < 560 * 560) {
     e.spT = e.enraged ? 3.2 : 5; e.wind = 0.85; e.ang = Math.atan2(P.y - e.y, P.x - e.x); e.jx = P.x; e.jy = P.y; snd(g, 'windup');
@@ -244,7 +258,10 @@ function bossThink(g, e, dt) {
   contact(g, e, 'ally');
   if (e.summonT <= 0) {
     e.summonT = 5;
-    for (let i = 0; i < (e.type === 'bat' ? 6 : 3); i++) mkEnemy(g, e.type, e.x + rr(g, -60, 60), e.y + rr(g, -60, 60));
+    for (let i = 0; i < (e.type === 'bat' ? 6 : 3) * (e.twin ? 2 : 1); i++) {
+      mkEnemy(g, e.type, e.x + rr(g, -60, 60), e.y + rr(g, -60, 60));
+      const s = g.ents[g.ents.length - 1]; if (e.gilded && g.rand() < 0.25 && !s.gold) { s.gold = true; s.hp = s.maxhp = s.hp * 2.5; }
+    }
   }
   if (e.ringT <= 0) { e.ringT = 3.5; snd(g, 'ring'); ring(g, e, e.enraged ? 26 : 18, e.enraged ? 250 : 215); }
   // Between rings it fires aimed bursts, so standing still is never safe.
@@ -582,6 +599,9 @@ function allyDown(g, e, delay, free = false) {
 }
 
 function kill(g, e) {
+  if (e.boss && e.rise) {                            // Phoenix, learned from you: it gets back up once
+    e.rise = false; e.hp = e.maxhp * 0.4; ring(g, e, 24, 240); shake(g, 16); burst(g, e.x, e.y, '#ffd34d', 50, 360); snd(g, 'boss'); g.fx.push({ k: 'nova', x: e.x, y: e.y, r: 160 }); return;
+  }
   e.dead = true; burst(g, e.x, e.y, T[e.type].color, e.team === 'enemy' ? 10 : 6);
   snd(g, e.boss ? 'win' : e.team === 'enemy' ? 'kill' : 'allyDown');
   if (e.boss) { dropGear(g); g.state = 'won'; g.boss = null; burst(g, e.x, e.y, '#fff', 60, 400); shake(g, 20); return; }
@@ -783,6 +803,12 @@ function fireWeapon(g, dt) {
     }
   }
   if (g.totems.length) g.totems = g.totems.filter(t => t.life > 0);
+  // The boss's lightning (learned from your Thunderstorm): marked where you stood, strikes a moment later.
+  for (const z of g.zaps) if ((z.t -= dt) <= 0) {
+    g.fx.push({ k: 'bolt', pts: [{ x: z.x + 30, y: z.y - 320 }, { x: z.x, y: z.y }] }); snd(g, 'ring');
+    if (d2(z, P) < (ZAP_R + P.r) ** 2) damage(g, P, 24, g.bossType, true);
+  }
+  if (g.zaps.length) g.zaps = g.zaps.filter(z => z.t > 0);
 }
 
 // ---------- power-ups ----------

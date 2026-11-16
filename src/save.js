@@ -7,7 +7,7 @@ const VERSION = 10;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
 // v5 adds: Nemesis+ (hard, bestHard, winsHard), the daily run, feats and the chosen boon.
-const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1,
+const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1, grudge: null,
   hard: false, bestHard: 0, winsHard: 0, daily: { date: '', best: 0, won: false }, feats: {}, boon: null,
   // v6: gear you have found, and what is equipped.
   cls: 'knight',   // v8: the class you play
@@ -61,6 +61,10 @@ export function sanitize(raw) {
     if (m && !s.party.includes(m) && s.party.length < PARTY_SIZE) s.party.push(m);
   }
   if (!s.party.length) s.party = [...s.nemeses].sort((a, b) => b.q - a.q).slice(0, PARTY_SIZE).map(n => n.id);
+  // Phase 19: the boss's name, how often you have beaten it, and the powers it learned from you.
+  const gr = raw.grudge;
+  if (gr && T[gr.type] && typeof gr.name === 'string') s.grudge = { type: gr.type, name: gr.name.slice(0, 16), beaten: count(gr.beaten),
+    powers: Array.isArray(gr.powers) ? [...new Set(gr.powers.filter(k => LEG_TRAIT[k]))].slice(0, 2) : [] };
   if (raw.deaths && typeof raw.deaths === 'object') for (const k in raw.deaths) {
     const n = Math.floor(Number(raw.deaths[k])); if (T[k] && n > 0) s.deaths[k] = n;
   }
@@ -253,6 +257,24 @@ export function bossTypeFor(save) {
   let best = 'brute', n = 0;
   for (const k in save.deaths) if (save.deaths[k] > n) { n = save.deaths[k]; best = k; }
   return best;
+}
+
+// ---------- the grudge ----------
+// The boss is whatever has killed you most. It gets a name the first time it takes that place, keeps count,
+// and carries up to two of the Legendary powers you held when you died. Beating it breaks the grudge: it forgets them.
+const GRUDGE_NAMES = ['Morrow', 'Vesk', 'Grael', 'Ashka', 'Thorne', 'Malgrin', 'Sorrow', 'Krag', 'Ysolde', 'Ruin', 'Ebonhart', 'Hask', 'Vire', 'Oszra'];
+export function grudgeFor(save) {
+  const type = bossTypeFor(save);
+  if (!save.grudge || save.grudge.type !== type)
+    save.grudge = { type, name: GRUDGE_NAMES[(save.runs * 5 + save.nextId * 3) % GRUDGE_NAMES.length] + ' the ' + T[type].name, beaten: 0, powers: [] };
+  return { ...save.grudge, powers: [...save.grudge.powers], kills: save.deaths[type] || 0 };
+}
+// After a run: a loss teaches it your Legendary powers (newest first); a win against it wipes them.
+export function feedGrudge(save, legs, won, fought) {
+  const gr = save.grudge || (grudgeFor(save), save.grudge);
+  if (won && fought) { gr.beaten++; gr.powers = []; return; }
+  for (const k of legs) if (LEG_TRAIT[k]) gr.powers = [k, ...gr.powers.filter(x => x !== k)];
+  gr.powers = gr.powers.slice(0, 2);
 }
 
 export const partyOf = save => save.party.map(id => save.nemeses.find(n => n.id === id)).filter(Boolean);

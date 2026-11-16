@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, step, pick, reroll, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
-import { sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
+import { grudgeFor, feedGrudge, sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -620,3 +620,33 @@ describe('prize recruits', () => {
   });
 });
 });
+
+describe('the grudge', () => {
+  const bossNow = g => { g.t = BOSS_TIME - 0.01; for (let i = 0; i < 3 && !g.boss; i++) step(g, 1 / 60, { mx: 0, my: 0 }); return g.boss; };
+  it('the boss is named after what killed you most, counts it, and learns your Legendary powers', () => {
+    const s = sanitize({}); s.deaths = { bat: 4, slime: 1 };
+    const gr = grudgeFor(s);
+    expect(gr.type).toBe('bat'); expect(gr.kills).toBe(4); expect(gr.name).toMatch(/ the Bat$/);
+    feedGrudge(s, ['storm', 'titan', 'midas'], false, true);
+    expect(s.grudge.powers).toEqual(['midas', 'titan']);              // newest two
+    expect(sanitize(JSON.parse(JSON.stringify(s))).grudge).toEqual(s.grudge);
+    feedGrudge(s, [], true, true);
+    expect(s.grudge.powers).toEqual([]); expect(s.grudge.beaten).toBe(1);
+    s.deaths.slime = 9; expect(grudgeFor(s).type).toBe('slime');   // a new killer takes its place, with a new name
+    expect(s.grudge.beaten).toBe(0);
+  });
+  it('learned powers change the boss: more health, lightning, rising once', () => {
+    const plain = bossNow(createGame({ seed: 4, bossType: 'brute' }));
+    const g = createGame({ seed: 4, bossType: 'brute', grudge: { name: 'Vesk the Brute', kills: 3, powers: ['titan', 'storm', 'phoenix'] } });
+    const b = bossNow(g);
+    expect(g.grudge.powers).toEqual(['titan', 'storm']);                 // at most two
+    expect(b.name).toBe('Vesk the Brute'); expect(b.maxhp).toBeCloseTo(plain.maxhp * 1.35);
+    g.P.inv = 99; for (let i = 0; i < 300 && !g.zaps.length; i++) step(g, 1 / 60, { mx: 0, my: 0 });
+    expect(g.zaps.length).toBeGreaterThan(0);
+    const g2 = createGame({ seed: 4, bossType: 'brute', grudge: { name: 'X', powers: ['phoenix'] } }), b2 = bossNow(g2);
+    b2.hp = 1; b2.inv = 0; g2.P.inv = 99;
+    for (let i = 0; i < 600 && b2.rise; i++) step(g2, 1 / 60, { mx: (b2.x - g2.P.x) / 1e3, my: (b2.y - g2.P.y) / 1e3 });
+    expect(b2.rise).toBe(false); expect(g2.state).toBe('play'); expect(b2.hp).toBeGreaterThan(b2.maxhp * 0.3);
+  });
+});
+

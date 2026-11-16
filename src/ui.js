@@ -144,8 +144,8 @@ export function showMissions(save, bossType) {
   $('missionList').innerHTML = h;
   $('startStats').innerHTML = save.runs
     ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + (save.bestHard ? stat(fmt(save.bestHard), 'best N+') : '') + stat(save.stats.kills.toLocaleString(), 'kills') + stat(completion(save) + '%', 'complete') : '';
-  const b = T[bossType], n = save.deaths[bossType] || 0;
-  $('missionBoss').innerHTML = n ? `Your true nemesis: the <b style="color:${b.color}">${b.name}</b>, with ${n} kill${n > 1 ? 's' : ''} on you. It comes at <b>5:00</b>.` : 'Whatever kills you joins your roster. Your nemesis comes at <b>5:00</b>.';
+  const b = T[bossType], n = save.deaths[bossType] || 0, gr = save.grudge?.type === bossType ? save.grudge : null;
+  $('missionBoss').innerHTML = n ? `Your true nemesis: <b style="color:${b.color}">${gr ? esc(gr.name) : 'the ' + b.name}</b>, with ${n} kill${n > 1 ? 's' : ''} on you${gr?.beaten ? ', beaten ' + gr.beaten + (gr.beaten > 1 ? ' times' : ' time') : ''}.${gr?.powers.length ? ' It learned ' + gr.powers.map(k => UP.find(u => u.id === k).n).join(' and ') + ' from you.' : ''} It comes at <b>5:00</b>.` : 'Whatever kills you joins your roster. Your nemesis comes at <b>5:00</b>.';
   show('missions');
 }
 

@@ -1,8 +1,8 @@
 // Draws the game in pixel art.
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
-import { T, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
-import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, recruitQuality } from './sim.js';
+import { T, UP, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
+import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, ZAP_T, ZAP_R, recruitQuality } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -386,6 +386,10 @@ export function draw(cv, cx, g, hud, hx) {
   cx.drawImage(ground(g.rocks), camX / PX, camY / PX, VIEW.w / PX, VIEW.h / PX, camX, camY, VIEW.w, VIEW.h);
   cx.drawImage(light(), P.x - LIGHT_R, P.y - LIGHT_R, LIGHT_R * 2, LIGHT_R * 2);
 
+  for (const z of g.zaps) {                              // the boss's lightning: marked, then it falls
+    cx.fillStyle = dither(cx, Math.sin(t * 30) > 0 ? PAL.y : PAL.r2); cx.beginPath(); cx.arc(snap(z.x), snap(z.y), ZAP_R * (0.4 + 0.6 * (1 - z.t / ZAP_T)), 0, 7); cx.fill();
+    dashRing(cx, snap(z.x), snap(z.y), ZAP_R, PAL.y, t * 4, 2);
+  }
   for (const f of g.fires) {                             // Flamewalker trail
     if (f.life < 0.5 && Math.sin(t * 30 + f.x) > 0) continue;
     spr(cx, 'fire', f.x, f.y, t * 9 + f.x, f.r / 16);
@@ -557,8 +561,12 @@ export function draw(cv, cx, g, hud, hx) {
     const bw = 400;
     bar(cx, W / 2 - bw / 2, 64, bw, 12, g.boss.hp / g.boss.maxhp, PAL.r, PAL.r2);
     icon(cx, 'i_skull', W / 2 - bw / 2 - 26, 58, 1.25);
-    label(cx, 'THE ' + T[g.boss.type].name.toUpperCase() + (g.boss.enraged ? '  ENRAGED' : ''), W / 2, 94, g.boss.enraged ? PAL.r3 : PAL.g1, `12px ${TITLE}`);
-    if (t - g.bossAt < 3.5 && Math.sin(t * 10) > -0.4) label(cx, 'YOUR NEMESIS HAS COME', W / 2, H / 2 - 120, PAL.r, `bold 30px ${TITLE}`);
+    const gr = g.grudge, bn = gr ? gr.name.toUpperCase() : 'THE ' + T[g.boss.type].name.toUpperCase();
+    label(cx, bn + (gr && gr.kills ? '   KILLED YOU ' + gr.kills + 'X' : '') + (g.boss.enraged ? '   ENRAGED' : ''), W / 2, 94, g.boss.enraged ? PAL.r3 : PAL.g1, `12px ${TITLE}`);
+    if (t - g.bossAt < 4) {
+      if (Math.sin(t * 10) > -0.4) label(cx, gr ? bn + ' REMEMBERS YOU' : 'YOUR NEMESIS HAS COME', W / 2, H / 2 - 120, PAL.r, `bold 30px ${TITLE}`);
+      if (gr && gr.powers.length) label(cx, 'IT LEARNED ' + gr.powers.map(k => UP.find(u => u.id === k).n.toUpperCase()).join(' AND ') + ' FROM YOU', W / 2, H / 2 - 92, PAL.y, `14px ${TITLE}`);
+    }
   } else if (!g.bossAt && t > BOSS_TIME - 30) {
     label(cx, 'NEMESIS IN ' + Math.ceil(BOSS_TIME - t), W / 2, 68, PAL.r3, `12px ${TITLE}`);
   }

@@ -96,6 +96,12 @@ Built on a few well-established findings about why games are satisfying; each is
 - **Sharing.** "Copy result" puts a one-line summary on the clipboard; the daily run is the same for everyone, so results compare.
 - Deliberately left out: timers that lock play, lives or energy, fake scarcity, and anything that takes away what you earned.
 
+## The hook, built (Phases 17-19)
+- **Recruits inherit your build** (Phase 17): perks for the newer upgrades, a trait from your weapon, and any Legendary powers you held (`LEG_TRAIT`). Death opens on the recruitment scene; souls and missions come second.
+- **Choosing your killer** (Phase 18): a four-step rank bar under the clock shows the rank a recruit would have now. Below 35% health a panel names the nearest enemy and whether it would join, replace your weakest nemesis of that kind, or be too weak. Dying to an elite adds half a rank (+0.5 quality), to a golden enemy +0.35; a golden nemesis in the party adds 15% souls.
+- **A nemesis with a grudge** (Phase 19): the boss (whatever killed you most) gets a name, shows how often it has killed you, and carries up to two Legendary powers you held when you died, newest first. Its versions: Thunderstorm marks where you stand and strikes 0.9s later (24 damage, radius 46); Phoenix rises once at 40%; Titan +35% health; Twin Soul doubles its summons; Midas makes a quarter of its summons golden. Beating it wipes what it learned. Not yet measured by the bot (balance runs pass no grudge).
+- **Hook missions**: fall to an elite or golden enemy, recruit a Veteran or better, your nemeses kill N in one run, slay your nemesis.
+
 ## Progression (Phase 13)
 What carries over between runs, and why there is always something to work toward:
 - **Souls.** Every run pays souls, win or lose: 0.12 per kill + 0.2 per second + 4 per chest + 15 for reaching the boss + 60 for a win, then +25% per Nemesis+ tier and +10% per rank of Greed (`soulsFor` in `src/save.js`).
@@ -135,7 +141,7 @@ You pick one of three classes on the title screen (`CLASSES` in `src/data.js`; s
 | Engineer (locked) | power-ups drop 2.4x as often; Frenzy and Giant last 50% longer | **Drone**: cannot be targeted; circles you and shoots the nearest enemy |
 | Warden (locked) | regenerate 0.5 health a second | **Golem**: stays within 130 of you; every 6s slams the ground, stunning everything within 95 for 1s, and for 2.5s walkers nearby go for it instead of you |
 
-Solo survival by class (`node tests/balance.js --classes`, 10 seeds, Blaster + Dash): no class 1:44, Knight 2:16, Ranger 2:40, Necromancer 2:08, Berserker 2:08, Engineer 2:28, Warden 2:08. A minion that roams into the swarm and kills freely breaks the game (a roaming Golem gave 5:20 even with 5 damage; kept beside the player with a stun-only slam it is 2:08), so keep tanky minions leashed. The main balance table is run with no class, so real runs are about 25-50% longer than its solo row. The Ranger was 5:15 before the Hawk was toned down and is still the strongest.
+Solo survival by class (`node tests/balance.js --classes`, 10 seeds, Blaster + Dash): no class 1:44, Knight 2:16, Ranger 2:40, Necromancer 2:08, Berserker 2:08, Engineer 2:28, Warden 2:08. A minion that roams into the swarm and kills freely breaks the game (a roaming Golem gave 5:20 even with 5 damage; kept beside the player with a stun-only slam it is 2:08), so keep tanky minions leashed. The main balance table is run with no class, so real runs are about 25-50% longer than its solo row. The Ranger was 5:15 before the Hawk was toned down and is still the strongest. After trimming Berserker and Warden healing: Berserker 3:35, Warden 3:12.
 
 **Level-up moment.** Levelling up (or opening a chest) freezes the game for 0.75s: a beam of light on the player, two rings, a shower of sparks and LEVEL UP! in large text; then the cards are dealt (they drop in edge-on and flip open). The chosen card flashes and the others fall away before play resumes, and a banner names what you took.
 
