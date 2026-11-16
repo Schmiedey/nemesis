@@ -9,6 +9,8 @@ import bpy, sys, os, math, json, subprocess, tempfile
 
 FRAME = 128    # pixels per frame
 FRAMES = 8     # frames per loop
+DIRS = 8       # facing directions, one row each: row k faces k*45 degrees clockwise from screen-right
+TILT = 35      # camera tilt from straight down, degrees: gives the sprites depth
 VIEW = 2.6     # model units visible across one frame
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 OUT = os.path.join(ROOT, 'public', 'sprites')
@@ -37,7 +39,9 @@ def reset():
     cam.ortho_scale = VIEW
     co = bpy.data.objects.new('cam', cam)
     sc.collection.objects.link(co)
-    co.location = (0, 0, 10)   # looks straight down
+    t = math.radians(TILT)      # tilted toward the top of the screen, so we see fronts and sides, not just tops
+    co.location = (0, -10 * math.sin(t), 10 * math.cos(t))
+    co.rotation_euler = (t, 0, 0)
     sc.camera = co
 
     sun = bpy.data.lights.new('sun', 'SUN')
@@ -316,16 +320,26 @@ CREATURES = {'bat': build_bat, 'slime': build_slime, 'archer': build_archer, 'br
 # ---------- render ----------
 def render(name):
     sc = reset()
+    fixed = set(bpy.data.objects)                     # camera and sun
     animate, draw = CREATURES[name]()
+    # Put the whole creature under one turntable so it can face each direction.
+    turn = bpy.data.objects.new('turn', None)
+    sc.collection.objects.link(turn)
+    for o in bpy.data.objects:
+        if o not in fixed and o is not turn and o.parent is None:
+            o.parent = turn
     tmp = tempfile.mkdtemp(prefix='sprite_')
-    for f in range(FRAMES):
-        animate(f / FRAMES)
-        sc.render.filepath = os.path.join(tmp, f'f{f}.png')
-        bpy.ops.render.render(write_still=True)
+    for d in range(DIRS):
+        # Game angles grow clockwise on screen (y points down), Blender's grow anticlockwise.
+        turn.rotation_euler = (0, 0, -d * math.tau / DIRS)
+        for f in range(FRAMES):
+            animate(f / FRAMES)
+            sc.render.filepath = os.path.join(tmp, f'f{d * FRAMES + f}.png')
+            bpy.ops.render.render(write_still=True)
     out = os.path.join(OUT, name + '.png')
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', os.path.join(tmp, 'f%d.png'),
-                    '-filter_complex', f'tile={FRAMES}x1', '-frames:v', '1', out], check=True)
-    return {'frames': FRAMES, 'size': FRAME, 'fps': 14, 'draw': draw}
+                    '-filter_complex', f'tile={FRAMES}x{DIRS}', '-frames:v', '1', out], check=True)
+    return {'frames': FRAMES, 'dirs': DIRS, 'size': FRAME, 'fps': 14, 'draw': draw}
 
 
 def main():

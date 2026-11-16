@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-4 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 5 built on branch `phase-5-variety`, not merged: enemy tells, boss moves and enrage, 6 upgrades, elites and chests, 3 maps. Boss made dangerous (champions now win 5/10). Next: user plays it, merge, Phase 6.
+**Status:** Phases 1-5 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 6 in progress on branch `phase-6-depth`: depth and feel done (tilted 8-direction sprites, shadows, light pool, hit flash, damage numbers, hit-stop, level-up restyle). Next: reasons to return (Nemesis+, daily run, feats, nemesis history).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -41,8 +41,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: two runs in a row feel different.
 
 ## Phase 6: Depth, feel, and reasons to return
-- [ ] Depth in 2D: shadows, light pool, sprites re-rendered tilted in 8 directions, drawn larger
-- [ ] Feel: tinted hit flash, damage numbers, hit-stop, restyled level-up screen
+- [x] Depth in 2D: shadows, light pool, sprites re-rendered tilted in 8 directions, drawn larger
+- [x] Feel: tinted hit flash, damage numbers, hit-stop, restyled level-up screen
 - [ ] Nemesis+ mode, daily run, feats that unlock starting perks, nemesis history on roster cards
 - Done when: it looks finished and there is always a next thing to chase.
 

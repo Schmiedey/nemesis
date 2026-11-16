@@ -137,8 +137,10 @@ export function showLevel(g, onPick) {
   const el = $('cards'); el.innerHTML = '';
   $('lvlTitle').textContent = g.chest ? 'CHEST: DOUBLE STRENGTH' : 'LEVEL UP';
   g.choices.forEach((u, i) => {
-    const c = document.createElement('div'); c.className = 'card' + (u.ally ? ' ally' : '');
-    c.innerHTML = `<b>${i + 1}. ${u.n}</b><span>${u.d}</span>`;
+    const c = document.createElement('div'); c.className = 'card' + (u.ally ? ' ally' : '') + (g.chest ? ' chest' : '');
+    const have = g.picks[u.id] || 0;
+    c.innerHTML = `<i class="ico">${u.i || '•'}</i><b>${u.n}</b><span>${u.d}</span>` +
+      `<em>${u.ally ? 'for your nemeses' : have ? 'you have ' + have : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
     el.appendChild(c);
   });

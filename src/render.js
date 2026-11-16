@@ -11,12 +11,30 @@ let parts = [], shakeAmt = 0, surge = null;
 // Sprite sheets rendered by art/make_sprites.py. Any creature without one falls back to a shape.
 const sprites = {};
 const offs = new WeakMap(); // per-creature animation offset
+const SPRITE_SCALE = 1.3; // creatures are drawn larger than their hit circle so they read at game scale
+
+// Draw one frame. Sheets with `dirs` have a row per facing direction (rendered from a tilted camera), so the
+// image is never rotated; older single-row sheets are top-down and get rotated instead.
+function blit(cx, sp, ang, frame, size, flash, lift = 0) {
+  let row = 0, y = -size / 2;
+  if (sp.dirs) { row = ((Math.round(ang / (Math.PI / 4)) % sp.dirs) + sp.dirs) % sp.dirs; y = -size * 0.56 - lift; }
+  else cx.rotate(ang);
+  cx.drawImage(sp.img, frame * sp.size, row * sp.size, sp.size, sp.size, -size / 2, y, size, size);
+  if (flash > 0) { cx.globalAlpha = 0.8; cx.drawImage(sp.white, frame * sp.size, row * sp.size, sp.size, sp.size, -size / 2, y, size, size); cx.globalAlpha = 1; }
+}
+const shadow = (cx, r, lift = 0) => { cx.fillStyle = 'rgba(0,0,0,.38)'; cx.beginPath(); cx.ellipse(0, r * 0.3, r * (lift ? 0.8 : 1.05), r * (lift ? 0.4 : 0.55), 0, 0, 7); cx.fill(); };
+
 export async function loadSprites() {
   try {
     const manifest = await (await fetch('sprites/sprites.json')).json();
     for (const name in manifest) {
       const img = new Image();
-      img.onload = () => { sprites[name] = { img, ...manifest[name] }; };
+      img.onload = () => {
+        // A white copy of the sheet, drawn over a creature for a moment when it is hit.
+        const white = document.createElement('canvas'); white.width = img.width; white.height = img.height;
+        const w = white.getContext('2d'); w.drawImage(img, 0, 0); w.globalCompositeOperation = 'source-in'; w.fillStyle = '#fff'; w.fillRect(0, 0, img.width, img.height);
+        sprites[name] = { img, white, ...manifest[name] };
+      };
       img.src = `sprites/${name}.png`;
     }
   } catch { /* no sprites yet: shapes only */ }
@@ -26,7 +44,8 @@ export async function loadSprites() {
 let pAng = 0, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 500; // cap so a huge fight cannot flood the screen with particles
 let rings = []; // expanding shockwave rings
-export function resetFx() { parts = []; rings = []; shakeAmt = 0; surge = null; }
+let nums = [];  // floating damage numbers
+export function resetFx() { parts = []; rings = []; nums = []; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
 export function consumeFx(g) {
@@ -34,11 +53,12 @@ export function consumeFx(g) {
     if (f.k === 'shake') shakeAmt = Math.max(shakeAmt, f.v);
     else if (f.k === 'surge') surge = { a: f.a, life: 2 };
     else if (f.k === 'snd') continue;
+    else if (f.k === 'num') { if (nums.length < 50) nums.push({ x: f.x + rnd(-6, 6), y: f.y - 8, v: Math.round(f.v), life: 0.6 }); }
     else if (f.k === 'nova') rings.push({ x: f.x, y: f.y, r: f.r, life: 0.35 });
     else for (let i = 0; i < f.n; i++) {
       const a = Math.random() * 6.28, s = rnd(30, f.sp);
       if (parts.length >= MAX_PARTS) break;
-      parts.push({ x: f.x, y: f.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.3, .7), c: f.c });
+      parts.push({ x: f.x, y: f.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.3, .7), c: f.c, s: rnd(2, 5.5) });
     }
   }
 }
@@ -47,6 +67,7 @@ export function updateFx(dt) {
   for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; p.life -= dt; }
   parts = parts.filter(p => p.life > 0);
   for (const r of rings) r.life -= dt; rings = rings.filter(r => r.life > 0);
+  for (const n of nums) { n.life -= dt; n.y -= 34 * dt; } nums = nums.filter(n => n.life > 0);
   if (surge && (surge.life -= dt) <= 0) surge = null;
   shakeAmt *= 0.88; if (shakeAmt < .3) shakeAmt = 0;
 }
@@ -110,12 +131,12 @@ function drawEnt(cx, g, e) {
   if (e.team === 'ally') { cx.strokeStyle = 'rgba(125,255,176,.7)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r + 5, 0, 7); cx.stroke(); }
   let r = e.r; if (d.shape === 'blob') r *= 1 + 0.08 * Math.sin(t * 6 + e.x * .1);
   const sp = sprites[e.type];
-  if (sp && e.flash <= 0) {
-    // Animated sprite, facing its direction of travel. Each one starts on a different frame.
+  if (sp) {
+    // Animated sprite facing its direction of travel, on a soft shadow. Flyers hover above theirs.
     if (!offs.has(e)) offs.set(e, Math.floor(Math.random() * sp.frames));
-    const size = e.r * sp.draw, f = (Math.floor(t * sp.fps) + offs.get(e)) % sp.frames;
-    cx.rotate(e.ang);
-    cx.drawImage(sp.img, f * sp.size, 0, sp.size, sp.size, -size / 2, -size / 2, size, size);
+    const size = e.r * sp.draw * SPRITE_SCALE, f = (Math.floor(t * sp.fps) + offs.get(e)) % sp.frames, lift = d.fly ? 9 : 0;
+    shadow(cx, e.r, lift);
+    blit(cx, sp, e.ang, f, size, e.flash, lift);
     cx.restore(); drawBar(cx, e); return;
   }
   cx.rotate(d.shape === 'star' ? t * 3 : d.shape === 'square' ? 0 : e.ang);
@@ -163,11 +184,16 @@ function ground(ROCKS) {
     for (let i = 0; i < n; i++) { const a = a0 + i * 6.283 / n, q = k.r * (0.9 + rn() * 0.12); pts.push([k.x + Math.cos(a) * q, k.y + Math.sin(a) * q]); }
     const gr = c.createRadialGradient(k.x - k.r * 0.4, k.y - k.r * 0.45, k.r * 0.1, k.x, k.y, k.r * 1.1);
     gr.addColorStop(0, '#6c6c86'); gr.addColorStop(0.6, '#3a3a4e'); gr.addColorStop(1, '#1c1c28');
+    const lift = k.r * 0.32;                                                              // rocks stand up: a dark side face under the top
+    c.fillStyle = '#14141d'; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
+    c.strokeStyle = '#08080c'; c.lineWidth = 2.5; c.stroke();
+    c.save(); c.translate(0, -lift);
     c.fillStyle = gr; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
     c.strokeStyle = '#08080c'; c.lineWidth = 2.5; c.stroke();
     c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1.5; c.beginPath();                // facets
     for (let i = 0; i < n; i += 3) { c.moveTo(k.x + (rn() - 0.5) * k.r * 0.5, k.y + (rn() - 0.5) * k.r * 0.5); c.lineTo(pts[i][0], pts[i][1]); }
     c.stroke();
+    c.restore();
   }
   c.strokeStyle = '#2a1820'; c.lineWidth = 16; c.strokeRect(0, 0, ARENA.w, ARENA.h);    // wall
   c.strokeStyle = '#ff3b5c88'; c.lineWidth = 2; c.strokeRect(9, 9, ARENA.w - 18, ARENA.h - 18);
@@ -210,6 +236,10 @@ export function draw(cv, cx, g) {
   cx.setTransform(sc, 0, 0, sc, ox + rnd(-shakeAmt, shakeAmt) * sc, oy + rnd(-shakeAmt, shakeAmt) * sc);
   cx.translate(-camX, -camY);
   cx.drawImage(ground(g.rocks), camX, camY, VIEW.w, VIEW.h, camX, camY, VIEW.w, VIEW.h);
+  // A pool of light around you; the arena falls into dark further out.
+  const lg = cx.createRadialGradient(P.x, P.y, 40, P.x, P.y, 620);
+  lg.addColorStop(0, 'rgba(255,236,200,.09)'); lg.addColorStop(0.35, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,.5)');
+  cx.fillStyle = lg; cx.fillRect(camX, camY, VIEW.w, VIEW.h);
 
   for (const gem of g.gems) { cx.fillStyle = gem.v >= 5 ? '#ffd23f' : '#7dffb0'; cx.fillRect(gem.x - 3, gem.y - 3, 6, 6); }
   for (const c of g.chests) {
@@ -227,6 +257,13 @@ export function draw(cv, cx, g) {
     cx.rotate(1.57); cx.beginPath(); cx.moveTo(12, 0); cx.lineTo(0, 4); cx.lineTo(-12, 0); cx.lineTo(0, -4); cx.closePath(); cx.fill();
     cx.restore();
   }
+  cx.textAlign = 'center';
+  for (const n of nums) {
+    const big = n.v >= 40;
+    cx.globalAlpha = Math.min(1, n.life * 3); cx.font = `bold ${big ? 15 : 11}px ui-monospace,Menlo,monospace`;
+    cx.fillStyle = '#000'; cx.fillText(n.v, n.x + 1, n.y + 1); cx.fillStyle = big ? '#ffd23f' : '#fff'; cx.fillText(n.v, n.x, n.y);
+  }
+  cx.globalAlpha = 1;
   for (const r of rings) {
     const k = 1 - r.life / 0.35;
     cx.strokeStyle = `rgba(255,255,255,${1 - k})`; cx.lineWidth = 6 * (1 - k) + 1; cx.beginPath(); cx.arc(r.x, r.y, r.r * (0.3 + 0.7 * k), 0, 7); cx.stroke();
@@ -237,16 +274,14 @@ export function draw(cv, cx, g) {
     if (moving && mx * mx + my * my < 2500) pAng = Math.atan2(my, mx);
     pPrev = { x: P.x, y: P.y };
     const sp = sprites.player;
-    if (sp && P.flash <= 0) {
-      const size = P.r * sp.draw, f = moving ? Math.floor(g.t * sp.fps) % sp.frames : 0;
-      cx.save(); cx.translate(P.x, P.y); cx.rotate(pAng);
-      cx.drawImage(sp.img, f * sp.size, 0, sp.size, sp.size, -size / 2, -size / 2, size, size);
-      cx.restore();
+    if (sp) {
+      const size = P.r * sp.draw * SPRITE_SCALE, f = moving ? Math.floor(g.t * sp.fps) % sp.frames : 0;
+      cx.save(); cx.translate(P.x, P.y); shadow(cx, P.r); blit(cx, sp, pAng, f, size, P.flash); cx.restore();
     } else { cx.fillStyle = P.flash > 0 ? '#ff3b5c' : '#fff'; cx.beginPath(); cx.arc(P.x, P.y, P.r, 0, 7); cx.fill(); }
     cx.strokeStyle = 'rgba(255,255,255,.15)'; cx.lineWidth = 1; cx.beginPath(); cx.arc(P.x, P.y, P.magnet, 0, 7); cx.stroke();
   }
   for (const b of g.bullets) { cx.fillStyle = b.color; cx.beginPath(); cx.arc(b.x, b.y, b.team === 'enemy' ? 4 : 3, 0, 7); cx.fill(); }
-  for (const p of parts) { cx.globalAlpha = Math.max(0, p.life * 1.6); cx.fillStyle = p.c; cx.fillRect(p.x - 2, p.y - 2, 4, 4); }
+  for (const p of parts) { cx.globalAlpha = Math.max(0, p.life * 1.6); cx.fillStyle = p.c; cx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); }
   cx.globalAlpha = 1;
 
   // HUD, in view coordinates.

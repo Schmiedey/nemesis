@@ -11,7 +11,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 - `src/audio.js`: WebAudio synth, no audio files. `sfx(name)` one-shots, `scene(mode, g)` steers the soundtrack. The sim queues cues as `{ k: 'snd', n }` in `g.fx`.
 - `src/ui.js`: HTML overlays · `src/save.js`: versioned save · `src/main.js`: loop, input, glue
 - `tests/sim.test.js`: headless simulated runs
-- `art/make_sprites.py`: Blender script. Each creature is a `build_<name>()` function made of helper primitives; add it to `CREATURES`. Output goes to `public/sprites/`. The game falls back to a plain shape for any creature without a sprite.
+- `art/make_sprites.py`: Blender script. Each creature is a `build_<name>()` function made of helper primitives; add it to `CREATURES`. Each sheet is 8 rows (facing directions, row k = k x 45 degrees clockwise from screen-right) by 8 frames, rendered from a camera tilted 35 degrees; about a minute per creature. Output goes to `public/sprites/`. The game falls back to a plain shape for any creature without a sprite.
 - `prototype/nemesis.html`: original one-file prototype, reference only
 - `docs/`: Obsidian vault. Keep docs in sync when design changes.
 

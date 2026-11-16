@@ -124,12 +124,15 @@ const input = () => {
   };
 };
 
-let last = performance.now();
+let last = performance.now(), hitStop = 0;
 function loop(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
   if (mode === 'play') {
-    step(g, dt, input()); consumeFx(g);
-    for (const f of g.fx) if (f.k === 'snd') audio.sfx(f.n);
+    if (hitStop > 0) hitStop -= dt;                                     // a few frozen frames make a big hit land
+    else {
+      step(g, dt, input()); consumeFx(g);
+      for (const f of g.fx) { if (f.k === 'snd') audio.sfx(f.n); else if (f.k === 'shake' && f.v >= 10) hitStop = 0.05; }
+    }
     if (g.state === 'lvl') { mode = 'lvl'; ui.showLevel(g, choose); }
     else if (g.state === 'dead') onDeath();
     else if (g.state === 'won') onWin();

@@ -387,6 +387,7 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   if (o.team === 'ally') amt *= g.allyArmor;
   if (o.team === 'ally' && o.type === 'slime') amt *= o.evo === 'bulwark' ? 0.3 : 0.6;
   o.hp -= amt; o.flash = 0.08;
+  if (o.team === 'enemy' && amt >= 1) g.fx.push({ k: 'num', x: o.x, y: o.y - o.r, v: amt });
   if (o.hp <= 0 && !o.dead) {
     if (by && o.team === 'enemy') by.kills = (by.kills || 0) + 1; // credited to the nemesis; turns into XP after the run
     kill(g, o);

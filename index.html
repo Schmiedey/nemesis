@@ -37,7 +37,7 @@ button.quiet{background:none;border-color:var(--line);color:#777;font-size:12px;
 button .key{margin-left:8px;font-size:11px;opacity:.8}
 
 /* Animated creature portrait cut from a sprite sheet (8 frames in a row). */
-.spr{display:inline-block;flex:none;width:var(--s,48px);height:var(--s,48px);background-size:calc(var(--s,48px)*8) var(--s,48px);background-repeat:no-repeat;animation:spr .57s steps(8) infinite}
+.spr{display:inline-block;flex:none;width:var(--s,48px);height:var(--s,48px);background-size:calc(var(--s,48px)*8) calc(var(--s,48px)*8);background-position-y:calc(var(--s,48px)*-2);background-repeat:no-repeat;animation:spr .57s steps(8) infinite}
 @keyframes spr{to{background-position-x:calc(var(--s,48px)*-8)}}
 
 .slots{display:flex;gap:10px;justify-content:center}
@@ -74,11 +74,18 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
 .killer .spr{filter:drop-shadow(0 0 14px var(--c))}
 
 .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
-.card{width:180px;padding:20px 14px;border:1px solid #444;border-radius:10px;background:#15151f;cursor:pointer;transition:.15s}
-.card:hover{border-color:var(--gold);transform:translateY(-4px)}
-.card b{display:block;font-size:18px;margin-bottom:8px;color:var(--gold)}
-.card span{color:#bbb;font-size:13px}
-.card.ally b{color:var(--green)}
+.card{width:190px;padding:18px 14px 14px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(#1a1a26,var(--panel));cursor:pointer;transition:.15s;display:flex;flex-direction:column;align-items:center;gap:6px;animation:deal .25s backwards}
+.card:nth-child(2){animation-delay:.06s}.card:nth-child(3){animation-delay:.12s}
+@keyframes deal{from{opacity:0;transform:translateY(16px)}}
+.card:hover{border-color:var(--gold);transform:translateY(-5px);box-shadow:0 8px 26px #ffd23f22}
+.card .ico{font-style:normal;font-size:30px;line-height:52px;width:52px;height:52px;border-radius:50%;background:#ffd23f18;border:1px solid #ffd23f55;color:var(--gold)}
+.card b{display:block;font-size:17px;color:var(--gold)}
+.card span{color:#c4c4d2;font-size:13px;line-height:1.4;min-height:36px}
+.card em{font-style:normal;font-size:11px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.card kbd{font-family:inherit;margin-top:2px}
+.card.ally{border-color:#7dffb044}.card.ally b,.card.ally .ico{color:var(--green)}.card.ally .ico{background:#7dffb018;border-color:#7dffb055}.card.ally em{color:var(--green)}
+.card.ally:hover{border-color:var(--green);box-shadow:0 8px 26px #7dffb022}
+.card.chest{border-color:var(--gold);box-shadow:0 0 18px #ffd23f33}
 /* Touch: a stick that appears where the thumb lands, and a pause button. */
 #joy{position:fixed;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid #ffffff33;background:#ffffff0d;pointer-events:none;z-index:4}
 #joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px;border-radius:50%;background:#ffffff55}
@@ -100,7 +107,7 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
   h2{font-size:24px}
   .slot{height:46px;width:150px}.stat{padding:4px 10px;min-width:70px}.stat b{font-size:17px}
   .how{display:none}
-  .card{width:150px;padding:12px 10px}.card b{font-size:15px}
+  .card{width:150px;padding:10px 8px;gap:3px}.card b{font-size:14px}.card .ico{width:34px;height:34px;line-height:34px;font-size:20px}.card span{min-height:0;font-size:12px}
   .roster{max-height:38vh}
   .killer .spr{--s:64px!important}
 }
