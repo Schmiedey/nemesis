@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-8 merged to main. Phase 9 built on branch `phase-9-powerups`, not merged: six power-ups and eight charms (third loadout slot). This completes the weapons/abilities/gear plan. Next: user plays it, merge. Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload, 10-second clip, real-phone test.
+**Status:** Phases 1-9 merged to main; the weapons, abilities, power-ups and gear plan is complete. Phases 4-9 have not been played through by a person; expect balance feedback (known gaps are in `docs/design/Core Loop.md`). Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload of `nemesis-web.zip`, 10-second clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
