@@ -2,7 +2,7 @@
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
 import { T, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
-import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R } from './sim.js';
+import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, recruitQuality } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -547,6 +547,12 @@ export function draw(cv, cx, g, hud, hx) {
   // Top centre: the clock, and the boss when it is here.
   panel(cx, W / 2 - 52, 14, 104, 34);
   cx.textAlign = 'center'; label(cx, fmt(t), W / 2, 39, PAL.w, `bold 22px ${TITLE}`);
+  // Under the clock: the rank a recruit would have if you died now. Lasting longer raises it.
+  if (!g.boss) {
+    const q = recruitQuality(t, P.lvl), r = q < 0.7 ? 0 : q < 1.3 ? 1 : q < 2 ? 2 : 3, lo = [0.3, 0.7, 1.3, 2][r], hi = [0.7, 1.3, 2, 3][r];
+    const rc = [PAL.g2, PAL.c, PAL.v, PAL.y][r], x0 = W / 2 - 50;
+    for (let i = 0; i < 4; i++) { cx.fillStyle = PAL.k; cx.fillRect(x0 + i * 26 - 2, 52, 26, 8); cx.fillStyle = i < r ? rc : PAL.g5; cx.fillRect(x0 + i * 26, 54, 22, 4); if (i === r) { cx.fillStyle = rc; cx.fillRect(x0 + i * 26, 54, Math.round(22 * (q - lo) / (hi - lo) / 2) * 2, 4); } }
+  }
   if (g.boss) {
     const bw = 400;
     bar(cx, W / 2 - bw / 2, 64, bw, 12, g.boss.hp / g.boss.maxhp, PAL.r, PAL.r2);
@@ -571,6 +577,16 @@ export function draw(cv, cx, g, hud, hx) {
     cx.textAlign = 'right'; icon(cx, 'i_skull', W - 48, y + 8, 0.75); label(cx, n.kills || 0, W - 20, y + 16, PAL.w, `12px ${TITLE}`);
   });
 
+  // When you are close to death: who would join you if you fell now. Dying is a choice of recruit.
+  if (g.hint && P.hp / P.maxhp < 0.35 && g.state === 'play' && T[g.hint.type]) {
+    const hnt = g.hint, d = T[hnt.type], r = hnt.q < 0.7 ? 'RUNT' : hnt.q < 1.3 ? 'SOLDIER' : hnt.q < 2 ? 'VETERAN' : 'CHAMPION', weak = hnt.out === 'too weak';
+    const line = (hnt.prize === 'elite' ? 'ELITE ' : hnt.prize === 'gold' ? 'GOLDEN ' : '') + r + ' ' + d.name.toUpperCase() + (weak ? ': TOO WEAK TO JOIN' : hnt.out === 'joins' ? ' JOINS YOU' : ' ' + hnt.out.toUpperCase());
+    cx.font = `12px ${TITLE}`; const w = Math.max(230, cx.measureText(line).width + 64), x = W / 2 - w / 2, y = H - 92;
+    panel(cx, x, y, w, 40, weak ? 'rgba(26,20,35,.9)' : hnt.prize ? 'rgba(90,60,10,.92)' : 'rgba(38,92,66,.92)');
+    const a = ATLAS['c_' + hnt.type]; if (a) icon(cx, 'c_' + hnt.type, x + 8 + (18 - Math.min(18, a.w * 0.5)), y + 20 - a.h * 0.5, 1);
+    cx.textAlign = 'left'; label(cx, 'IF YOU FALL NOW', x + 50, y + 16, PAL.g1, `10px ${TITLE}`);
+    label(cx, line, x + 50, y + 32, weak ? PAL.g2 : hnt.prize ? PAL.y : PAL.mint, `12px ${TITLE}`);
+  }
   // Bottom centre: health.
   {
     const bw = 280, x = W / 2 - bw / 2, y = H - 34;

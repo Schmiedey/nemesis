@@ -33,6 +33,7 @@ function cleanNem(n, id) {
     kills: count(n.kills), runs: count(n.runs), wins: count(n.wins),
     evo: (EVOS[n.type] || []).some(e => e.id === n.evo) ? n.evo : null,
     // Phase 17: the weapon it took from you and any Legendary powers you held.
+    prize: n.prize === 'elite' || n.prize === 'gold' ? n.prize : null,
     weapon: WEAPONS[n.weapon] ? n.weapon : null, legs: Array.isArray(n.legs) ? Object.keys(LEG_TRAIT).filter(k => n.legs.includes(k)) : [],
   };
 }
@@ -52,7 +53,7 @@ export function sanitize(raw) {
     // Saves from before named nemeses: each old ally becomes a plain soldier.
     for (const k in raw.roster) {
       const n = Math.min(MAX_PER_TYPE, Math.floor(Number(raw.roster[k])) || 0);
-      for (let i = 0; i < n && T[k]; i++) s.nemeses.push({ id: s.nextId++, type: k, perks: {}, q: 0.8, name: 'Old ' + T[k].name, title: 'the Remembered', kills: 0, runs: 0, wins: 0, evo: null, weapon: null, legs: [] });
+      for (let i = 0; i < n && T[k]; i++) s.nemeses.push({ id: s.nextId++, type: k, perks: {}, q: 0.8, name: 'Old ' + T[k].name, title: 'the Remembered', kills: 0, runs: 0, wins: 0, evo: null, prize: null, weapon: null, legs: [] });
     }
   }
   if (Array.isArray(raw.party)) for (const id of raw.party) {

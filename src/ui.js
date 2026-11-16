@@ -320,7 +320,7 @@ export function showRoster(save, onToggle, onEvo) {
   for (const n of sorted) {
     const t = document.createElement('div');
     t.className = 'rtile' + (save.party.includes(n.id) ? ' in' : '') + (n.id === rosterFocus ? ' focus' : '');
-    t.innerHTML = pix('c_' + n.type, n.type === 'brute' ? 2 : 3, n.id === rosterFocus) + `<span style="color:${T[n.type].color}">${esc(n.name).toUpperCase().slice(0, 9)}</span>${pips(n.q)}` + (canEvolve(n) ? '<em class="badge">!</em>' : '');
+    t.innerHTML = pix('c_' + n.type, n.type === 'brute' ? 2 : 3, n.id === rosterFocus) + `<span style="color:${n.prize ? 'var(--y)' : T[n.type].color}">${esc(n.name).toUpperCase().slice(0, 9)}</span>${pips(n.q)}` + (canEvolve(n) ? '<em class="badge">!</em>' : '');
     t.onclick = () => { rosterFocus = n.id; redraw(); };
     grid.appendChild(t);
   }
@@ -330,7 +330,7 @@ export function showRoster(save, onToggle, onEvo) {
   const det = $('rosterDetail'); det.classList.remove('hidden');
   det.innerHTML = `<div class="scene">${pix('c_' + n.type, n.type === 'brute' ? 4 : 6, true)}</div>` +
     `<h3 style="color:${d.color}">${esc(n.name).toUpperCase()}<br><span style="color:var(--txt);font-weight:400;font-size:12px">${esc(n.title).toUpperCase()}</span></h3>` +
-    `<div class="rank">${pips(n.q)}${rankName(n.q).toUpperCase()} ${d.name.toUpperCase()}${evoOf(n) ? ' &middot; <span style="color:var(--y)">' + evoOf(n).n.toUpperCase() + '</span>' : ''}</div>` +
+    `<div class="rank">${pips(n.q)}${n.prize === 'elite' ? 'ELITE ' : n.prize === 'gold' ? 'GOLDEN ' : ''}${rankName(n.q).toUpperCase()} ${d.name.toUpperCase()}${evoOf(n) ? ' &middot; <span style="color:var(--y)">' + evoOf(n).n.toUpperCase() + '</span>' : ''}</div>` +
     (r < 3 ? `<span class="bar"><i style="width:${Math.round((n.q - lo) / (hi - lo) * 100)}%"></i></span>` : '') +
     `<div class="job">${JOB[n.type]}.${evoOf(n) ? ' ' + evoOf(n).d + '.' : ''}</div>` +
     (Object.keys(n.perks).length || n.weapon || (n.legs || []).length ? `<div class="rank">TOOK FROM YOU</div><div class="took" style="justify-content:flex-start;gap:6px">${tookChips(n)}</div>` : '<div class="hist">It took no powers from you.</div>') +
@@ -377,7 +377,8 @@ export function showDead(g, save, res, end) {
   $('rKilled').textContent = `KILLED BY ${d.name === 'Archer' ? 'AN' : 'A'} ${d.name.toUpperCase()} AT ${fmt(g.t)}`;
   $('dKiller').innerHTML = pix('c_' + g.killer, g.killer === 'brute' ? 5 : 7, true);
   $('rName').innerHTML = `<span style="color:${d.color}">${esc(r.name).toUpperCase()}</span> ${esc(r.title).toUpperCase()}`;
-  $('rRank').innerHTML = `${pips(r.q)} ${rankName(r.q).toUpperCase()} ${d.name.toUpperCase()}`;
+  $('rRank').innerHTML = `${pips(r.q)} ${r.prize === 'elite' ? '<span style="color:var(--y)">ELITE</span> ' : r.prize === 'gold' ? '<span style="color:var(--y)">GOLDEN</span> ' : ''}${rankName(r.q).toUpperCase()} ${d.name.toUpperCase()}` +
+    (r.prize ? `<br><span style="color:var(--y)">A PRIZE: ${r.prize === 'elite' ? 'it was an elite, so it joins half a rank stronger' : 'it was golden: stronger, and it earns you 15% more souls while it is in your party'}</span>` : '');
   $('rTook').innerHTML = joined ? `<h4>IT TOOK FROM YOU</h4>` + (tookChips(n, 1.3) || '<span class="tchip" style="animation-delay:1.3s"><span>Nothing. You died with no powers to take.</span></span>') : '';
   $('rVerdict').innerHTML =
     res.status === 'joined' ? `<b style="color:var(--mint)">It joins you.</b> ${JOB[g.killer]}.` :

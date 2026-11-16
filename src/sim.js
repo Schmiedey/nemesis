@@ -44,8 +44,10 @@ function mulberry32(a) {
 }
 
 // How good a recruit is. Dying early earns a runt; surviving longer earns a champion.
-export function recruitQuality(t, lvl, byBoss = false) {
-  return clamp(0.3 + t / 140 + lvl * 0.03 + (byBoss ? 0.3 : 0), 0.3, 3);
+// prize: 'elite' or 'gold' if that is what killed you. Dying to one is worth more: a better recruit.
+export const PRIZE_BONUS = { elite: 0.5, gold: 0.35 };
+export function recruitQuality(t, lvl, byBoss = false, prize = null) {
+  return clamp(0.3 + t / 140 + lvl * 0.03 + (byBoss ? 0.3 : 0) + (PRIZE_BONUS[prize] || 0), 0.3, 3);
 }
 
 // party: up to 3 nemeses { id, type, name, title, q, perks }. bossType: enemy type of the 5:00 boss.
@@ -63,7 +65,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     // Things the run keeps count of, for the HUD, missions and the end screen.
     streak: 0, streakT: 0, bestStreak: 0, killsBy: {}, elites: 0, acts: 0, epics: 0, bonusSouls: 0, minute: 0,
     rar: [], luck: 1 + 0.12 * mr('luck'), soulMul: 1, storm: false, stormT: 0, phoenix: false, twin: false, leechC: 0,
-    respawnMul: 1,
+    respawnMul: 1, hitBy: null, hint: null,
     // Class ultimate: charge 0..1 from kills; ultT is how long the current one has left; ultN how many you have used.
     ult: 0, ultT: 0, ultN: 0, ultTick: 0, laser: null, blockT: 0, shotN: 0,
     cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
@@ -91,7 +93,8 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
   if (g.cls === 'knight') { g.P.maxhp += 30; g.P.hp += 30; g.armor = 0.85; }
   else if (g.cls === 'ranger') { g.P.spd *= 1.1; g.P.fire *= 0.92; }
   else if (g.cls === 'warden') g.P.regen += 0.35;
-  if (g.cls) { spawnMinion(g, CLASSES[g.cls].minion); g.heat *= 1.22; }   // a class is a lot of extra power, so the swarm grows to match
+  if (g.cls) { spawnMinion(g, CLASSES[g.cls].minion); g.heat *= 1.22; }
+  g.soulMul *= 1 + 0.15 * g.party.filter(n => n.prize === 'gold').length;   // a golden nemesis in the party: +15% souls   // a class is a lot of extra power, so the swarm grows to match
   const b = boon && UP.find(u => u.id === boon);
   if (b) { b.f(g); g.picks[b.id] = 1; }
   return g;
@@ -144,6 +147,8 @@ function inherited(g, e, pk, dt) {
     }
   }
 }
+
+const prizeOf = e => (e.elite ? 'elite' : e.gold ? 'gold' : null);
 
 // A class minion (or a raised Skeleton). Not a nemesis: no rank, no perks. It returns a few seconds after it falls.
 function spawnMinion(g, type, x = g.P.x + rr(g, -40, 40), y = g.P.y + rr(g, -40, 40)) {
@@ -323,6 +328,7 @@ function contact(g, e, foe) {
     const r = e.r + o.r + 2;
     if (d2(e, o) < r * r) {
       const hurtAt = g.P.hurtAt;
+      if (o === g.P) g.hitBy = prizeOf(e);
       damage(g, o, e.dmg * (e.nem ? allyCrit(g, e.pk) : 1), e.type, e.boss, e.nem); e.cd = (e.team === 'ally' ? 0.45 : 0.6) / e.haste;
       if (e.wpn === 'sword') for (const q of targetsOf(g, foe)) if (q !== o && !q.dead && d2(e, q) < (46 + q.r) ** 2) damage(g, q, e.dmg * 0.5, e.type, false, e.nem);   // took your Greatsword: it cleaves
       if (o === g.P && g.P.charm === 'thorn' && g.P.hurtAt !== hurtAt && !e.boss) { damage(g, e, g.P.dmg * 2.5, 'player'); shove(g.P, e); }   // Thorn Mail
@@ -460,7 +466,7 @@ function think(g, e, dt) {
     } else if (e.aim > 0) {
       // Tell: an enemy Archer shows its aim line for half a second, then fires along it. Step off the line.
       e.aim -= dt;
-      if (e.aim <= 0) { shoot(g, e.x, e.y, e.aimAng, 300, e.dmg, 'enemy', e.type, 0, d.color); e.act = 1.3; }
+      if (e.aim <= 0) { const sb = shoot(g, e.x, e.y, e.aimAng, 300, e.dmg, 'enemy', e.type, 0, d.color); sb.prize = prizeOf(e); e.act = 1.3; }
     } else if (e.act <= 0 && dist < 400) { e.aim = 0.5; e.aimAng = Math.atan2(tg.y - e.y, tg.x - e.x); }
     e.x = clamp(e.x, -40, ARENA.w + 40); e.y = clamp(e.y, -40, ARENA.h + 40);
     return;
@@ -608,6 +614,7 @@ function explode(g, e) {
   burst(g, e.x, e.y, '#ff3b5c', 26, 260); burst(g, e.x, e.y, '#ffd23f', 14, 180); shake(g, 10); snd(g, 'boom');
   const foe = e.team === 'enemy' ? 'ally' : 'enemy';
   const reach = e.evo === 'cluster' ? 110 : 70;
+  if (e.team === 'enemy') g.hitBy = prizeOf(e);
   for (const o of targetsOf(g, foe)) { const r = reach + o.r; if (d2(e, o) < r * r) damage(g, o, e.dmg, 'bomber', false, e.nem); }
   // Job: a Bomber nemesis that blows itself up comes straight back without losing a life.
   if (e.team === 'ally') allyDown(g, e, e.evo === 'fuse' ? 1.5 : 3, true);
@@ -627,7 +634,8 @@ function makeRecruit(g, type, byBoss) {
   return {
     // It takes the weapon you died holding and any Legendary powers you had, as well as your upgrades.
     weapon: g.P.weapon, legs: Object.keys(LEG_TRAIT).filter(k => g.picks[k]),
-    type, perks, q: recruitQuality(g.t, g.P.lvl, byBoss),
+    prize: g.hitBy || null,                              // it was an elite or a golden one: a prize recruit
+    type, perks, q: recruitQuality(g.t, g.P.lvl, byBoss, g.hitBy),
     name: NAME_A[Math.floor(g.rand() * NAME_A.length)] + NAME_B[Math.floor(g.rand() * NAME_B.length)],
     title: top ? PERKS[top].title : 'the Unproven',
   };
@@ -998,6 +1006,7 @@ export function step(g, dt, input) {
       if (b.hit.has(o)) continue;
       const r = o.r + 3;
       if (d2(b, o) < r * r) {
+        if (o === P) g.hitBy = b.prize || null;
         damage(g, o, b.dmg, b.src, b.boss, b.nem); if (b.slowT && !o.boss && o !== g.P) { o.slowT = b.slowT; o.slowK = b.slowK; }
         if (b.burn && !o.dead) { o.fireT = 3; o.fireD = b.dmg * 0.45; } b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80); if (b.team === 'ally') snd(g, 'hit');
         if (b.chain > 0) {                              // Chain Shot: jump to another enemy close by

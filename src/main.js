@@ -1,5 +1,5 @@
 // Glue: input, game loop, saves, overlays.
-import { createGame, step, pick, reroll } from './sim.js';
+import { createGame, step, pick, reroll, recruitQuality } from './sim.js';
 import { loadSave, writeSave, resetSave, setSlot, currentSlot, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
 import { masteryLevel } from './data.js';
 import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites, levelFx, pickFx } from './render.js';
@@ -233,7 +233,7 @@ addEventListener('keydown', e => { if (e.code === 'Backquote') { showPerf = !sho
 let perfTick = 0;
 // One frame. If anything in it throws, the error is logged and the next frame still runs: a drawing bug must
 // never freeze the game.
-let frameErrors = 0;
+let frameErrors = 0, hintAt = 0;
 function loop(now) {
   try { frame(now); } catch (e) { if (frameErrors++ < 5) console.error('frame error', e); }
   requestAnimationFrame(loop);
@@ -259,6 +259,17 @@ function frame(now) {
   }
   if (mode === 'lvl' && lvlWait > 0 && (lvlWait -= total) <= 0) { ui.showLevel(g, choose); const top = ui.topRarity(g); if (top !== 'common') audio.sfx(top, top === 'legendary' ? 0.25 : 0.15); }
   if (mode === 'play' || mode === 'dead' || mode === 'won' || mode === 'lvl') updateFx(total);
+  // Who would join if you fell right now: the nearest enemy, at the rank this run has earned so far.
+  if (mode === 'play' && now - hintAt > 200) {
+    hintAt = now; let near = null, nd = 1e12;
+    for (const e of g.ents) if (e.team === 'enemy' && !e.dead) { const d = (e.x - g.P.x) ** 2 + (e.y - g.P.y) ** 2; if (d < nd) { nd = d; near = e; } }
+    if (!near) g.hint = null;
+    else {
+      const prize = near.elite ? 'elite' : near.gold ? 'gold' : null, q = recruitQuality(g.t, g.P.lvl, !!near.boss, prize);
+      const same = save.nemeses.filter(n => n.type === near.type), weak = same.length >= 3 ? same.reduce((a, b) => (b.q < a.q ? b : a)) : null;
+      g.hint = { type: near.type, q, prize, out: !weak ? 'joins' : q > weak.q ? 'replaces ' + weak.name : 'too weak' };
+    }
+  }
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
   document.body.classList.toggle('playing', mode === 'play');

@@ -595,4 +595,28 @@ describe('save', () => {
     resetSave(st, 2);
     expect(loadSave(st, 2).souls).toBe(0); expect(loadSave(st, 1).souls).toBe(50);
   });
+
+describe('prize recruits', () => {
+  it('dying to an elite or a golden enemy gives a stronger, marked recruit', () => {
+    expect(recruitQuality(60, 5, false, 'elite')).toBeCloseTo(recruitQuality(60, 5) + 0.5);
+    expect(recruitQuality(60, 5, false, 'gold')).toBeCloseTo(recruitQuality(60, 5) + 0.35);
+    for (const [flag, prize] of [['elite', 'elite'], ['gold', 'gold'], [null, null]]) {
+      const g = createGame({ seed: 3 });
+      const e = g.ents.find(x => x.team === 'enemy') || (step(g, 1.5, { mx: 0, my: 0 }), g.ents.find(x => x.team === 'enemy'));
+      for (const o of g.ents) if (o !== e && o !== g.P) o.dead = true;
+      if (flag) e[flag] = true;
+      e.x = g.P.x + 4; e.y = g.P.y; e.dmg = 9999; e.hp = 1e9; g.P.inv = 0;
+      for (let i = 0; i < 30 && g.state !== 'dead'; i++) step(g, 1 / 60, { mx: 0, my: 0 });
+      expect(g.state).toBe('dead');
+      expect(g.recruit.prize).toBe(prize);
+      expect(g.recruit.q).toBeCloseTo(recruitQuality(g.t, g.P.lvl, false, prize));
+    }
+  });
+  it('a golden nemesis in the party earns more souls and survives a save', () => {
+    const n = { ...nem(1, 'bat'), prize: 'gold' };
+    expect(createGame({ seed: 1, party: [n] }).soulMul).toBeCloseTo(createGame({ seed: 1, party: [nem(1, 'bat')] }).soulMul * 1.15);
+    const s = sanitize({ v: 10, nemeses: [n, { ...nem(2, 'bat'), prize: 'junk' }], party: [1] });
+    expect(s.nemeses.map(x => x.prize)).toEqual(['gold', null]);
+  });
+});
 });
