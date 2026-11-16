@@ -79,3 +79,22 @@ export const CHAMPION_Q = 2;
 
 export const rankName = q => q < 0.7 ? 'Runt' : q < 1.3 ? 'Soldier' : q < 2 ? 'Veteran' : 'Champion';
 export const BOSS_TIME = 300;
+
+// Feats: one-time goals. Each unlocks a boon, an upgrade (by id in UP) you may start a run with.
+// test(save, run): run is {} outside a run, else { t, kills, won, dead, party, runts, hard, daily, opened }.
+export const FEATS = [
+  { id: 'first', n: 'First Blood', d: 'Die for the first time', boon: 'magnet', test: (s, r) => !!r.dead },
+  { id: 'two', n: 'Holding On', d: 'Survive 2:00', boon: 'tough', test: (s, r) => r.t >= 120 },
+  { id: 'four', n: 'Hard to Kill', d: 'Survive 4:00', boon: 'regen', test: (s, r) => r.t >= 240 },
+  { id: 'slayer', n: 'Slayer', d: 'Kill 300 enemies in one run', boon: 'dmg', test: (s, r) => r.kills >= 300 },
+  { id: 'win', n: 'Nemesis Slain', d: 'Win a run', boon: 'shots', test: (s, r) => !!r.won },
+  { id: 'alone', n: 'Alone', d: 'Win with no party', boon: 'crit', test: (s, r) => !!r.won && r.party === 0 },
+  { id: 'runts', n: 'Underdogs', d: 'Reach 3:00 with a full party of Runts', boon: 'bond', test: (s, r) => r.t >= 180 && !!r.runts },
+  { id: 'six', n: 'Collector', d: 'Have 6 nemeses', boon: 'guard', test: s => s.nemeses.length >= 6 },
+  { id: 'champ', n: 'Champion', d: 'Raise a nemesis to Champion', boon: 'rally', test: s => s.nemeses.some(n => n.q >= CHAMPION_Q) },
+  { id: 'evo', n: 'Evolved', d: 'Evolve a nemesis', boon: 'pack', test: s => s.nemeses.some(n => n.evo) },
+  { id: 'chests', n: 'Treasure Hunter', d: 'Open 3 chests in one run', boon: 'chain', test: (s, r) => r.opened >= 3 },
+  { id: 'plus', n: 'Nemesis+', d: 'Win on Nemesis+', boon: 'nova', test: (s, r) => !!r.won && !!r.hard },
+  { id: 'daily', n: 'Daily Grind', d: 'Survive 3:00 in a daily run', boon: 'blade', test: (s, r) => !!r.daily && r.t >= 180 },
+];
+export const upName = id => (UP.find(u => u.id === id) || {}).n || id;

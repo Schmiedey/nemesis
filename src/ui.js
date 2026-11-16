@@ -1,6 +1,6 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, evoOf, rankName } from './data.js';
-import { canEvolve } from './save.js';
+import { T, PERKS, JOB, EVOS, FEATS, upName, evoOf, rankName } from './data.js';
+import { canEvolve, boonsOf, today } from './save.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
 
@@ -20,6 +20,7 @@ function nemCard(n, picked) {
     `<span>${rankName(n.q)} ${d.name}${evoOf(n) ? ` · <b class="evo">${evoOf(n).n}</b>` : ''}</span>` +
     `<span class="job">${evoOf(n) ? evoOf(n).d + '. ' : ''}${JOB[n.type]}</span>` +
     `<span class="perks">${perkText(n.perks) || 'no inherited powers'}</span>` +
+    (n.runs ? `<span class="hist">${n.runs} run${n.runs > 1 ? 's' : ''} · ${n.kills} kill${n.kills === 1 ? '' : 's'}${n.wins ? ' · ' + n.wins + ' win' + (n.wins > 1 ? 's' : '') : ''}</span>` : '') +
     (picked === undefined ? '' : `<span class="pick">${picked ? '✓ IN PARTY' : 'click to add'}</span>`) + '</div>';
 }
 
@@ -46,14 +47,19 @@ function growthCards(rows) {
   }).join('');
 }
 
-export function hideAll() { ['start', 'roster', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+export function hideAll() { ['start', 'roster', 'feats', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+
+const featLines = feats => feats.map(f => `<div class="feat got"><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div>`).join('');
+const KIND = { hard: 'Nemesis+', daily: 'Daily' };
 
 // Wire every menu button once. h: { play, roster, menu, resume, reset }
 export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
-  on(['bPlay', 'bRosterPlay', 'bAgain', 'bWonAgain'], h.play);
+  on(['bPlay', 'bRosterPlay'], h.play);
+  on(['bAgain', 'bWonAgain'], h.again);
+  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
-  on(['bBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
+  on(['bBack', 'bFeatsBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
   on(['bResume'], h.resume);
   on(['reset'], h.reset);
 }
@@ -69,7 +75,27 @@ export function showStart(save, bossType) {
       : 'Your true nemesis comes at <b>5:00</b>.';
   $('startStats').innerHTML = save.runs
     ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + stat(save.nemeses.length, 'nemeses') : '';
+  // Ways to play: today's fixed run, the harder mode (after a first win), a starting boon, and feats.
+  const d = save.daily.date === today() ? save.daily : null, got = FEATS.filter(f => save.feats[f.id]).length;
+  $('bDaily').querySelector('b').textContent = d ? (d.won ? 'won ' : '') + fmt(d.best) : 'not played';
+  $('bHard').classList.toggle('hidden', !save.wins);
+  $('bHard').classList.toggle('lit', save.hard);
+  $('bHard').querySelector('b').textContent = save.hard ? 'ON' : 'OFF';
+  $('bBoon').classList.toggle('hidden', !boonsOf(save).length);
+  $('bBoon').querySelector('b').textContent = save.boon ? upName(save.boon) : 'none';
+  $('bFeats').querySelector('b').textContent = `${got}/${FEATS.length}`;
+  if (save.bestHard) $('startStats').innerHTML += stat(fmt(save.bestHard), 'best N+');
   show('start');
+}
+
+// Feats: what each asks for and the boon it unlocks.
+export function showFeats(save) {
+  hideAll();
+  $('featList').innerHTML = FEATS.map(f => {
+    const got = save.feats[f.id];
+    return `<div class="feat${got ? ' got' : ''}"><b>${got ? '✓ ' : ''}${f.n}</b><span>${f.d}</span><em>Boon: ${upName(f.boon)}</em></div>`;
+  }).join('');
+  show('feats');
 }
 
 // Roster: every nemesis you have earned. Click to move one in or out of the party.
@@ -105,7 +131,8 @@ export function showRoster(save, onToggle, onEvo) {
   show('roster');
 }
 
-export function showDead(g, save, res, newBest, growth = []) {
+export function showDead(g, save, res, end) {
+  const { newBest, growth = [], feats = [], best, kind } = end;
   const d = T[g.killer], r = g.recruit;
   $('dKiller').style.setProperty('--c', d.color);
   $('dKiller').innerHTML = spr(g.killer, 112);
@@ -119,15 +146,18 @@ export function showDead(g, save, res, newBest, growth = []) {
     : `<div class="nem on show">${nemCard(res.nem)}<span class="stamp">RECRUITED</span></div>`;
   $('dCard').innerHTML += growthCards(growth.filter(r => r.nem !== res.old));
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
-    stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(save.best), 'best'));
+    stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(best), 'best')) + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
+  $('dFeats').innerHTML = featLines(feats);
   const nxt = Object.values(T).filter(x => x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
   $('dTease').innerHTML = nxt ? `Something new shows up at <b>${fmt(nxt.unlock)}</b>...`
     : g.bossAt ? 'So close. Your nemesis was right there.' : 'Your true nemesis arrives at <b>5:00</b>.';
   show('dead');
 }
 
-export function showWon(g, save, growth) {
-  $('wStats').innerHTML = stat(fmt(g.t), 'time', 'best') + stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + stat(save.wins, 'wins');
+export function showWon(g, save, end) {
+  const { growth = [], feats = [], kind } = end;
+  $('wFeats').innerHTML = featLines(feats);
+  $('wStats').innerHTML = stat(fmt(g.t), 'time', 'best') + stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + stat(save.wins, 'wins') + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
   $('wParty').innerHTML = growthCards(growth);
   $('wNote').textContent = growth.length ? 'Your party grew stronger from the victory.' : 'You did it alone.';
   show('won');

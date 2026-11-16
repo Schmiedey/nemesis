@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-5 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 6 in progress on branch `phase-6-depth`: depth and feel done (tilted 8-direction sprites, shadows, light pool, hit flash, damage numbers, hit-stop, level-up restyle). Next: reasons to return (Nemesis+, daily run, feats, nemesis history).
+**Status:** Phases 1-5 merged to main. Phase 6 built on branch `phase-6-depth`, not merged: depth and feel, plus Nemesis+, daily run, feats with boons, nemesis history. Music on hold (switched off via `MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload of `nemesis-web.zip` (rebuilt after Phase 6), 10-second clip, real-phone test. Next: user plays it, merge.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -43,7 +43,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 ## Phase 6: Depth, feel, and reasons to return
 - [x] Depth in 2D: shadows, light pool, sprites re-rendered tilted in 8 directions, drawn larger
 - [x] Feel: tinted hit flash, damage numbers, hit-stop, restyled level-up screen
-- [ ] Nemesis+ mode, daily run, feats that unlock starting perks, nemesis history on roster cards
+- [x] Nemesis+ mode, daily run, feats that unlock starting perks, nemesis history on roster cards
 - Done when: it looks finished and there is always a next thing to chase.
 
 ## Usage rules

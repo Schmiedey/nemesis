@@ -1,12 +1,14 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS, EVOS, CHAMPION_Q, rankName } from './data.js';
+import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
-const VERSION = 4;
+const VERSION = 5;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
-const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1 });
+// v5 adds: Nemesis+ (hard, bestHard, winsHard), the daily run, feats and the chosen boon.
+const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1,
+  hard: false, bestHard: 0, winsHard: 0, daily: { date: '', best: 0, won: false }, feats: {}, boon: null });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const count = v => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
@@ -53,6 +55,13 @@ export function sanitize(raw) {
   }
   for (const k of ['runs', 'wins']) if (Number.isFinite(raw[k]) && raw[k] > 0) s[k] = Math.floor(raw[k]);
   if (Number.isFinite(raw.best) && raw.best > 0) s.best = raw.best;
+  if (Number.isFinite(raw.bestHard) && raw.bestHard > 0) s.bestHard = raw.bestHard;
+  s.winsHard = count(raw.winsHard); s.hard = raw.hard === true && s.wins > 0;
+  if (raw.daily && typeof raw.daily.date === 'string' && /^\d{4}-\d\d-\d\d$/.test(raw.daily.date)) {
+    s.daily = { date: raw.daily.date, best: Number.isFinite(raw.daily.best) && raw.daily.best > 0 ? raw.daily.best : 0, won: raw.daily.won === true };
+  }
+  if (raw.feats && typeof raw.feats === 'object') for (const f of FEATS) if (raw.feats[f.id] === true) s.feats[f.id] = true;
+  if (FEATS.some(f => f.boon === raw.boon && s.feats[f.id])) s.boon = raw.boon;
   return s;
 }
 
@@ -94,6 +103,17 @@ export function evolve(save, id, evoId) {
   if (!n || !canEvolve(n) || !EVOS[n.type].some(e => e.id === evoId)) return false;
   n.evo = evoId; return true;
 }
+
+// Marks any feat now met and returns the newly earned ones. run: see FEATS in src/data.js; {} outside a run.
+export function checkFeats(save, run = {}) {
+  const got = [];
+  for (const f of FEATS) if (!save.feats[f.id] && f.test(save, run)) { save.feats[f.id] = true; got.push(f); }
+  return got;
+}
+export const boonsOf = save => FEATS.filter(f => save.feats[f.id]).map(f => f.boon);
+// The daily run: one seed per UTC day, the same for everyone.
+export const today = (d = new Date()) => d.toISOString().slice(0, 10);
+export const dailySeed = date => Number(date.replaceAll('-', ''));
 
 // The enemy type that has killed you most becomes the boss.
 export function bossTypeFor(save) {

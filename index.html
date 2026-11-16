@@ -70,6 +70,12 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
 .evos{display:flex;flex-direction:column;gap:6px;width:100%}
 .evos button{text-align:left;padding:6px 10px;font-size:12px;border-color:var(--gold)}
 .evos button b{color:var(--gold);display:block;font-size:13px}.evos button span{color:#bbb}
+.nem .hist{color:#777;font-size:11px}
+.modes button{font-size:13px;padding:8px 12px}.modes button b{color:var(--gold);margin-left:6px}
+.modes button.lit{border-color:var(--red);box-shadow:0 0 14px #ff3b5c44}.modes button.lit b{color:var(--red)}
+.feat{width:250px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);text-align:left;display:flex;flex-direction:column;gap:2px;font-size:12px;color:#777;box-sizing:border-box}
+.feat b{font-size:13px;color:#aaa}.feat em{font-style:normal;color:#666}
+.feat.got{border-color:var(--gold)}.feat.got b{color:var(--gold)}.feat.got span{color:#ccc}.feat.got em{color:var(--green)}
 .killer{display:flex;align-items:center;gap:6px;justify-content:center}
 .killer .spr{filter:drop-shadow(0 0 14px var(--c))}
 
@@ -124,6 +130,12 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
     <button class="go" id="bPlay">START RUN <span class="key">SPACE</span></button>
     <button id="bRoster">ROSTER <span class="key">R</span></button>
   </div>
+  <div class="btns modes">
+    <button id="bDaily">DAILY RUN<b>not played</b><span class="key">D</span></button>
+    <button id="bHard">NEMESIS+<b>OFF</b></button>
+    <button id="bBoon">BOON<b>none</b></button>
+    <button id="bFeats">FEATS<b>0/13</b><span class="key">F</span></button>
+  </div>
   <div class="stats" id="startStats"></div>
   <div class="how"><span class="mouse-only"><span class="key">WASD</span> / <span class="key">Arrows</span> move</span><span class="touch-only">drag anywhere to move</span><span>aim is automatic</span><span class="mouse-only"><span class="key">Esc</span> pause</span></div>
 </div>
@@ -140,12 +152,20 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
   <button class="quiet" id="reset">forget all nemeses</button>
 </div>
 
+<div id="feats" class="ov menu hidden">
+  <h1 class="logo sm" data-t="FEATS">FEATS</h1>
+  <div class="sub">Each feat unlocks a boon: an upgrade you can choose to start every run with.</div>
+  <div class="roster" id="featList"></div>
+  <div class="btns"><button id="bFeatsBack">BACK <span class="key">Esc</span></button></div>
+</div>
+
 <div id="dead" class="ov hidden">
   <div class="killer" id="dKiller"></div>
   <h2 id="dTitle"></h2>
   <div class="roster" id="dCard"></div>
   <div class="sub big" id="dJoin"></div>
   <div class="stats" id="dStats"></div>
+  <div class="roster" id="dFeats"></div>
   <div class="sub" id="dTease"></div>
   <div class="btns">
     <button class="go" id="bAgain">GO AGAIN <span class="key">SPACE</span></button>
@@ -159,6 +179,7 @@ button .key{margin-left:8px;font-size:11px;opacity:.8}
   <div class="stats" id="wStats"></div>
   <div class="sub big" id="wNote"></div>
   <div class="roster" id="wParty"></div>
+  <div class="roster" id="wFeats"></div>
   <div class="btns">
     <button class="go" id="bWonAgain">GO AGAIN <span class="key">SPACE</span></button>
     <button id="bWonRoster">ROSTER <span class="key">R</span></button>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, step, pick, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME } from '../src/data.js';
-import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve } from '../src/save.js';
+import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -210,5 +210,26 @@ describe('save', () => {
     expect(evolve(s, n.id, 'brood')).toBe(true);
     expect(evolve(s, n.id, 'vampire')).toBe(false);        // only once
     expect(sanitize(JSON.parse(JSON.stringify(s))).nemeses[0].evo).toBe('brood');
+  });
+
+  it('feats unlock boons; modes and the daily seed are stable', () => {
+    const s = sanitize({});
+    expect(boonsOf(s)).toEqual([]);
+    const got = checkFeats(s, { t: 130, kills: 20, won: false, dead: true, party: 0, opened: 0 });
+    expect(got.map(f => f.id).sort()).toEqual(['first', 'two']);
+    expect(checkFeats(s, { t: 130, dead: true }).length).toBe(0);            // only once
+    expect(boonsOf(s).sort()).toEqual(['magnet', 'tough']);
+    s.boon = 'tough'; s.wins = 1; s.hard = true; s.daily = { date: '2026-11-15', best: 99, won: false };
+    const back = sanitize(JSON.parse(JSON.stringify(s)));
+    expect([back.boon, back.hard, back.daily.best, back.feats.two]).toEqual(['tough', true, 99, true]);
+    expect(sanitize({ boon: 'nova', hard: true }).boon).toBe(null);          // a boon you have not earned is dropped
+    expect(sanitize({ boon: 'nova', hard: true }).hard).toBe(false);         // Nemesis+ needs a win
+    expect(dailySeed('2026-11-15')).toBe(20261115);
+    expect(today(new Date('2026-11-15T23:59:00Z'))).toBe('2026-11-15');
+    const a = createGame({ seed: dailySeed('2026-11-15') }), b = createGame({ seed: dailySeed('2026-11-15') });
+    for (let i = 0; i < 300; i++) { step(a, 1 / 60, still()); step(b, 1 / 60, still()); }
+    expect(a.ents.length).toBe(b.ents.length); expect(a.layout).toBe(b.layout);
+    const hard = createGame({ seed: 1, hard: true, boon: 'tough' }), norm = createGame({ seed: 1 });
+    expect(hard.heat).toBeGreaterThan(norm.heat); expect(hard.P.maxhp).toBe(norm.P.maxhp + 25); expect(hard.picks.tough).toBe(1);
   });
 });

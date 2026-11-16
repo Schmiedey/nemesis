@@ -69,6 +69,13 @@ A giant of the type that has killed you most. It moves at 150 or more (you move 
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
 - Six new upgrades: Orbiting Blade, Chain Shot, Nova, Lucky Shot, and for nemeses Blood Bond and Iron Guard. A choice never offers more than one nemesis upgrade.
 
+## Reasons to return (Phase 6)
+- **Nemesis+**: unlocked by a first win, toggled on the title screen. Swarm x1.35, enemy health x1.25, enemy damage x1.15. Keeps its own best time and win count.
+- **Daily run**: one seed per UTC day (the date as a number), so the map and spawns are the same for everyone. You bring your own party. One best time per day; a quit run does not count.
+- **Feats**: 13 one-time goals (`FEATS` in `src/data.js`). Each unlocks a **boon**: an upgrade you can choose on the title screen to start every run with. One boon at a time.
+- **Nemesis history**: roster cards show each nemesis's runs, kills and wins.
+- Saved in save version 5 (`src/save.js`); older saves load with these fields empty.
+
 ## Difficulty targets
 Tuned by simulation against a bot that plays like a skilled person (`smart` in `tests/bot.js`): it dodges, avoids walls and collects gems.
 - Alone: die around 1:30–2:00, first hit before 0:30.

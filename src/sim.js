@@ -49,25 +49,28 @@ export function recruitQuality(t, lvl, byBoss = false) {
 }
 
 // party: up to 3 nemeses { id, type, name, title, q, perks }. bossType: enemy type of the 5:00 boss.
-export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length } = {}) {
+// hard: Nemesis+ (bigger swarm, tougher enemies). boon: an upgrade id to start the run with.
+export function createGame({ seed = 1, party = [], bossType = 'brute', layout = seed % LAYOUTS.length, hard = false, boon = null } = {}) {
   const g = {
     rand: mulberry32(seed), party: party.filter(n => T[n.type]).slice(0, 3), bossType: T[bossType] ? bossType : 'brute',
     state: 'play', t: 0, kills: 0, spawnT: 0.2, surgeT: 20, allyBuff: 1, allyHaste: 1, secondWind: false,
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
     layout: LAYOUTS[layout % LAYOUTS.length].name, rocks: LAYOUTS[layout % LAYOUTS.length].rocks,
-    chests: [], chest: false, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
+    chests: [], chest: false, opened: 0, hard: !!hard, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = 1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0);
+  g.heat = (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (g.hard ? 1.35 : 1);
   for (const nem of g.party) {
     const lives = nem.type === 'bomber' ? BOMBER_LIVES : ALLY_LIVES;
     const n = nem.evo === 'brood' ? 5 : nem.evo === 'storm' ? 2 : T[nem.type].pack || 1;
     nem.kills = 0;
     for (let i = 0; i < n; i++) spawnAlly(g, nem, lives);
   }
+  const b = boon && UP.find(u => u.id === boon);
+  if (b) { b.f(g); g.picks[b.id] = 1; }
   return g;
 }
 
@@ -87,7 +90,7 @@ function mk(g, type, team, x, y, { small = false, hpMul = 1, dmgMul = 1, spdMul 
   e.maxhp = e.hp; g.ents.push(e); return e;
 }
 
-const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 160, dmgMul: 1.25 + g.t / 320, spdMul: Math.min(1.15, 1 + g.t / 1400) });
+const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: (1 + g.t / 160) * (g.hard ? 1.25 : 1), dmgMul: (1.25 + g.t / 320) * (g.hard ? 1.15 : 1), spdMul: Math.min(1.15, 1 + g.t / 1400) });
 
 function spawnAlly(g, nem, lives) {
   const pk = nem.perks || {};
@@ -585,7 +588,7 @@ export function step(g, dt, input) {
   }
   g.gems = g.gems.filter(x => !x.got);
   for (const c of g.chests) if (!c.got && d2(c, P) < (P.r + 16) ** 2 && g.state === 'play') {
-    c.got = true; g.chest = true; g.state = 'lvl'; snd(g, 'level'); rollChoices(g);
+    c.got = true; g.opened++; g.chest = true; g.state = 'lvl'; snd(g, 'level'); rollChoices(g);
   }
   g.chests = g.chests.filter(c => !c.got);
   g.ents = g.ents.filter(e => !e.dead);
