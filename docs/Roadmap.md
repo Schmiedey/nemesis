@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-4 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 5 built on branch `phase-5-variety`, not merged: enemy tells, boss moves and enrage, 6 upgrades, elites and chests, 3 maps. Open balance problem: champion parties win 9/10 and the boss is not dangerous enough. Next: user plays it, merge, Phase 6.
+**Status:** Phases 1-4 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked; itch.io upload, clip and real-phone test are the user's to do). Phase 5 built on branch `phase-5-variety`, not merged: enemy tells, boss moves and enrage, 6 upgrades, elites and chests, 3 maps. Boss made dangerous (champions now win 5/10). Next: user plays it, merge, Phase 6.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs

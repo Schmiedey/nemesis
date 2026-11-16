@@ -128,13 +128,14 @@ function spawnEnemy(g, ang) {
 function spawnBoss(g) {
   const d = T[g.bossType], a = g.rand() * 6.28;
   const e = mk(g, g.bossType, 'enemy', clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
-  e.boss = true; e.spT = 5; e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 0.6 * g.party.reduce((a, n) => a + n.q, 0)); // a stronger party faces a tougher nemesis e.dmg = 30;
+  e.boss = true; e.spT = 4; e.aimT = 2; e.spd = Math.max(e.spd, 150); // never slow enough to simply walk away from
+   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 0.6 * g.party.reduce((a, n) => a + n.q, 0)); // a stronger party faces a tougher nemesis e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
   g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);
 }
 
 const ring = (g, e, n, sp, off = g.rand() * 6.28) => {
-  for (let i = 0; i < n; i++) shoot(g, e.x, e.y, off + i * 6.283 / n, sp, 14, 'enemy', e.type, 0, T[e.type].color, true);
+  for (let i = 0; i < n; i++) shoot(g, e.x, e.y, off + i * 6.283 / n, sp, 16, 'enemy', e.type, 0, T[e.type].color, true);
 };
 
 // The boss walks you down, summons its kind and fires rings. Every few seconds it winds up (a visible tell)
@@ -158,7 +159,7 @@ function bossThink(g, e, dt) {
   }
   e.spT -= dt;
   if (e.spT <= 0 && d2(e, P) < 560 * 560) {
-    e.spT = e.enraged ? 4 : 6.5; e.wind = 0.85; e.ang = Math.atan2(P.y - e.y, P.x - e.x); e.jx = P.x; e.jy = P.y; snd(g, 'windup');
+    e.spT = e.enraged ? 3.2 : 5; e.wind = 0.85; e.ang = Math.atan2(P.y - e.y, P.x - e.x); e.jx = P.x; e.jy = P.y; snd(g, 'windup');
     return;
   }
   moveTo(e, P.x, P.y, dt, e.r);
@@ -167,7 +168,14 @@ function bossThink(g, e, dt) {
     e.summonT = 5;
     for (let i = 0; i < (e.type === 'bat' ? 6 : 3); i++) mkEnemy(g, e.type, e.x + rr(g, -60, 60), e.y + rr(g, -60, 60));
   }
-  if (e.ringT <= 0) { e.ringT = 4; snd(g, 'ring'); ring(g, e, e.enraged ? 16 : 12, e.enraged ? 230 : 200); }
+  if (e.ringT <= 0) { e.ringT = 3.5; snd(g, 'ring'); ring(g, e, e.enraged ? 22 : 16, e.enraged ? 240 : 210); }
+  // Between rings it fires aimed bursts, so standing still is never safe.
+  e.aimT -= dt;
+  if (e.aimT <= 0) {
+    e.aimT = e.enraged ? 1.1 : 1.6;
+    const a = Math.atan2(P.y - e.y, P.x - e.x), n = e.enraged ? 5 : 3;
+    for (let i = 0; i < n; i++) shoot(g, e.x, e.y, a + (i - (n - 1) / 2) * 0.14, 300, 16, 'enemy', e.type, 0, T[e.type].color, true);
+  }
 }
 
 export const BOSS_BLAST = 170; // Bomber boss blast radius, also drawn as its tell
@@ -496,7 +504,7 @@ export function step(g, dt, input) {
   }
   if (!g.boss && !g.bossAt && g.t >= BOSS_TIME) spawnBoss(g);
   g.spawnT -= dt;
-  if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.42, 0.85 - g.t * 0.003) * (g.boss ? 2 : 1) / g.heat; }
+  if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.42, 0.85 - g.t * 0.003) * (g.boss ? 1.25 : 1) / g.heat; }
   // Surge: every 20s a wave closes in from one side, bigger each time.
   g.surgeT -= dt;
   if (g.surgeT <= 0 && !g.boss) {

@@ -60,9 +60,9 @@ Each enemy shows what it is about to do, and has an answer:
 - **Slime** splits; **Wisp** blinks (unchanged).
 
 ## The boss
-A giant of the type that has killed you most. It walks you down, summons its kind every 5s and fires a ring every 4s. Every 6.5s it winds up for 0.85s with a tell and uses its type's move:
+A giant of the type that has killed you most. It moves at 150 or more (you move at 200), so you cannot just walk away. It summons its kind every 5s, fires a ring of 16 shots every 3.5s, and between rings fires aimed bursts of 3 every 1.6s. Regular enemies keep spawning during the fight at 80% of the normal rate. Every 5s it winds up for 0.85s with a tell and uses its type's move:
 - Brute and Bat: a long charge, ending in a shockwave ring. Slime: leaps onto where you stood and scatters small slimes. Archer: a wide fan of arrows. Bomber: a huge blast around itself. Wisp: blinks beside you and fires two offset rings.
-- **Enrage** below half health: 25% faster, specials every 4s, bigger and faster rings.
+- **Enrage** below half health: 25% faster, specials every 3.2s, rings of 22, aimed bursts of 5 every 1.1s.
 - Health is 11500 x (1 + 0.6 x total party quality), so a stronger party faces a tougher nemesis.
 
 ## Elites, chests and upgrades (Phase 5)
@@ -82,7 +82,7 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 | None | 2:02 | 1/10 | 1 | 0:31 |
 | 3 runts | 2:34 | 1/10 | 1 | 0:56 |
 | 3 soldiers | 2:23 | 0/10 | 0 | 1:05 |
-| 3 veterans with perks | 4:02 | 4/10 | 4 | 1:35 |
-| 3 champions with perks | 6:20 | 10/10 | 9 | 3:46 |
+| 3 veterans with perks | 4:02 | 4/10 | 2 | 1:47 |
+| 3 champions with perks | 5:51 | 10/10 | 5 | 3:42 |
 
-Known gaps: a champion party still wins 9 of 10 (target about half) even with boss health scaled to party strength; raising the swarm for strong parties (0.07 per quality point) broke the middle tiers and was reverted. Whoever reaches the boss nearly always wins, so the boss itself is not yet dangerous enough. Solo is slightly over target (2:02 vs 1:30-2:00). Runts and soldiers are not separated. Evolutions are not in the table.
+Known gaps: solo is slightly over target (2:02 vs 1:30-2:00). Runts and soldiers are not separated. A champion party is not hit until about 3:42, so its opening is still safe. Evolutions are not in the table, and the table only uses a Brute boss. The boss was made dangerous by measuring fights: before the fix a champion player lost 0-35 health in a whole boss fight; after it, 16-150.
