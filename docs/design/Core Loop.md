@@ -21,11 +21,18 @@
 ## Boss
 A giant version of the enemy type that has killed you most. Chases you, summons its kind, fires bullet rings. 3500 HP.
 
+## Pacing
+- Enemies start arriving within the first second; spawn gap shrinks from 0.85s to 0.34s.
+- New enemy types at 0:10 (Slime), 0:25 (Archer), 0:45 (Brute), 1:10 (Bomber), 1:35 (Wisp).
+- **Surge** every 20s: a wave closes in from one side (4 groups, +1 every 30s), with a red arc warning on that side.
+
 ## Balance (simulated, dodging bot, 8 seeds, `node tests/balance.js`)
+A human plays better than the bot, so read these as relative, not absolute.
+
 | Party | Median survival | Reached boss | Wins |
 |---|---|---|---|
-| None | 2:22 | 0/8 | 0 |
-| 3 runts | 2:37 | 0/8 | 0 |
-| 3 soldiers | 2:31 | 1/8 | 1 |
-| 3 veterans with perks | 3:06 | 0/8 | 0 |
-| 3 champions with perks | 5:05 | 4/8 | 2 |
+| None | 1:24 | 0/8 | 0 |
+| 3 runts | 1:27 | 0/8 | 0 |
+| 3 soldiers | 2:04 | 1/8 | 0 |
+| 3 veterans with perks | 2:07 | 0/8 | 0 |
+| 3 champions with perks | 3:34 | 1/8 | 1 |

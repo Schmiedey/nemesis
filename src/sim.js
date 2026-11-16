@@ -27,7 +27,7 @@ export function recruitQuality(t, lvl, byBoss = false) {
 export function createGame({ seed = 1, party = [], bossType = 'brute' } = {}) {
   const g = {
     rand: mulberry32(seed), party: party.filter(n => T[n.type]).slice(0, 3), bossType: T[bossType] ? bossType : 'brute',
-    state: 'play', t: 0, kills: 0, spawnT: 1, allyBuff: 1, allyHaste: 1, secondWind: false,
+    state: 'play', t: 0, kills: 0, spawnT: 0.2, surgeT: 20, allyBuff: 1, allyHaste: 1, secondWind: false,
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 210, fire: 0.42, fireT: 0,
@@ -70,12 +70,12 @@ function spawnAlly(g, nem, lives) {
   return e;
 }
 
-function spawnEnemy(g) {
+function spawnEnemy(g, ang) {
   const pool = Object.keys(T).filter(k => g.t >= T[k].unlock);
   let r = g.rand() * pool.reduce((a, k) => a + T[k].w, 0), type = pool[0];
   for (const k of pool) { r -= T[k].w; if (r <= 0) { type = k; break; } }
   // Spawn on a ring just outside the camera, kept inside the arena.
-  const a = g.rand() * 6.28, dist = rr(g, 600, 680);
+  const a = ang ?? g.rand() * 6.28, dist = rr(g, 600, 680);
   const x = clamp(g.P.x + Math.cos(a) * dist, -30, ARENA.w + 30);
   const y = clamp(g.P.y + Math.sin(a) * dist, -30, ARENA.h + 30);
   const n = type === 'bat' ? 3 + Math.floor(g.t / 70) : type === 'slime' && g.t > 90 ? 2 : 1;
@@ -292,7 +292,14 @@ export function step(g, dt, input) {
   }
   if (!g.boss && !g.bossAt && g.t >= BOSS_TIME) spawnBoss(g);
   g.spawnT -= dt;
-  if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.34, 1.3 - g.t * 0.006) * (g.boss ? 2 : 1); }
+  if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.34, 0.85 - g.t * 0.004) * (g.boss ? 2 : 1); }
+  // Surge: every 20s a wave closes in from one side, bigger each time.
+  g.surgeT -= dt;
+  if (g.surgeT <= 0 && !g.boss) {
+    g.surgeT = 20; const a = g.rand() * 6.28, n = 4 + Math.floor(g.t / 30);
+    for (let i = 0; i < n; i++) spawnEnemy(g, a + rr(g, -0.5, 0.5));
+    g.fx.push({ k: 'surge', a });
+  }
   for (const q of g.respawnQ) if (!q.done && g.t >= q.at) { q.done = true; spawnAlly(g, q.nem, q.lives); }
   g.respawnQ = g.respawnQ.filter(q => !q.done);
   for (const e of g.ents) if (!e.dead) think(g, e, dt);

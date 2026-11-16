@@ -6,14 +6,15 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a); // cosmetic only
 export const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
-let parts = [], shakeAmt = 0;
+let parts = [], shakeAmt = 0, surge = null;
 
-export function resetFx() { parts = []; shakeAmt = 0; }
+export function resetFx() { parts = []; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
 export function consumeFx(g) {
   for (const f of g.fx) {
     if (f.k === 'shake') shakeAmt = Math.max(shakeAmt, f.v);
+    else if (f.k === 'surge') surge = { a: f.a, life: 2 };
     else for (let i = 0; i < f.n; i++) {
       const a = Math.random() * 6.28, s = rnd(30, f.sp);
       parts.push({ x: f.x, y: f.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.3, .7), c: f.c });
@@ -24,6 +25,7 @@ export function consumeFx(g) {
 export function updateFx(dt) {
   for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .92; p.vy *= .92; p.life -= dt; }
   parts = parts.filter(p => p.life > 0);
+  if (surge && (surge.life -= dt) <= 0) surge = null;
   shakeAmt *= 0.88; if (shakeAmt < .3) shakeAmt = 0;
 }
 
@@ -99,6 +101,12 @@ export function draw(cv, cx, g) {
   cx.font = '14px ' + font; cx.textAlign = 'left'; cx.fillStyle = '#aaa'; cx.fillText(`LV ${P.lvl}   KILLS ${g.kills}`, 16, 30);
   const bw = 260; cx.fillStyle = '#222'; cx.fillRect(W / 2 - bw / 2, H - 30, bw, 10);
   cx.fillStyle = '#ff3b5c'; cx.fillRect(W / 2 - bw / 2, H - 30, bw * P.hp / P.maxhp, 10);
+  // Surge warning: a red arc on the side the wave is coming from.
+  if (surge) {
+    cx.globalAlpha = Math.min(1, surge.life) * (0.5 + 0.5 * Math.sin(g.t * 16));
+    cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 6; cx.beginPath();
+    cx.arc(W / 2, H / 2, 270, surge.a - 0.45, surge.a + 0.45); cx.stroke(); cx.globalAlpha = 1;
+  }
   // Party: one line per nemesis, dimmed once it has fallen for good.
   cx.textAlign = 'right';
   g.party.forEach((n, i) => {
