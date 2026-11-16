@@ -1,0 +1,14 @@
+{
+  "name": "nemesis",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 8791 --strictPort --host 127.0.0.1",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

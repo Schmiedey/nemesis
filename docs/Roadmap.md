@@ -2,10 +2,10 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** prototype and council verdict done. Next: Phase 1.
+**Status:** Phase 1 foundation done (modules, fixed arena, safe saves, pause, tests) on branch `phase-1-foundation`. Next: Phase 1 loop fixes (earned recruits, draft, boss, inherited builds).
 
 ## Phase 1: Make it a real game
-- [ ] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
+- [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
 - [ ] Earned recruits, draft 3 allies, limited ally respawns
 - [ ] Boss at ~5:00 and a win screen; killer inherits your build
 - Done when: dying early on purpose is a bad strategy and you want to replay.

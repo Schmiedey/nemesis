@@ -1,1 +1,57 @@
-<!DOCTYPE html><meta http-equiv="refresh" content="0;url=nemesis.html">
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NEMESIS</title>
+<style>
+html,body{margin:0;height:100%;background:#050508;overflow:hidden;font-family:ui-monospace,Menlo,monospace;color:#eee}
+canvas{display:block}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,8,12,.88);text-align:center;gap:14px;padding:20px}
+.hidden{display:none!important}
+h1{font-size:72px;margin:0;letter-spacing:10px;color:#ff3b5c;text-shadow:0 0 30px #ff3b5c88}
+h2{font-size:34px;margin:0}
+.sub{color:#aaa;font-size:16px;max-width:520px;line-height:1.5}
+.key{display:inline-block;border:1px solid #555;border-radius:4px;padding:2px 8px;color:#fff}
+.roster{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:30px}
+.chip{border:1px solid;border-radius:20px;padding:4px 12px;font-size:14px}
+.cards{display:flex;gap:16px}
+.card{width:180px;padding:20px 14px;border:1px solid #444;border-radius:10px;background:#15151f;cursor:pointer;transition:.15s}
+.card:hover{border-color:#ffd23f;transform:translateY(-4px)}
+.card b{display:block;font-size:18px;margin-bottom:8px;color:#ffd23f}
+.card span{color:#bbb;font-size:13px}
+button{background:none;border:1px solid #444;color:#777;border-radius:6px;padding:6px 12px;font-family:inherit;cursor:pointer}
+.pulse{animation:p 1.2s infinite}@keyframes p{50%{opacity:.4}}
+.big{font-size:20px}
+.soft{background:rgba(8,8,12,.7)}
+</style></head><body>
+<canvas id="c"></canvas>
+
+<div id="start" class="ov hidden">
+  <h1>NEMESIS</h1>
+  <div class="sub">Survive the swarm. Your aim is automatic.<br><b style="color:#fff">Whatever kills you, joins you.</b></div>
+  <div class="sub"><span class="key">WASD</span> / <span class="key">Arrows</span> to move · <span class="key">Esc</span> to pause</div>
+  <div class="roster" id="startRoster"></div>
+  <div class="sub" id="startBest"></div>
+  <div class="big pulse">Press <span class="key">SPACE</span> to start</div>
+  <button id="reset">reset nemeses</button>
+</div>
+
+<div id="dead" class="ov hidden">
+  <h2 id="dTitle"></h2>
+  <div class="sub big" id="dJoin"></div>
+  <div class="sub" id="dStats"></div>
+  <div class="roster" id="deadRoster"></div>
+  <div class="sub" id="dTease"></div>
+  <div class="big pulse">Press <span class="key">SPACE</span> to go again</div>
+</div>
+
+<div id="lvl" class="ov soft hidden">
+  <h2 style="color:#ffd23f">LEVEL UP</h2>
+  <div class="cards" id="cards"></div>
+  <div class="sub">Click or press <span class="key">1</span> <span class="key">2</span> <span class="key">3</span></div>
+</div>
+
+<div id="pause" class="ov soft hidden">
+  <h2>PAUSED</h2>
+  <div class="sub">Press <span class="key">Esc</span> to resume</div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body></html>

@@ -1,1 +1,1 @@
-{"version":"0.0.1","configurations":[{"name":"nemesis","runtimeExecutable":"python3","runtimeArgs":["-m","http.server","8791","--bind","127.0.0.1"],"port":8791,"autoPort":false}]}
+{"version":"0.0.1","configurations":[{"name":"nemesis","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":8791,"autoPort":false}]}
