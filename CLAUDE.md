@@ -16,7 +16,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 ## Commands
 - `npm run dev` → http://localhost:8791 (port 8765 belongs to another project)
 - `npm test` → simulated runs and save tests
-- `node tests/balance.js` → survival table by party strength (about 1 minute)
+- `node tests/balance.js` → survival table by party strength, played by the `smart` bot (about 2 minutes). Targets are in `docs/design/Core Loop.md`; re-run after any rule change.
 - `npm run build` → `dist/`
 
 ## Testing

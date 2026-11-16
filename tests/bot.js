@@ -31,3 +31,37 @@ export function simulate(seed, { party = [], bossType = 'brute', bot = still, ch
   }
   return g;
 }
+
+// Plays like a skilled person: looks a moment ahead in 16 directions, dodges enemies and
+// bullets, stays off the walls, and goes for gems when it is safe.
+export function smart(g) {
+  const P = g.P, W = ARENA.w, H = ARENA.h;
+  const enemies = g.ents.filter(e => e.team === 'enemy');
+  const shots = g.bullets.filter(b => b.team === 'enemy');
+  let gem = null, gd = 350 * 350;
+  for (const x of g.gems) { const d = (x.x - P.x) ** 2 + (x.y - P.y) ** 2; if (d < gd) { gd = d; gem = x; } }
+  let best = { mx: 0, my: 0 }, bs = -Infinity;
+  for (let i = 0; i < 17; i++) {
+    const a = i * Math.PI / 8, mx = i < 16 ? Math.cos(a) : 0, my = i < 16 ? Math.sin(a) : 0;
+    let sc = 0;
+    for (const h of [0.15, 0.4]) {
+      const x = Math.max(P.r, Math.min(W - P.r, P.x + mx * P.spd * h)), y = Math.max(P.r, Math.min(H - P.r, P.y + my * P.spd * h));
+      for (const e of enemies) {
+        const reach = e.r + P.r + (e.type === 'bomber' ? 60 : 0);
+        const d = Math.max(1, Math.hypot(x - e.x, y - e.y) - e.spd * h * 0.9 - reach);
+        if (d < 240) sc -= (e.boss ? 5 : e.dmg / 8) * 3000 / (d * d + 40);
+      }
+      for (const b of shots) {
+        const d = Math.hypot(x - (b.x + b.vx * h), y - (b.y + b.vy * h));
+        if (d < 45) sc -= 8 * (45 - d) / 45;
+      }
+      const m = Math.min(x, y, W - x, H - y);
+      if (m < 130) sc -= (130 - m) * 0.03;
+    }
+    if (gem) { const d = Math.sqrt(gd) || 1; sc += 0.8 * (mx * (gem.x - P.x) + my * (gem.y - P.y)) / d; }
+    const cx = W / 2 - P.x, cy = H / 2 - P.y, cd = Math.hypot(cx, cy) || 1;
+    sc += 0.3 * (cd / 500) * (mx * cx + my * cy) / cd;
+    if (sc > bs) { bs = sc; best = { mx, my }; }
+  }
+  return best;
+}

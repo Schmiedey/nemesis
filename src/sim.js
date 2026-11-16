@@ -3,7 +3,7 @@ import { T, UP, PERKS, BOSS_TIME } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
-export const BOSS_HP = 3500;
+export const BOSS_HP = 9000;
 const ALLY_LIVES = 3, BOMBER_LIVES = 6;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -33,6 +33,8 @@ export function createGame({ seed = 1, party = [], bossType = 'brute' } = {}) {
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
+  // A stronger party draws a bigger swarm, so the opening is never a walkover.
+  g.heat = 1 + 0.03 * g.party.reduce((a, n) => a + n.q, 0);
   for (const nem of g.party) {
     const lives = nem.type === 'bomber' ? BOMBER_LIVES : ALLY_LIVES;
     for (let i = 0; i < (T[nem.type].pack || 1); i++) spawnAlly(g, nem, lives);
@@ -55,7 +57,7 @@ function mk(g, type, team, x, y, { small = false, hpMul = 1, dmgMul = 1, spdMul 
   e.maxhp = e.hp; g.ents.push(e); return e;
 }
 
-const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 130, dmgMul: 1.25 + g.t / 200, spdMul: Math.min(1.45, 1 + g.t / 400) });
+const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 160, dmgMul: 1.25 + g.t / 320, spdMul: Math.min(1.3, 1 + g.t / 700) });
 
 function spawnAlly(g, nem, lives) {
   const pk = nem.perks || {};
@@ -78,7 +80,7 @@ function spawnEnemy(g, ang) {
   const a = ang ?? g.rand() * 6.28, dist = rr(g, 600, 680);
   const x = clamp(g.P.x + Math.cos(a) * dist, -30, ARENA.w + 30);
   const y = clamp(g.P.y + Math.sin(a) * dist, -30, ARENA.h + 30);
-  const n = type === 'bat' ? 4 + Math.floor(g.t / 60) : type === 'slime' && g.t > 90 ? 2 : 1;
+  const n = type === 'bat' ? 4 + Math.floor(g.t / 100) : type === 'slime' && g.t > 90 ? 2 : 1;
   for (let i = 0; i < n; i++) mkEnemy(g, type, x + rr(g, -20, 20), y + rr(g, -20, 20));
 }
 
@@ -164,7 +166,8 @@ function think(g, e, dt) {
     e.x += (tx - e.x) * Math.min(1, dt * 8); e.y += (ty - e.y) * Math.min(1, dt * 8);
     contact(g, e, foe); return;
   }
-  const tg = nearest(g, e, foe, ally ? 380 : 1e9);
+  // Enemies hunt the player; they only turn on a nemesis that gets in their way.
+  const tg = ally ? nearest(g, e, foe, 380) : (nearest(g, e, foe, 110) || P);
   if (!tg) { if (ally) moveTo(e, P.x, P.y, dt, 70); return; }
   const dist = Math.sqrt(d2(e, tg));
   if (d.ranged) {
@@ -292,11 +295,11 @@ export function step(g, dt, input) {
   }
   if (!g.boss && !g.bossAt && g.t >= BOSS_TIME) spawnBoss(g);
   g.spawnT -= dt;
-  if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.34, 0.85 - g.t * 0.004) * (g.boss ? 2 : 1); }
+  if (g.spawnT <= 0) { spawnEnemy(g); g.spawnT = Math.max(0.42, 0.85 - g.t * 0.003) * (g.boss ? 2 : 1) / g.heat; }
   // Surge: every 20s a wave closes in from one side, bigger each time.
   g.surgeT -= dt;
   if (g.surgeT <= 0 && !g.boss) {
-    g.surgeT = 20; const a = g.rand() * 6.28, n = 4 + Math.floor(g.t / 30);
+    g.surgeT = 20; const a = g.rand() * 6.28, n = 3 + Math.floor(g.t / 50);
     for (let i = 0; i < n; i++) spawnEnemy(g, a + rr(g, -0.5, 0.5));
     g.fx.push({ k: 'surge', a });
   }
