@@ -1,6 +1,6 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
 import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
-import { canEvolve, boonsOf, today, metaCost, completion, nextGoals } from './save.js';
+import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
@@ -53,7 +53,7 @@ function growthCards(rows) {
   }).join('');
 }
 
-export function hideAll() { ['start', 'classes', 'shrine', 'missions', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+export function hideAll() { ['start', 'classes', 'shrine', 'missions', 'saves', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
 const gearLines = ids => ids.map(id => `<div class="nem on show gear">${pix('i_' + id, 3)}<div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
 
 const featLines = feats => feats.map(f => `<div class="feat got">${pix('i_trophy', 2)}<div><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div></div>`).join('');
@@ -64,7 +64,7 @@ export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
   on(['bPlay', 'bRosterPlay'], h.play);
   on(['bAgain', 'bWonAgain'], h.again);
-  on(['bHome'], h.menu); on(['bMissions'], h.missions); on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
+  on(['bHome'], h.menu); on(['bMissions'], h.missions); on(['bSaves'], h.saves); on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
   on(['bShare', 'bWonShare'], h.share);
   on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bClassBack', 'bShrineBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
@@ -86,6 +86,7 @@ export function showStart(save) {
     `<div class="gearrow">${[lo.weapon, lo.ability, lo.charm].filter(Boolean).map(id => `<span class="gi" title="${gearOf(id).n}">${pix('i_' + id, 2)}</span>`).join('')}</div>`;
   $('hubB1').innerHTML = $('hubB2').innerHTML = pix('i_skull', 2);
   $('hubSouls').innerHTML = pix('i_soul', 2) + save.souls;
+  $('bSaves').textContent = 'SAVE ' + currentSlot();
   const g = nextGoals(save)[0];
   $('hubGoal').innerHTML = g ? `<span>NEXT: ${g.text.toUpperCase()}</span><b>${Math.floor(g.have / g.want * 100)}%</b>${bar2(0, g.have, g.want)}` : '';
   const d = save.daily.date === today() ? save.daily : null;
@@ -97,7 +98,7 @@ export function showStart(save) {
 
 // The tab bar: which tab is lit, and a badge where something is waiting.
 export function showTabs(save, mode) {
-  const t = $('tabs'), menus = ['start', 'classes', 'loadout', 'roster', 'shrine', 'missions', 'feats'];
+  const t = $('tabs'), menus = ['start', 'classes', 'loadout', 'roster', 'shrine', 'missions', 'feats', 'saves'];
   t.classList.toggle('hidden', !menus.includes(mode));
   if (!menus.includes(mode)) return;
   const icons = { bHome: ['i_skull', 2], bClass: [CLASSES[save.cls].sprite, 1.5], bRoster: ['c_slime', 2], bShrine: ['i_soul', 2], bMissions: ['i_trophy', 2], bFeats: ['i_star', 3] };
@@ -112,6 +113,24 @@ export function showTabs(save, mode) {
   badge('bRoster', save.nemeses.some(canEvolve));                                                                            // a Champion ready to evolve
   badge('bClass', save.classes.length > seen.classes || save.gear.owned.length > seen.gear);                                   // a new class or new gear
   badge('bMissions', save.missions.filter(m => m.have / m.n >= 0.75).length || 0);                                             // missions nearly done
+}
+
+// Saves: three slots. Switch to one, start a fresh one, or delete one.
+export function showSaves(onPick, onDelete) {
+  hideAll();
+  const el = $('saveList'); el.innerHTML = '';
+  for (const s of slotSummaries()) {
+    const c = document.createElement('div');
+    c.className = 'slotc' + (s.active ? ' on' : '') + (s.empty ? ' empty' : '');
+    c.innerHTML = `<div class="scene">${s.empty ? '?' : pix(CLASSES[s.cls].sprite, 5, true)}</div><h3>SAVE ${s.slot}</h3>` +
+      (s.empty ? '<p>Empty. A fresh start: no nemeses, no souls, the three starting classes.</p>'
+        : `<p>${CLASSES[s.cls].n} &middot; ${s.runs} run${s.runs === 1 ? '' : 's'} &middot; best ${fmt(s.best)}</p><p>${s.souls} souls &middot; ${s.nemeses} nemes${s.nemeses === 1 ? 'is' : 'es'} &middot; ${s.complete}% complete</p>`) +
+      (s.active ? '<span class="tag2">PLAYING THIS SAVE</span>' : '');
+    if (!s.active) { const b = document.createElement('button'); b.className = 'go'; b.textContent = s.empty ? 'START FRESH' : 'SWITCH TO THIS'; b.onclick = () => onPick(s.slot); c.appendChild(b); }
+    if (!s.empty) { const b = document.createElement('button'); b.className = 'quiet'; b.textContent = 'delete this save'; b.onclick = () => onDelete(s.slot); c.appendChild(b); }
+    el.appendChild(c);
+  }
+  show('saves');
 }
 
 // Missions: the three active ones, the daily bonus, and your records.

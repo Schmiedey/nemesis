@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, step, pick, reroll, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
-import { sanitize, loadSave, writeSave, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
+import { sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
 const nem = (id, type, q = 1, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: 'the Test' });
@@ -546,5 +546,20 @@ describe('save', () => {
     expect(goals.length).toBeGreaterThan(0); expect(goals[0].have / goals[0].want).toBeGreaterThanOrEqual(goals[goals.length - 1].have / goals[goals.length - 1].want);
     const back = sanitize(JSON.parse(JSON.stringify(s)));
     expect(back.missions).toEqual(s.missions); expect(back.day).toEqual(s.day);
+  });
+
+  it('save slots are independent; an old save is slot 1; deleting one leaves the others', () => {
+    const st = store();
+    const a = loadSave(st); a.souls = 50; a.runs = 3; writeSave(a, st);        // written before any slot was chosen
+    expect(currentSlot(st)).toBe(1); expect(st.getItem('nemesis_save')).toBeTruthy();
+    setSlot(2, st);
+    const b = loadSave(st); expect(b.souls).toBe(0);                         // slot 2 starts fresh
+    b.souls = 9; b.runs = 1; writeSave(b, st);
+    setSlot(1, st); expect(loadSave(st).souls).toBe(50);
+    setSlot(7, st); expect(currentSlot(st)).toBe(1);                         // a slot that does not exist is ignored
+    const sum = slotSummaries(st);
+    expect(sum.map(x => [x.slot, x.empty, x.souls, x.active])).toEqual([[1, false, 50, true], [2, false, 9, false], [3, true, 0, false]]);
+    resetSave(st, 2);
+    expect(loadSave(st, 2).souls).toBe(0); expect(loadSave(st, 1).souls).toBe(50);
   });
 });

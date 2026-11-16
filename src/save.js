@@ -254,18 +254,43 @@ export function bossTypeFor(save) {
 
 export const partyOf = save => save.party.map(id => save.nemeses.find(n => n.id === id)).filter(Boolean);
 
-export function loadSave(store = globalThis.localStorage) {
+// ---------- save slots ----------
+// Three independent saves, so you can start fresh without losing your main one. Slot 1 uses the original
+// storage key, so a save from before slots existed is simply slot 1.
+export const SLOTS = 3;
+const SLOT_KEY = 'nemesis_slot';
+const keyOf = n => (n === 1 ? KEY : KEY + '_' + n);
+export function currentSlot(store = globalThis.localStorage) {
+  try { const n = Number(store.getItem(SLOT_KEY)); return n >= 1 && n <= SLOTS ? n : 1; } catch { return 1; }
+}
+export function setSlot(n, store = globalThis.localStorage) {
+  if (n >= 1 && n <= SLOTS) try { store.setItem(SLOT_KEY, String(n)); } catch { /* storage blocked */ }
+}
+const rawOf = (store, slot) => store.getItem(keyOf(slot)) ?? (slot === 1 ? store.getItem(OLD_KEY) : null);
+
+export function loadSave(store = globalThis.localStorage, slot = currentSlot(store)) {
   try {
-    const txt = store.getItem(KEY) ?? store.getItem(OLD_KEY);
+    const txt = rawOf(store, slot);
     return sanitize(txt ? JSON.parse(txt) : null);
   } catch { return fresh(); }
 }
 
-export function writeSave(save, store = globalThis.localStorage) {
-  try { store.setItem(KEY, JSON.stringify(save)); } catch { /* storage full or blocked */ }
+export function writeSave(save, store = globalThis.localStorage, slot = currentSlot(store)) {
+  try { store.setItem(keyOf(slot), JSON.stringify(save)); } catch { /* storage full or blocked */ }
 }
 
-export function resetSave(store = globalThis.localStorage) {
-  try { store.removeItem(KEY); store.removeItem(OLD_KEY); } catch { /* ignore */ }
+export function resetSave(store = globalThis.localStorage, slot = currentSlot(store)) {
+  try { store.removeItem(keyOf(slot)); if (slot === 1) store.removeItem(OLD_KEY); } catch { /* ignore */ }
   return fresh();
+}
+
+// One line about each slot, for the saves screen.
+export function slotSummaries(store = globalThis.localStorage) {
+  const out = [], cur = currentSlot(store);
+  for (let n = 1; n <= SLOTS; n++) {
+    let empty = true; try { empty = !rawOf(store, n); } catch { /* treat as empty */ }
+    const s = loadSave(store, n);
+    out.push({ slot: n, active: n === cur, empty: empty || (!s.runs && !s.nemeses.length && !s.souls), cls: s.cls, runs: s.runs, best: s.best, wins: s.wins, souls: s.souls, nemeses: s.nemeses.length, complete: completion(s) });
+  }
+  return out;
 }

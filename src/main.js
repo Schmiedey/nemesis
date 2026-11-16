@@ -1,6 +1,6 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick, reroll } from './sim.js';
-import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
+import { loadSave, writeSave, resetSave, setSlot, currentSlot, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
 import { masteryLevel } from './data.js';
 import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites, levelFx, pickFx } from './render.js';
 import * as ui from './ui.js';
@@ -20,6 +20,14 @@ let kind = 'normal'; // what the current or last run was: normal | hard | daily
 const keys = {};
 
 function toStart() { tabMode = null; mode = 'start'; g = null; ui.showStart(save); }
+// Save slots: switch, start fresh, or delete. Deleting asks first; it cannot be undone.
+function toSaves() {
+  tabMode = null; mode = 'saves';
+  ui.showSaves(
+    n => { setSlot(n); save = loadSave(); audio.sfx('pick'); toStart(); },
+    n => { if (confirm(`Delete save ${n}? Everything in it is lost for good.`)) { resetSave(undefined, n); if (n === currentSlot()) save = loadSave(); toSaves(); } },
+  );
+}
 function toMissions() { tabMode = null; mode = 'missions'; ui.showMissions(save, bossTypeFor(save)); }
 function toRoster() { tabMode = null; mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
 function pickEvo(id, evoId) { if (evolve(save, id, evoId)) { audio.sfx('level'); checkFeats(save); writeSave(save); } ui.showRoster(save, toggleParty, pickEvo); }
@@ -145,7 +153,7 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyG' && mode === 'start') toMissions();
   else if (e.code === 'KeyR' && mode === 'lvl') doReroll();
   else if (e.code === 'KeyR' && (mode === 'start' || over)) toRoster();
-  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || mode === 'shrine' || mode === 'missions' || over)) toStart();
+  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || mode === 'shrine' || mode === 'missions' || mode === 'saves' || over)) toStart();
   else if (e.code === 'KeyQ' && mode === 'pause') toStart();
   else if ((e.code === 'Escape' || e.code === 'KeyP') && (mode === 'play' || mode === 'pause')) {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
@@ -163,9 +171,9 @@ addEventListener('pagehide', clearKeys);
 addEventListener('contextmenu', clearKeys);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, missions: toMissions, reroll: () => doReroll(), share,
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, missions: toMissions, saves: toSaves, reroll: () => doReroll(), share,
   roster: toRoster, menu: toStart, resume,
-  reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
+  reset: () => { if (confirm(`Wipe save ${currentSlot()}? Nemeses, souls, unlocks and stats are all lost for good.`)) { save = resetSave(); toRoster(); } },
 });
 
 // Touch: a stick appears where the thumb lands on the game; drag to steer. Direction only, speed is always full.

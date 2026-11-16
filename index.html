@@ -343,6 +343,15 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
 @media (max-width:820px){.rwrap{flex-direction:column;align-items:center}.rdetail{width:100%;max-width:520px}}
 @media (max-height:480px){.rstage{height:96px}.pslot .px{transform-origin:bottom}.rtile{height:92px}.rdetail .scene{height:84px}}
 
+/* Save slots */
+.slotc{width:250px;padding:0 0 14px;text-align:left;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.3;color:var(--txt);background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);animation:popin .28s steps(6) backwards}
+.slotc .scene{height:118px;padding-bottom:22px;margin:2px;background:linear-gradient(var(--k) 0 calc(100% - 34px),#2a2639 0 calc(100% - 32px),#221e30 0);display:flex;align-items:flex-end;justify-content:center;font:700 40px var(--t);color:var(--bg2)}
+.slotc h3{font:700 16px var(--t);color:var(--w);margin:2px 14px 0;letter-spacing:0}
+.slotc p{margin:0 14px}.slotc .tag2{font:400 10px var(--t);color:var(--mint);margin:0 14px}
+.slotc button{margin:2px 14px 0;font-size:12px}
+.slotc.on{background:#22382d;box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--green),inset -2px -2px 0 var(--green2)}
+.slotc.empty p{color:var(--dim)}
+
 /* In-run controls */
 #perf{position:fixed;left:8px;top:8px;z-index:9;font:400 10px var(--t);color:var(--mint);background:var(--k);padding:4px 6px;pointer-events:none}
 #joy{opacity:.75;position:fixed;width:112px;height:112px;margin:-56px 0 0 -56px;background:rgba(26,20,35,.55);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);pointer-events:none;z-index:4}
@@ -382,6 +391,7 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
     <h1 class="logo sm">NEMESIS</h1>
     <div class="goal" id="hubGoal"></div>
     <div class="purse" id="hubSouls"></div>
+    <button class="quiet" id="bSaves"></button>
   </div>
   <div class="hubscene">
     <div class="torch t1"></div><div class="torch t2"></div>
@@ -411,6 +421,11 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
 <div id="shrine" class="ov menu page hidden">
   <div class="phead"><h1 class="logo sm">SHRINE</h1><div class="sub">Every run earns souls, win or lose. Spend them here on upgrades that last forever.</div><div class="purse" id="shrineSouls"></div><button id="bShrineBack">BACK <span class="key">Esc</span></button></div>
   <div class="pbody"><div class="roster" id="shrineList"></div></div>
+</div>
+
+<div id="saves" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">SAVES</h1><div class="sub">Three separate saves. Start a fresh one without losing another.</div></div>
+  <div class="pbody"><div class="cards" id="saveList"></div></div>
 </div>
 
 <div id="roster" class="ov menu page hidden">

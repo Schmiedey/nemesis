@@ -106,6 +106,7 @@ What carries over between runs, and why there is always something to work toward
 - **Completion %** on the title screen: classes, gear, feats, Shrine ranks and tiers.
 - Already there from earlier phases: nemeses that rank up and evolve, gear found and kept, feats and boons, the daily run.
 - Save version 9. The balance table runs with no Shrine ranks, mastery or tier.
+- **Save slots.** Three independent saves (`SLOTS` in `src/save.js`), reached from the SAVE button on the hub: switch, start fresh, or delete. Slot 1 is the original storage key, so older saves load as slot 1.
 
 ## Class ultimates and signature passives (Phase 15)
 Classes were passive bonuses and felt flat, so each now has an **ultimate** and a passive you can see working.
