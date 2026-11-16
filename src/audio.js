@@ -67,7 +67,7 @@ const notes = (ms, step, dur, vol, type, at) => ms.forEach((m, i) => tone(type, 
 // ---------- effects ----------
 let gemRun = 0, gemAt = 0;
 const SFX = {
-  shoot: t => tone('square', vary(820), 380, 0.07, 0.035, { at: t }),
+  shoot: t => tone('triangle', vary(520, 0.04), 430, 0.025, 0.012, { at: t }),   // barely there: a faint tick to feel the rhythm of firing
   hit: t => noise(0.035, 0.05, 'bandpass', vary(2600, 0.2), 1800, { at: t }),
   kill: t => { tone('triangle', vary(330, 0.15), 70, 0.13, 0.13, { at: t }); noise(0.07, 0.06, 'highpass', 1500, 900, { at: t }); },
   gem: t => { // quick pickups climb in pitch
@@ -77,7 +77,7 @@ const SFX = {
   hurt: t => { tone('sawtooth', 220, 55, 0.22, 0.22, { at: t }); noise(0.12, 0.14, 'lowpass', 1200, 300, { at: t }); },
   boom: t => { noise(0.55, 0.45, 'lowpass', 1400, 60, { at: t }); tone('sine', 130, 28, 0.5, 0.4, { at: t }); },
   allyDown: t => tone('triangle', 520, 140, 0.32, 0.14, { at: t }),
-  level: t => notes([69, 73, 76, 81], 0.06, 0.28, 0.1, 'triangle', t),
+  level: t => { notes([69, 73, 76, 81, 85, 88], 0.05, 0.3, 0.1, 'triangle', t); notes([57, 64], 0.15, 0.5, 0.1, 'square', t); noise(0.5, 0.05, 'highpass', 3000, 9000, { at: t }); },
   pick: t => notes([76, 83], 0.05, 0.12, 0.09, 'square', t),
   ui: t => tone('sine', 620, 700, 0.04, 0.06, { at: t }),
   power: t => notes([72, 76, 79, 84], 0.045, 0.22, 0.11, 'square', t),

@@ -1,5 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, gearOf, upName, evoOf, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
@@ -53,7 +53,7 @@ function growthCards(rows) {
   }).join('');
 }
 
-export function hideAll() { ['start', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+export function hideAll() { ['start', 'classes', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
 const gearLines = ids => ids.map(id => `<div class="nem on show gear">${pix('i_' + id, 3)}<div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
 
 const featLines = feats => feats.map(f => `<div class="feat got">${pix('i_trophy', 2)}<div><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div></div>`).join('');
@@ -64,38 +64,51 @@ export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
   on(['bPlay', 'bRosterPlay'], h.play);
   on(['bAgain', 'bWonAgain'], h.again);
-  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout);
+  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
-  on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
+  on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bClassBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
   on(['bResume'], h.resume);
   on(['reset'], h.reset);
 }
 
 // Title screen: logo, current party, the boss you have earned, lifetime stats.
+// Title: the menu list on the left with what each item is set to; your character on the stage on the right.
 export function showStart(save, bossType) {
   hideAll();
-  $('startParty').innerHTML = save.nemeses.length ? slots(save) : '';
-  $('parade').innerHTML = pix('c_bat', 3, true) + pix('c_slime', 3, true) + pix('c_archer', 3, true) + pix('c_player', 3, true) + pix('c_brute', 3, true) + pix('c_bomber', 3, true) + pix('c_wisp', 3, true);
+  const cls = CLASSES[save.cls], lo = save.gear.loadout, party = save.party.map(id => save.nemeses.find(n => n.id === id)).filter(Boolean);
+  const chip = id => `<span class="chip">${pix('i_' + id, 1)}${gearOf(id).n}</span>`;
+  $('stageScene').innerHTML = `<div class="party">${party.map(n => pix('c_' + n.type, 3, true)).join('')}</div>` + pix(cls.sprite, 6, true) + pix('c_' + cls.minion, 4, true);
   const b = T[bossType], n = save.deaths[bossType] || 0;
-  $('startBoss').innerHTML = !save.nemeses.length && !n
-    ? 'No nemeses yet. Go die to something. The longer you last, the stronger it joins.'
-    : n ? `Your true nemesis: the <b style="color:${b.color}">${b.name}</b>, which has killed you ${n} time${n > 1 ? 's' : ''}. It comes at <b>5:00</b>.`
-      : 'Your true nemesis comes at <b>5:00</b>.';
-  $('startStats').innerHTML = save.runs
-    ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + stat(save.nemeses.length, 'nemeses') : '';
-  // Ways to play: today's fixed run, the harder mode (after a first win), a starting boon, and feats.
+  $('stageInfo').innerHTML = `<h3>${cls.n.toUpperCase()}</h3><div>${cls.d}</div><div class="min">${cls.md}</div>` +
+    `<div class="chips">${chip(lo.weapon)}${chip(lo.ability)}${lo.charm ? chip(lo.charm) : ''}</div>` +
+    `<div class="boss">${n ? `Your true nemesis: the <b style="color:${b.color}">${b.name}</b>, ${n} kill${n > 1 ? 's' : ''} on you. It comes at <b>5:00</b>.` : 'Whatever kills you joins your roster. Your nemesis comes at <b>5:00</b>.'}</div>`;
+  const set = (id, text) => { $(id).querySelector('b').textContent = text; };
   const d = save.daily.date === today() ? save.daily : null, got = FEATS.filter(f => save.feats[f.id]).length;
-  $('bDaily').querySelector('b').textContent = d ? (d.won ? 'won ' : '') + fmt(d.best) : 'not played';
-  $('bHard').classList.toggle('hidden', !save.wins);
-  $('bHard').classList.toggle('lit', save.hard);
-  $('bHard').querySelector('b').textContent = save.hard ? 'ON' : 'OFF';
-  $('bBoon').classList.toggle('hidden', !boonsOf(save).length);
-  $('bBoon').querySelector('b').textContent = save.boon ? upName(save.boon) : 'none';
-  $('bFeats').querySelector('b').textContent = `${got}/${FEATS.length}`;
-  const lo = save.gear.loadout;
-  $('bLoadout').querySelector('b').textContent = `${WEAPONS[lo.weapon].n} + ${ABILITIES[lo.ability].n}${lo.charm ? ' + ' + CHARMS[lo.charm].n : ''}`;
-  if (save.bestHard) $('startStats').innerHTML += stat(fmt(save.bestHard), 'best N+');
+  set('bDaily', d ? (d.won ? 'won ' : '') + fmt(d.best) : 'not played');
+  set('bClass', cls.n);
+  set('bLoadout', WEAPONS[lo.weapon].n + ' + ' + ABILITIES[lo.ability].n);
+  set('bRoster', save.nemeses.length ? `${party.length}/${PARTY_SIZE} of ${save.nemeses.length}` : 'empty');
+  set('bFeats', `${got}/${FEATS.length}`);
+  $('bHard').classList.toggle('hidden', !save.wins); $('bHard').classList.toggle('lit', save.hard); set('bHard', save.hard ? 'ON' : 'OFF');
+  $('bBoon').classList.toggle('hidden', !boonsOf(save).length); set('bBoon', save.boon ? upName(save.boon) : 'none');
+  $('startStats').innerHTML = save.runs
+    ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + (save.bestHard ? stat(fmt(save.bestHard), 'best N+') : '') : '';
   show('start');
+}
+
+// Class: three cards; each shows the hero, its minion and what they do.
+export function showClasses(save, onPick) {
+  hideAll();
+  const el = $('classList'); el.innerHTML = '';
+  for (const id in CLASSES) {
+    const c = CLASSES[id], card = document.createElement('div');
+    card.className = 'cls' + (id === save.cls ? ' on' : '');
+    card.innerHTML = `<div class="scene">${pix(c.sprite, 5, true)}${pix('c_' + c.minion, 4, true)}${id === 'necro' ? pix('c_skeleton', 3, true) : ''}</div>` +
+      `<h3>${c.n.toUpperCase()}</h3><p>${c.d}</p><p class="min">${c.md}</p><span class="pick">${id === save.cls ? 'PLAYING' : 'click to choose'}</span>`;
+    card.onclick = () => onPick(id);
+    el.appendChild(card);
+  }
+  show('classes');
 }
 
 // Loadout: pick one weapon and one ability from the gear you have found.
@@ -179,7 +192,7 @@ export function showDead(g, save, res, end) {
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
     stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(best), 'best')) + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
   $('dFeats').innerHTML = gearLines(end.gear || []) + featLines(feats);
-  const nxt = Object.values(T).filter(x => x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
+  const nxt = Object.values(T).filter(x => !x.minion && x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
   $('dTease').innerHTML = nxt ? `Something new shows up at <b>${fmt(nxt.unlock)}</b>...`
     : g.bossAt ? 'So close. Your nemesis was right there.' : 'Your true nemesis arrives at <b>5:00</b>.';
   show('dead');
@@ -210,4 +223,6 @@ export function showLevel(g, onPick) {
 }
 
 export const hideLevel = () => hide('lvl');
+// The chosen card flashes and grows; the others drop away.
+export function pickCard(i) { [...$('cards').children].forEach((c, k) => c.classList.add(k === i ? 'picked' : 'gone')); }
 export const setPause = on => on ? show('pause') : hide('pause');

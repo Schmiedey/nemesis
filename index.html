@@ -35,7 +35,6 @@ h3{font:400 12px var(--t);margin:0 0 4px;color:var(--dim);letter-spacing:1px}
 .sub{font-size:16px;max-width:600px;line-height:1.35;color:var(--txt)}
 .sub b{color:var(--w)}
 .big{font-size:20px}
-.parade{display:flex;gap:18px;align-items:flex-end;justify-content:center;height:60px}
 
 /* Panels: a dark edge, a light bevel on top and left, a dark one below. */
 .pn,.slot,.stat,.nem,.card,.feat{background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);box-sizing:border-box}
@@ -81,7 +80,7 @@ button.quiet:hover{color:var(--w)}
 .gearcard{width:236px}.gearcard b{color:var(--w)}.gearcard.on b{color:var(--mint)}
 .gearcard.locked{cursor:default;background:#201b2d;box-shadow:0 0 0 2px var(--bg2);color:var(--dim)}.gearcard.locked b{color:var(--dim)}.gearcard.locked .px{opacity:.5}
 .locols{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;max-height:58vh;overflow:auto;padding:4px}
-.locols>div:not(.nem){display:flex;flex-direction:column;gap:10px}
+.locols>div{display:flex;flex-direction:column;gap:6px}
 .stamp{position:absolute;right:8px;top:8px;font:700 10px var(--t);color:var(--k);background:var(--green);padding:3px 6px 4px;box-shadow:0 2px 0 var(--green2);animation:stamp .3s .5s steps(3) backwards}
 @keyframes stamp{from{transform:scale(3);opacity:0}}
 .bar{display:block;position:relative;height:8px;background:var(--k);margin-top:5px;overflow:hidden}
@@ -103,9 +102,21 @@ button.quiet:hover{color:var(--w)}
 
 /* Level-up cards */
 .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
-.card{width:204px;padding:16px 12px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;animation:deal .2s steps(4) backwards}
-.card:nth-child(2){animation-delay:.06s}.card:nth-child(3){animation-delay:.12s}
-@keyframes deal{from{opacity:0;transform:translateY(16px)}}
+.card{width:204px;padding:16px 12px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;overflow:hidden;animation:deal .36s steps(9) backwards}
+.card:nth-child(2){animation-delay:.1s}.card:nth-child(3){animation-delay:.2s}
+/* Dealt: each card drops in edge-on, flips open and settles; its icon pops; a shine sweeps across. */
+@keyframes deal{0%{opacity:0;transform:translateY(-70px) scaleX(0)}45%{opacity:1;transform:translateY(8px) scaleX(.2)}75%{transform:translateY(-4px) scaleX(1.06)}100%{transform:none}}
+.card .px{animation:pop .3s .34s steps(5) backwards}
+.card:nth-child(2) .px{animation-delay:.44s}.card:nth-child(3) .px{animation-delay:.54s}
+@keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+.card::after{content:"";position:absolute;top:0;bottom:0;left:-60px;width:28px;background:rgba(244,241,232,.28);transform:skewX(-18deg);animation:shine .45s .5s steps(9) forwards;pointer-events:none}
+.card:nth-child(2)::after{animation-delay:.6s}.card:nth-child(3)::after{animation-delay:.7s}
+@keyframes shine{to{left:130%}}
+.card.picked{animation:picked .32s steps(4) forwards;z-index:2}
+@keyframes picked{0%{background:var(--w)}35%{background:var(--y);transform:scale(1.1)}100%{transform:scale(1.14);box-shadow:0 0 0 2px var(--k),0 0 0 6px var(--y)}}
+.card.gone{animation:gone .26s steps(5) forwards;pointer-events:none}
+@keyframes gone{to{opacity:0;transform:translateY(46px) scale(.9)}}
+#lvlTitle{animation:pop .3s steps(5) backwards}
 .card:hover{background:#2e2940;transform:translateY(-4px);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--y),inset -2px -2px 0 var(--gold)}
 .card b{font:400 14px var(--t);color:var(--y);line-height:1.3}
 .card span{font-size:15px;line-height:1.3;min-height:40px;color:var(--txt)}
@@ -114,6 +125,48 @@ button.quiet:hover{color:var(--w)}
 .card.ally b,.card.ally em{color:var(--mint)}
 .card.ally:hover{box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--green),inset -2px -2px 0 var(--green2)}
 .card.chest{box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--y),inset -2px -2px 0 var(--gold)}
+
+/* Title: a menu list on the left, your character on a stage on the right, stats along the bottom. */
+.home{display:grid;grid-template-columns:minmax(300px,360px) minmax(340px,440px);gap:36px;align-items:center;justify-content:center;width:100%;max-width:880px}
+.side{display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left}
+.side .logo{font-size:64px;margin:0 0 14px}
+.side .tag{font-size:18px;margin-bottom:6px}
+.mlist{display:flex;flex-direction:column;gap:8px;width:100%}
+.mi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font-size:14px;padding:9px 12px 12px}
+.mi>span:first-child{flex:none;min-width:104px}
+.mi b{flex:1;min-width:0;font-weight:400;font-size:12px;color:var(--y);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi .key{margin-left:0;flex:none}
+.mi.go{font-size:26px;padding:12px 14px 17px}
+.mi.lit{background:var(--red2)}.mi.lit b{color:var(--w)}
+.stage{display:flex;flex-direction:column;text-align:left}
+.scene{height:176px;display:flex;align-items:flex-end;justify-content:center;gap:20px;padding:0 16px 30px;margin:2px;background:linear-gradient(var(--k) 0 calc(100% - 44px),#2a2639 0 calc(100% - 42px),#221e30 0)}
+.scene .party{display:flex;gap:12px;align-items:flex-end}
+.info{padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.3}
+.info h3{font:700 20px var(--t);color:var(--w);margin:0;letter-spacing:0}
+.info .min{color:var(--cyan)}.info .boss{color:var(--dim)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:6px;background:var(--k);padding:4px 8px 4px 4px;font:400 10px var(--t);color:var(--txt)}
+.foot{display:flex;gap:22px;align-items:center;justify-content:center;flex-wrap:wrap;width:100%;max-width:880px}
+/* Other pages: a header row with the title, a hint and Back; the content; actions at the bottom. */
+.page{justify-content:flex-start;padding:22px 28px}
+.phead{display:flex;align-items:center;gap:18px;width:100%;max-width:960px}
+.phead .logo{margin:0 0 12px;flex:none}
+.phead .sub{flex:1;text-align:left;max-width:none}
+.phead button{flex:none}
+.pbody{flex:1;min-height:0;width:100%;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4px}
+.page .roster{max-height:none}
+.pfoot{display:flex;gap:16px;align-items:center;justify-content:center}
+.locol{display:flex;flex-direction:column;gap:10px}
+/* Class cards */
+.cls{width:270px;padding:0 0 14px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.3;color:var(--txt);background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo)}
+.cls:hover{background:#2e2940}
+.cls .scene{height:128px;padding-bottom:22px;background:linear-gradient(var(--k) 0 calc(100% - 34px),#2a2639 0 calc(100% - 32px),#221e30 0)}
+.cls h3{font:700 20px var(--t);color:var(--w);margin:4px 14px 0;letter-spacing:0}
+.cls p{margin:0 14px}.cls .min{color:var(--cyan)}
+.cls .pick{font:400 10px var(--t);color:var(--dim);margin:2px 14px 0}
+.cls.on{background:#22382d;box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--green),inset -2px -2px 0 var(--green2)}
+.cls.on .pick{color:var(--mint)}
+@media (max-width:760px){.home{grid-template-columns:1fr;gap:16px}.side{align-items:center;text-align:center}}
 
 /* In-run controls */
 #perf{position:fixed;left:8px;top:8px;z-index:9;font:400 10px var(--t);color:var(--mint);background:var(--k);padding:4px 6px;pointer-events:none}
@@ -130,13 +183,16 @@ button.quiet:hover{color:var(--w)}
 }
 @media (pointer:fine){#bPause,#bAct{display:none}}
 @media (pointer:coarse) and (orientation:portrait){#rotate{display:flex}}
-@media (max-height:640px){.logo{font-size:56px}.ov{gap:10px}.parade{height:44px}}
+@media (max-height:640px){.side .logo{font-size:48px;margin-bottom:8px}.ov{gap:10px}.scene{height:132px}.mi{padding:6px 10px 9px}.mi.go{font-size:20px;padding:8px 12px 12px}}
 @media (max-height:480px){
   .ov{gap:8px;padding:10px}
   .logo{font-size:40px;margin-bottom:10px;text-shadow:0 4px 0 var(--red),0 8px 0 var(--red2)}.logo.sm{font-size:28px}
   .tag{font-size:16px}.sub{font-size:14px}.big{font-size:16px}h2{font-size:24px}
   .slot{height:44px;width:150px}.stat{padding:4px 10px 6px;min-width:70px}.stat b{font-size:16px}
-  .how,.parade{display:none}
+  .how,.side .tag{display:none}
+  .side .logo{font-size:32px;margin-bottom:4px}.mlist{gap:5px}.mi{font-size:11px;padding:4px 8px 7px}.mi.go{font-size:16px;padding:5px 10px 9px}
+  .scene{height:96px;padding-bottom:18px}.info{font-size:13px;padding:8px 12px}.info h3{font-size:14px}.home{gap:18px}
+  .page{padding:10px 14px}.cls .scene{height:92px}
   .card{width:156px;padding:10px 8px;gap:4px}.card span{min-height:0;font-size:14px}
   .roster{max-height:38vh}.killer{height:56px}
 }
@@ -145,50 +201,56 @@ button.quiet:hover{color:var(--w)}
 <canvas id="hud"></canvas>
 
 <div id="start" class="ov menu hidden">
-  <h1 class="logo" data-t="NEMESIS">NEMESIS</h1>
-  <div class="parade" id="parade"></div>
-  <div class="tag">Whatever <em>kills you</em>, <i>joins you</i>.</div>
-  <div class="slots" id="startParty"></div>
-  <div class="sub" id="startBoss"></div>
-  <div class="btns">
-    <button class="go" id="bPlay">START RUN <span class="key">SPACE</span></button>
-    <button id="bRoster">ROSTER <span class="key">R</span></button>
+  <div class="home">
+    <div class="side">
+      <h1 class="logo">NEMESIS</h1>
+      <div class="tag">Whatever <em>kills you</em>, <i>joins you</i>.</div>
+      <nav class="mlist">
+        <button class="mi go" id="bPlay"><span>PLAY</span><b></b><span class="key">SPACE</span></button>
+        <button class="mi" id="bDaily"><span>DAILY RUN</span><b>not played</b><span class="key">D</span></button>
+        <button class="mi" id="bClass"><span>CLASS</span><b></b><span class="key">C</span></button>
+        <button class="mi" id="bLoadout"><span>LOADOUT</span><b></b><span class="key">L</span></button>
+        <button class="mi" id="bRoster"><span>ROSTER</span><b></b><span class="key">R</span></button>
+        <button class="mi" id="bFeats"><span>FEATS</span><b>0/13</b><span class="key">F</span></button>
+        <button class="mi" id="bBoon"><span>BOON</span><b>none</b></button>
+        <button class="mi" id="bHard"><span>NEMESIS+</span><b>OFF</b></button>
+      </nav>
+    </div>
+    <div class="stage pn">
+      <div class="scene" id="stageScene"></div>
+      <div class="info" id="stageInfo"></div>
+    </div>
   </div>
-  <div class="btns modes">
-    <button id="bDaily">DAILY RUN<b>not played</b><span class="key">D</span></button>
-    <button id="bHard">NEMESIS+<b>OFF</b></button>
-    <button id="bBoon">BOON<b>none</b></button>
-    <button id="bFeats">FEATS<b>0/13</b><span class="key">F</span></button>
-    <button id="bLoadout">LOADOUT<b></b><span class="key">L</span></button>
+  <div class="foot">
+    <div class="stats" id="startStats"></div>
+    <div class="how"><span class="mouse-only"><span class="key">WASD</span> move</span><span class="touch-only">drag to move</span><span class="mouse-only"><span class="key">SPACE</span> ability</span><span class="mouse-only"><span class="key">Esc</span> pause</span></div>
   </div>
-  <div class="stats" id="startStats"></div>
-  <div class="how"><span class="mouse-only"><span class="key">WASD</span> / <span class="key">Arrows</span> move</span><span class="touch-only">drag anywhere to move</span><span>aim is automatic</span><span class="mouse-only"><span class="key">SPACE</span> ability</span><span class="mouse-only"><span class="key">Esc</span> pause</span></div>
 </div>
 
-<div id="roster" class="ov menu hidden">
-  <h1 class="logo sm" data-t="ROSTER">ROSTER</h1>
-  <div class="sub" id="rosterHint"></div>
+<div id="classes" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">CLASS</h1><div class="sub">Each class has a bonus and a minion with its own ability. Any class can use any gear.</div><button id="bClassBack">BACK <span class="key">Esc</span></button></div>
+  <div class="pbody"><div class="cards" id="classList"></div></div>
+</div>
+
+<div id="roster" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">ROSTER</h1><div class="sub" id="rosterHint"></div><button id="bBack">BACK <span class="key">Esc</span></button></div>
   <div class="slots" id="rosterParty"></div>
-  <div class="roster" id="rosterList"></div>
-  <div class="btns">
-    <button class="go" id="bRosterPlay">START RUN <span class="key">SPACE</span></button>
-    <button id="bBack">BACK <span class="key">Esc</span></button>
-  </div>
-  <button class="quiet" id="reset">forget all nemeses</button>
+  <div class="pbody"><div class="roster" id="rosterList"></div></div>
+  <div class="pfoot"><button class="go" id="bRosterPlay">PLAY <span class="key">SPACE</span></button><button class="quiet" id="reset">forget all nemeses</button></div>
 </div>
 
-<div id="feats" class="ov menu hidden">
-  <h1 class="logo sm" data-t="FEATS">FEATS</h1>
-  <div class="sub">Each feat unlocks a boon: an upgrade you can choose to start every run with.</div>
-  <div class="roster" id="featList"></div>
-  <div class="btns"><button id="bFeatsBack">BACK <span class="key">Esc</span></button></div>
+<div id="feats" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">FEATS</h1><div class="sub">Each feat unlocks a boon: an upgrade you can choose to start every run with.</div><button id="bFeatsBack">BACK <span class="key">Esc</span></button></div>
+  <div class="pbody"><div class="roster" id="featList"></div></div>
 </div>
 
-<div id="loadout" class="ov menu hidden">
-  <h1 class="logo sm" data-t="LOADOUT">LOADOUT</h1>
-  <div class="sub">One weapon, one ability and one charm. <span class="mouse-only">Use the ability with <span class="key">SPACE</span>.</span><span class="touch-only">Use the ability with the round button.</span> Gear you find is yours to keep.</div>
-  <div class="locols"><div><h3>WEAPON</h3><div id="loWeapons" class="locols" style="flex-direction:column;gap:10px;max-height:none;padding:0"></div></div><div><h3>ABILITY</h3><div id="loAbilities" class="locols" style="flex-direction:column;gap:10px;max-height:none;padding:0"></div></div><div><h3>CHARM (optional)</h3><div id="loCharms" class="locols" style="flex-direction:column;gap:10px;max-height:none;padding:0"></div></div></div>
-  <div class="btns"><button id="bLoadoutBack">BACK <span class="key">Esc</span></button></div>
+<div id="loadout" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">LOADOUT</h1><div class="sub">One weapon, one ability and one charm. <span class="mouse-only">Use the ability with <span class="key">SPACE</span>.</span><span class="touch-only">Use the ability with the USE button.</span> Gear you find is yours to keep.</div><button id="bLoadoutBack">BACK <span class="key">Esc</span></button></div>
+  <div class="pbody"><div class="locols">
+    <div><h3>WEAPON</h3><div id="loWeapons" class="locol"></div></div>
+    <div><h3>ABILITY</h3><div id="loAbilities" class="locol"></div></div>
+    <div><h3>CHARM (OPTIONAL)</h3><div id="loCharms" class="locol"></div></div>
+  </div></div>
 </div>
 
 <div id="dead" class="ov hidden">

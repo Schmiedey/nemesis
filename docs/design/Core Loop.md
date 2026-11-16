@@ -69,6 +69,19 @@ A giant of the type that has killed you most. It moves at 150 or more (you move 
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
 - Six new upgrades: Orbiting Blade, Chain Shot, Nova, Lucky Shot, and for nemeses Blood Bond and Iron Guard. A choice never offers more than one nemesis upgrade.
 
+## Classes and minions (Phase 12)
+You pick one of three classes on the title screen (`CLASSES` in `src/data.js`; saved as `cls`, default Knight). A class is a passive bonus plus a starter minion with its own ability; weapon, ability and charm stay a free choice. Minions are not nemeses: no rank, no perks, and they return 8s after they fall.
+
+| Class | Bonus | Minion |
+|---|---|---|
+| Knight | +30 health; 15% less damage taken | **Squire**: stays within 120 of you; his shield destroys enemy shots within 30; every 4s bashes the nearest enemy in reach (2.5x damage, knockback, 1.4s stun) |
+| Ranger | +10% move speed; +8% attack speed | **Hawk**: cannot be targeted; dives at the toughest enemy within 520 every 2.6s and marks it for 5s; marked enemies take 20% more damage |
+| Necromancer | every 12th kill rises as a **Skeleton** for 15s (up to 5) | **Imp**: ranged; its fireballs set enemies burning for 3s (45% of the hit, twice a second) |
+
+Solo survival by class (`node tests/balance.js --classes`, 10 seeds, Blaster + Dash): no class 1:44, Knight 2:16, Ranger 2:40, Necromancer 2:08. The main balance table is run with no class, so real runs are about 25-50% longer than its solo row. The Ranger was 5:15 before the Hawk was toned down and is still the strongest.
+
+**Level-up moment.** Levelling up (or opening a chest) freezes the game for 0.75s: a beam of light on the player, two rings, a shower of sparks and LEVEL UP! in large text; then the cards are dealt (they drop in edge-on and flip open). The chosen card flashes and the others fall away before play resumes, and a banner names what you took.
+
 ## Weapons, abilities and gear (Phase 8)
 You equip one **weapon** and one **ability** on the loadout screen (`WEAPONS`, `ABILITIES` in `src/data.js`; rules in `fireWeapon` and `useAbility` in `src/sim.js`).
 

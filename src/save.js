@@ -1,15 +1,16 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, START_GEAR, ALL_GEAR } from './data.js';
+import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_GEAR, ALL_GEAR } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
-const VERSION = 7;
+const VERSION = 8;
 export const MAX_PER_TYPE = 3;
 export const PARTY_SIZE = 3;
 // v5 adds: Nemesis+ (hard, bestHard, winsHard), the daily run, feats and the chosen boon.
 const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, wins: 0, deaths: {}, nextId: 1,
   hard: false, bestHard: 0, winsHard: 0, daily: { date: '', best: 0, won: false }, feats: {}, boon: null,
   // v6: gear you have found, and what is equipped.
+  cls: 'knight',   // v8: the class you play
   gear: { owned: [...START_GEAR], loadout: { weapon: 'blaster', ability: 'dash', charm: null } } });   // v7 adds the charm slot
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -64,6 +65,7 @@ export function sanitize(raw) {
   }
   if (raw.feats && typeof raw.feats === 'object') for (const f of FEATS) if (raw.feats[f.id] === true) s.feats[f.id] = true;
   if (FEATS.some(f => f.boon === raw.boon && s.feats[f.id])) s.boon = raw.boon;
+  if (CLASSES[raw.cls]) s.cls = raw.cls;
   if (raw.gear && Array.isArray(raw.gear.owned)) for (const id of ALL_GEAR) if (raw.gear.owned.includes(id) && !s.gear.owned.includes(id)) s.gear.owned.push(id);
   const lo = raw.gear && raw.gear.loadout;
   if (lo && WEAPONS[lo.weapon] && s.gear.owned.includes(lo.weapon)) s.gear.loadout.weapon = lo.weapon;

@@ -229,6 +229,60 @@ const hero = st => { const g = G(18, 21);
   g.rect(st ? 5 : 6, 16, 2, st ? 4 : 3, 'g3').rect(st ? 10 : 9, 16, 2, st ? 3 : 4, 'g3'); return g.outline(); };
 add('c_player', ...cycle(hero(false), hero(true)));
 
+add('c_knight', ...cycle(hero(false), hero(true)));
+
+// The other two classes.
+const ranger = st => { const g = G(18, 21);
+  g.poly(st ? [[5, 9], [1, 15], [2, 18], [5, 16]] : [[5, 9], [2, 16], [3, 18], [5, 16]], 'gr3');                         // cloak
+  g.rect(5, 9, 7, 7, 'gr2').rect(5, 9, 2, 7, 'gr').rect(10, 9, 2, 7, 'gr3').rect(5, 13, 7, 1, 'br');                      // tunic, belt
+  g.disc(8, 5, 4, ['gr3', 'gr2', 'gr']).rect(7, 4, 5, 3, 'br3').px(9, 5, 'w').px(11, 5, 'w').px(6, 1, 'gr2').px(5, 0, 'gr2');   // hood, face in shadow
+  g.line(14, 4, 16, 8, 'br').line(16, 8, 16, 11, 'br').line(16, 11, 14, 15, 'br').line(14, 4, 14, 15, 'g1').rect(11, 9, 4, 1, 'g1').px(15, 9, 'w');   // bow, arrow
+  g.rect(st ? 5 : 6, 16, 2, st ? 4 : 3, 'br2').rect(st ? 10 : 9, 16, 2, st ? 3 : 4, 'br2'); return g.outline(); };
+add('c_ranger', ...cycle(ranger(false), ranger(true)));
+
+const necro = st => { const g = G(18, 21);
+  g.poly([[4, 9], [12, 9], [13, 19], [3, 19]], 'v2').rect(4, 9, 2, 10, 'v').rect(8, 10, 1, 9, 'p2').rect(st ? 2 : 3, 19, st ? 12 : 10, 1, 'v2');   // robe, hem sways
+  g.disc(8, 5, 4, ['v2', 'v', 'v']).rect(6, 4, 5, 3, 'k').px(7, 5, 'mint').px(9, 5, 'mint').px(8, 0, 'v2');                // hood, glowing eyes
+  g.line(15, 4, 15, 19, 'br').disc(15, 2, 2, ['gr2', 'mint', 'w']).px(st ? 13 : 17, st ? 0 : 1, 'mint');                   // staff with a green flame
+  g.rect(12, 10, 3, 2, 'v'); return g.outline(); };
+add('c_necro', ...cycle(necro(false), necro(true)));
+
+// Starter minions.
+const squire = st => { const g = G(16, 17);
+  g.rect(4, 7, 6, 6, 'g2').rect(4, 7, 2, 6, 'g1').rect(5, 8, 3, 4, 'c2');                                                // body, tabard
+  g.disc(7, 4, 3, ['g2', 'g1', 'w']).rect(6, 4, 4, 1, 'k').px(7, 0, 'c').px(7, 1, 'c');                                    // helmet, plume
+  g.rect(10, 5, 4, 9, 'c2').rect(10, 5, 1, 9, 'c').rect(13, 5, 1, 9, 'c3').rect(11, 8, 2, 2, 'y').rect(11, 14, 2, 1, 'c2');   // a shield as big as he is
+  g.rect(st ? 4 : 5, 13, 2, st ? 3 : 2, 'g3').rect(st ? 8 : 7, 13, 2, st ? 2 : 3, 'g3'); return g.outline(); };
+add('c_squire', ...cycle(squire(false), squire(true)));
+
+const hawk = pose => { const g = G(18, 13), wy = [1, 6, 11][pose];
+  g.poly([[6, 6], [2, wy], [11, 6]], 'br').line(3, wy, 8, 6, 'br2');                                                    // wing
+  g.rect(4, 6, 8, 3, 'br').rect(4, 6, 8, 1, 'o2').rect(2, 7, 3, 1, 'br2').px(1, 8, 'br2');                               // body, tail
+  g.disc(12, 6, 2, ['g1', 'w', 'w']).px(13, 5, 'k').px(15, 6, 'y').px(14, 6, 'y').px(14, 7, 'gold2').px(8, 9, 'y').px(10, 9, 'y');   // head, beak, talons
+  return g.outline(); };
+add('c_hawk', lift(hawk(0), 1), lift(hawk(1), 0), lift(hawk(2), 0), lift(hawk(1), 1));
+
+const imp = st => { const g = G(16, 16);
+  g.disc(7, 10, 4, ['r2', 'r', 'r3']).disc(7, 4, 3, ['r2', 'r', 'r3']);                                                  // body, head
+  g.px(4, 0, 'w').px(5, 1, 'w').px(10, 0, 'w').px(9, 1, 'w').px(6, 4, 'y').px(8, 4, 'y').rect(6, 6, 3, 1, 'k');            // horns, eyes, grin
+  g.line(3, 12, 0, st ? 9 : 13, 'r2').px(0, st ? 8 : 14, 'r3');                                                          // tail
+  g.disc(13, st ? 7 : 8, 2, ['o', 'y', 'w']).px(13, st ? 4 : 5, 'o');                                                    // fireball in hand
+  g.rect(st ? 4 : 5, 14, 2, 1, 'r2').rect(st ? 9 : 8, 14, 2, 1, 'r2'); return g.outline(); };
+add('c_imp', ...cycle(imp(false), imp(true)));
+
+const skel = st => { const g = G(14, 18);
+  g.disc(7, 4, 3, ['g1', 'w', 'w']).rect(5, 4, 2, 2, 'k').rect(8, 4, 2, 2, 'k').rect(6, 7, 3, 1, 'g1').px(7, 7, 'k');       // skull
+  g.rect(6, 8, 2, 6, 'w').rect(4, 9, 6, 1, 'g1').rect(4, 11, 6, 1, 'g1').rect(5, 13, 4, 1, 'g1');                          // spine, ribs
+  g.line(4, 9, 2, st ? 12 : 13, 'w').line(9, 9, 12, st ? 11 : 10, 'w').line(12, st ? 11 : 10, 12, st ? 6 : 5, 'g1');        // arms; a bone club
+  g.line(6, 14, st ? 4 : 5, 17, 'w').line(8, 14, st ? 10 : 9, 17, 'w'); return g.outline(); };
+add('c_skeleton', ...cycle(skel(false), skel(true)));
+
+// Small markers drawn over enemies: the Hawk's mark, and burning.
+add('mark', G(9).ring(4, 4, 4, 'r', 1).px(4, 0, null).px(4, 8, null).px(0, 4, null).px(8, 4, null).px(4, 4, 'r3').outline());
+add('burn', G(7, 8).poly([[3, 0], [6, 5], [4, 8], [2, 8], [0, 5]], 'o').px(3, 5, 'y').px(3, 6, 'w').outline('r2'), G(7, 8).poly([[4, 0], [6, 5], [4, 8], [2, 8], [1, 5]], 'o2').px(3, 5, 'y').px(3, 6, 'w').outline('r2'));
+// Level-up sparkle.
+add('glint', G(7).line(3, 0, 3, 6, 'y').line(0, 3, 6, 3, 'y').px(3, 3, 'w'), G(7).line(3, 1, 3, 5, 'w').line(1, 3, 5, 3, 'w'), G(7).px(3, 3, 'y').px(3, 2, 'y').px(2, 3, 'y').px(4, 3, 'y').px(3, 4, 'y'));
+
 // ---------- pack into one sheet ----------
 const names = Object.keys(S), atlas = {};
 let W = 256, x = 1, y = 1, rowH = 0;

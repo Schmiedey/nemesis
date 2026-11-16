@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main (pixel-art overhaul included). Polish pass built on branch `phase-11-polish`, not merged: four-frame creature animation, faceted boulders, dithered warning zones with marching outlines, solid sword/lightning/shockwave effects, pixel touch stick and ability button. Touch movement was not re-verified after the restyle (the test browser was hidden). Next: user review, merge. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main. Not merged, stacked on branches `phase-11-polish` then `phase-12-classes`: the pixel polish pass, three classes with starter minions, a level-up moment with card animations, a near-silent shot sound, and the title screen rebuilt as a side menu with a stage (other pages get a header row with Back). Next: user review, merge both. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -67,6 +67,13 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Menus restyled as pixel game UI; sprite icons replace text symbols
 - [x] Polish: four-frame creature cycles, faceted boulders, dithered tells with marching outlines, solid weapon effects, pixel touch controls
 - Done when: nothing on screen is a plain shape or a default-looking web page.
+
+## Phase 12: Classes, level-up feel, menu structure
+- [x] Three classes (Knight, Ranger, Necromancer), each with a starter minion that has its own ability
+- [x] Level-up moment: beam, rings, sparks, big text; cards flip in; the picked card flashes
+- [x] Shooting sound reduced to a faint tick
+- [x] Title screen as a side menu with a stage; class screen; other pages with a header row
+- Done when: the user is happy with the menu structure and the feel of levelling up.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

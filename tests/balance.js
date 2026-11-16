@@ -9,7 +9,7 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 function run(seed, party, loadout = {}) {
-  const g = createGame({ seed, party, loadout });
+  const g = createGame({ seed, party, loadout: { weapon: loadout.weapon, ability: loadout.ability }, cls: loadout.cls });
   let n = 0, firstHit = null, hp45 = null;
   while (g.state !== 'dead' && g.state !== 'won' && n++ < 900 * 60) {
     if (g.state === 'lvl') { pick(g, choose(g)); continue; }
@@ -33,6 +33,11 @@ function report(label, party = [], loadout = {}) {
 }
 
 // `node tests/balance.js --weapons`: solo survival per weapon and per ability, to keep them close to the Blaster and Dash.
+// `node tests/balance.js --classes`: solo survival per class, against no class.
+if (process.argv.includes('--classes')) {
+  for (const c of [null, 'knight', 'ranger', 'necro']) report('solo ' + (c || 'no class'), [], { cls: c });
+  process.exit(0);
+}
 if (process.argv.includes('--weapons')) {
   const only = (process.argv[process.argv.indexOf('--only') + 1] || '').split(',').filter(Boolean), want = id => !only.length || only.includes(id);
   for (const w of ['blaster', 'sword', 'rang', 'flame', 'rod', 'totem']) if (want(w)) report('solo ' + w, [], { weapon: w });

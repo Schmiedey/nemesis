@@ -1,7 +1,7 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick } from './sim.js';
 import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, PARTY_SIZE } from './save.js';
-import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
+import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites, levelFx, pickFx } from './render.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
 
@@ -13,7 +13,7 @@ if (document.fonts) for (const f of ['16px Silkscreen', 'bold 16px Silkscreen', 
 
 let save = loadSave();
 let g = null;
-let mode = 'start'; // start | roster | feats | play | lvl | pause | dead | won
+let mode = 'start'; // start | classes | roster | feats | loadout | play | lvl | pause | dead | won
 let kind = 'normal'; // what the current or last run was: normal | hard | daily
 const keys = {};
 
@@ -21,6 +21,7 @@ function toStart() { mode = 'start'; g = null; ui.showStart(save, bossTypeFor(sa
 function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
 function pickEvo(id, evoId) { if (evolve(save, id, evoId)) { audio.sfx('level'); checkFeats(save); writeSave(save); } ui.showRoster(save, toggleParty, pickEvo); }
 function toFeats() { mode = 'feats'; ui.showFeats(save); }
+function toClasses() { mode = 'classes'; ui.showClasses(save, id => { save.cls = id; writeSave(save); audio.sfx('pick'); toClasses(); }); }
 function toLoadout() { mode = 'loadout'; ui.showLoadout(save, id => { if (equip(save, id)) writeSave(save); toLoadout(); }); }
 function flipHard() { if (save.wins > 0) { save.hard = !save.hard; writeSave(save); toStart(); } }
 // The boon button steps through: none, then each boon you have unlocked.
@@ -45,16 +46,24 @@ function begin(k = 'normal') {
     seed: kind === 'daily' ? dailySeed(today()) : (Math.random() * 2 ** 32) >>> 0,
     party: partyOf(save).map(n => ({ ...n, perks: { ...n.perks } })),
     bossType: bossTypeFor(save), hard: kind === 'hard', boon: save.boon,
-    loadout: save.gear.loadout, owned: save.gear.owned,
+    loadout: save.gear.loadout, owned: save.gear.owned, cls: save.cls,
   });
   mode = 'play'; audio.sfx('start');
   if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again
 }
 
+// Levelling up is a moment: the game freezes, a beam and sparks play, then the cards are dealt.
+let lvlWait = 0, picking = false;
+function startLevel(wait = 0.75) { mode = 'lvl'; lvlWait = wait; picking = false; ui.hideLevel(); levelFx(g); }
 function choose(i) {
-  if (mode !== 'lvl') return;
-  pick(g, i); audio.sfx('pick');
-  if (g.state === 'lvl') ui.showLevel(g, choose); else { ui.hideLevel(); mode = 'play'; }
+  if (mode !== 'lvl' || lvlWait > 0 || picking || !g.choices[i]) return;
+  picking = true; ui.pickCard(i); audio.sfx('pick');
+  const run = g;
+  setTimeout(() => {                                   // let the chosen card flash before the game resumes
+    if (g !== run || mode !== 'lvl') return;
+    pickFx(g, g.choices[i].n); pick(g, i);
+    if (g.state === 'lvl') startLevel(0.5); else { ui.hideLevel(); mode = 'play'; picking = false; }
+  }, 320);
 }
 
 // Records the run. Each kind of run keeps its own best time. Returns what the end screen needs.
@@ -110,8 +119,9 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyD' && mode === 'start') begin('daily');
   else if (e.code === 'KeyF' && mode === 'start') toFeats();
   else if (e.code === 'KeyL' && mode === 'start') toLoadout();
-  else if ((e.code === 'KeyR' || e.code === 'KeyC') && (mode === 'start' || over)) toRoster();
-  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || over)) toStart();
+  else if (e.code === 'KeyC' && mode === 'start') toClasses();
+  else if (e.code === 'KeyR' && (mode === 'start' || over)) toRoster();
+  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || over)) toStart();
   else if (e.code === 'KeyQ' && mode === 'pause') toStart();
   else if ((e.code === 'Escape' || e.code === 'KeyP') && (mode === 'play' || mode === 'pause')) {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
@@ -120,7 +130,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.code] = false);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout,
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses,
   roster: toRoster, menu: toStart, resume,
   reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
 });
@@ -188,11 +198,12 @@ function loop(now) {
       step(g, dt, input()); consumeFx(g);
       for (const f of g.fx) { if (f.k === 'snd') audio.sfx(f.n); else if (f.k === 'shake' && f.v >= 16) hitStop = 0.05; }
     }
-    if (g.state === 'lvl') { mode = 'lvl'; ui.showLevel(g, choose); }
+    if (g.state === 'lvl') startLevel();
     else if (g.state === 'dead') onDeath();
     else if (g.state === 'won') onWin();
   }
-  if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(total);
+  if (mode === 'lvl' && lvlWait > 0 && (lvlWait -= total) <= 0) ui.showLevel(g, choose);
+  if (mode === 'play' || mode === 'dead' || mode === 'won' || mode === 'lvl') updateFx(total);
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
   document.body.classList.toggle('playing', mode === 'play');

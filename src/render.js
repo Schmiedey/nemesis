@@ -48,7 +48,23 @@ const offs = new WeakMap();                     // per-creature animation offset
 let pFlip = false, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 400;
 let rings = [], nums = [], sweeps = [], bolts = [], booms = [], banner = null;
-export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; booms = []; banner = null; shakeAmt = 0; surge = null; }
+let lvl = null, glints = [];                      // the level-up moment
+export function resetFx() { parts = []; rings = []; nums = []; sweeps = []; bolts = []; booms = []; glints = []; lvl = null; banner = null; shakeAmt = 0; surge = null; }
+
+// Level up (or a chest): a beam of light on the player, two rings, a shower of sparks and big text.
+export function levelFx(g) {
+  const P = g.P;
+  lvl = { t: 0, chest: g.chest, n: P.lvl };
+  rings.push({ x: P.x, y: P.y, r: 150, life: 0.35 }, { x: P.x, y: P.y, r: 90, life: 0.5 });
+  for (let i = 0; i < 26; i++) glints.push({ x: P.x + rnd(-70, 70), y: P.y + rnd(-10, 40), vy: -rnd(60, 190), life: rnd(0.5, 1.1), f: Math.floor(rnd(0, 3)) });
+  shakeAmt = Math.max(shakeAmt, 5);
+}
+// After a pick: name what you took, with a green burst.
+export function pickFx(g, name) {
+  banner = { text: name, life: 1.5, c: PAL.mint };
+  rings.push({ x: g.P.x, y: g.P.y, r: 70, life: 0.35 });
+  for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28; parts.push({ x: g.P.x, y: g.P.y, vx: Math.cos(a) * 160, vy: Math.sin(a) * 160, life: 0.45, c: PAL.mint, s: 2 }); }
+}
 
 // Pull the effects the sim queued this step.
 export function consumeFx(g) {
@@ -81,6 +97,8 @@ export function updateFx(dt) {
   for (const s of sweeps) s.life -= dt; sweeps = sweeps.filter(s => s.life > 0);
   for (const b of bolts) b.life -= dt; bolts = bolts.filter(b => b.life > 0);
   for (const b of booms) b.life -= dt; booms = booms.filter(b => b.life > 0);
+  for (const s of glints) { s.life -= dt; s.y += s.vy * dt; s.vy *= 0.97; } glints = glints.filter(s => s.life > 0);
+  if (lvl && (lvl.t += dt) > 1.4) lvl = null;
   if (banner && (banner.life -= dt) <= 0) banner = null;
   if (surge && (surge.life -= dt) <= 0) surge = null;
   shakeAmt *= 0.88; if (shakeAmt < .3) shakeAmt = 0;
@@ -241,6 +259,8 @@ function drawEnt(cx, g, e) {
     spr(cx, 'shadow', 0, e.r * 0.8, 0, e.r / 8 * (lift ? 0.8 : 1));
     spr(cx, name, 0, cy, f, scale, flip);
     if (e.flash > 0) { cx.globalAlpha = 0.85; spr(cx, name, 0, cy, f, scale, flip, true); cx.globalAlpha = 1; }
+    if (e.mark > t) spr(cx, 'mark', 0, cy - h / 2 - 12);            // marked by the Hawk
+    if (e.fireT > 0) spr(cx, 'burn', e.mark > t ? 14 : 0, cy - h / 2 - 12, t * 10);   // burning
     if (e.warn && blink) {                      // about to dive: a red exclamation mark overhead
       const ty = cy - h / 2 - 18;
       cx.fillStyle = PAL.k; cx.fillRect(-4, ty - 2, 8, 18); cx.fillStyle = PAL.r3; cx.fillRect(-2, ty, 4, 8); cx.fillRect(-2, ty + 10, 4, 4);
@@ -266,12 +286,12 @@ function drawPlayer(cx, g) {
   const mx = P.x - pPrev.x, my = P.y - pPrev.y, moving = mx * mx + my * my > 0.01;
   if (moving && Math.abs(mx) > 0.2 && mx * mx + my * my < 2500) pFlip = mx < 0;
   pPrev = { x: P.x, y: P.y };
-  const a = ATLAS.c_player, x = snap(P.x), y = snap(P.y);
+  const who = g.cls ? 'c_' + g.cls : 'c_player', a = ATLAS[who], x = snap(P.x), y = snap(P.y);
   if (a && atlasImg) {
     const cy = y + P.r * 0.8 - a.h * PX / 2, f = moving ? Math.floor(g.t * 10) : Math.floor(g.t * 2) % 2;   // walk cycle, or a slow breathing bob when standing
     spr(cx, 'shadow', x, y + P.r * 0.8, 0, 1.3);
-    spr(cx, 'c_player', x, cy, f, 1, pFlip);
-    if (P.flash > 0) { cx.globalAlpha = 0.85; spr(cx, 'c_player', x, cy, f, 1, pFlip, true); cx.globalAlpha = 1; }
+    spr(cx, who, x, cy, f, 1, pFlip);
+    if (P.flash > 0 || (lvl && lvl.t < 0.3 && Math.sin(lvl.t * 60) > -0.3)) { cx.globalAlpha = 0.85; spr(cx, who, x, cy, f, 1, pFlip, true); cx.globalAlpha = 1; }
   } else { cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(x, y, P.r, 0, 7); cx.fill(); }
 }
 
@@ -347,7 +367,7 @@ export function draw(cv, cx, g, hud, hx) {
   for (const tm of g.totems) { spr(cx, 'shadow', tm.x, tm.y + 8, 0, 1.5); if (!(tm.life < 3 && Math.sin(t * 14) > 0.4)) spr(cx, 'totem', tm.x, tm.y - 12); }
   if (g.decoy) {                                         // Decoy: a ghost of you with a shrinking fuse ring
     const d = g.decoy;
-    cx.globalAlpha = 0.6; spr(cx, 'c_player', d.x, d.y + P.r * 0.8 - ATLAS.c_player.h, 0, 1, pFlip); cx.globalAlpha = 1;
+    cx.globalAlpha = 0.6; spr(cx, g.cls ? 'c_' + g.cls : 'c_player', d.x, d.y + P.r * 0.8 - ATLAS.c_player.h, 0, 1, pFlip); cx.globalAlpha = 1;
     dashRing(cx, snap(d.x), snap(d.y), 12 + 98 * Math.min(1, d.life / 2.5), PAL.w, t * 2);
   }
 
@@ -397,6 +417,13 @@ export function draw(cv, cx, g, hud, hx) {
     else if (!spr(cx, (b.boss ? 'big_' : 'orb_') + key, b.x, b.y) && !spr(cx, b.boss ? 'big_ff3b5c' : 'orb_fff', b.x, b.y)) { cx.fillStyle = b.color; cx.fillRect(b.x - 2, b.y - 2, 4, 4); }
   }
   for (const b of booms) spr(cx, 'boom', b.x, b.y, (1 - b.life / 0.32) * 5, b.k);
+  if (lvl && lvl.t < 0.8) {                              // a beam of light that narrows to nothing
+    const k = 1 - lvl.t / 0.8, w = snap(56 * k) + 2, col = lvl.chest ? PAL.o2 : PAL.y, bx = snap(P.x);
+    cx.fillStyle = dither(cx, col); cx.fillRect(bx - w, camY, w * 2, snap(P.y) + 12 - camY);
+    cx.fillStyle = col; cx.fillRect(bx - w / 2, camY, w, snap(P.y) + 12 - camY);
+    cx.fillStyle = PAL.w; cx.fillRect(bx - snap(w / 4), camY, snap(w / 2), snap(P.y) + 12 - camY);
+  }
+  for (const s of glints) if (s.life > 0.2 || Math.sin(s.life * 80) > 0) spr(cx, 'glint', s.x, s.y, s.f + s.life * 6);
   for (const p of parts) { if (p.life < 0.12 && p.s > 2) p.s = 2; cx.fillStyle = p.c; cx.fillRect(snap(p.x), snap(p.y), p.s, p.s); }
   if (g.slowT > 0) { cx.fillStyle = 'rgba(44,232,245,.08)'; cx.fillRect(camX, camY, VIEW.w, VIEW.h); }   // Time Slow tint
   cx.restore();
@@ -475,6 +502,15 @@ export function draw(cv, cx, g, hud, hx) {
     eff.forEach(([ic, tx], k) => { const ey = y - 34 - k * 30; icon(cx, ic, x + 30, ey, 1.4); cx.textAlign = 'right'; label(cx, tx, x + 24, ey + 18, PAL.w, `12px ${TITLE}`); });
   }
 
+  if (lvl) {                                             // LEVEL UP! slams in large, then settles
+    const size = lvl.t < 0.07 ? 76 : lvl.t < 0.14 ? 60 : 48, on = lvl.t < 1.1 || Math.sin(lvl.t * 40) > 0;
+    if (lvl.t < 0.1) { cx.fillStyle = 'rgba(244,241,232,.35)'; cx.fillRect(0, 0, W, H); }
+    if (on) {
+      cx.textAlign = 'center';
+      label(cx, lvl.chest ? 'CHEST!' : 'LEVEL UP!', W / 2, H / 2 - 132, Math.sin(lvl.t * 30) > 0 ? PAL.y : PAL.w, `bold ${size}px ${TITLE}`);
+      if (lvl.t > 0.14) label(cx, lvl.chest ? 'DOUBLE STRENGTH' : 'LEVEL ' + lvl.n, W / 2, H / 2 - 104, PAL.mint, `16px ${TITLE}`);
+    }
+  }
   if (banner) {
     cx.globalAlpha = Math.min(1, banner.life * 2); cx.textAlign = 'center';
     const tw = (cx.font = `bold 20px ${TITLE}`, cx.measureText(banner.text.toUpperCase()).width) + 36;

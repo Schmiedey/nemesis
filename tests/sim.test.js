@@ -248,6 +248,43 @@ describe('sim', () => {
     expect(g.eliteT).toBeGreaterThan(29); expect(g.eliteT).toBeLessThan(31);
     expect(g.ents.some(x => x.elite)).toBe(true);
   });
+
+  it('classes: each has a bonus and a minion with its own ability', () => {
+    const base = createGame({ seed: 0 });
+    expect(base.ents.filter(e => e.team === 'ally').length).toBe(0);         // no class, no minion (the balance baseline)
+
+    let g = quiet({ cls: 'knight' });
+    expect(g.P.maxhp).toBe(base.P.maxhp + 30); expect(g.armor).toBeCloseTo(0.85);
+    g = createGame({ seed: 0, cls: 'knight' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
+    const squire = g.ents.find(e => e.type === 'squire');
+    expect(squire && squire.team).toBe('ally');
+    g.bullets.push({ x: squire.x + 4, y: squire.y, vx: 0, vy: 0, dmg: 50, team: 'enemy', src: 'archer', pierce: 0, color: '#fff', boss: false, life: 2, hit: new Set() });
+    step(g, 1 / 60, still());
+    expect(g.bullets.length).toBe(0);                                         // the shield ate it
+    squire.hp = 0.01; g.ents.push({ ...squire, team: 'enemy', type: 'slime', x: squire.x + 6, y: squire.y, dmg: 50, hp: 1e6, maxhp: 1e6, cd: 0, act: 99, minion: false, stun: 0, spd: 0, nem: null });
+    for (let i = 0; i < 30 && g.ents.includes(squire); i++) { step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    expect(g.respawnQ.some(q => q.minion === 'squire')).toBe(true);           // minions come back
+
+    g = createGame({ seed: 0, cls: 'ranger' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
+    expect(g.P.spd).toBeCloseTo(base.P.spd * 1.1);
+    const hawk = g.ents.find(e => e.type === 'hawk'); expect(hawk.ghost).toBe(true);
+    const prey = dummy(g, 120); prey.stun = 1e9; hawk.act = 0;
+    for (let i = 0; i < 120 && !(prey.mark > g.t); i++) step(g, 1 / 60, still());
+    expect(prey.mark).toBeGreaterThan(g.t);
+    const before = prey.hp; g.P.weapon = 'rod'; g.P.fireT = 0; step(g, 1 / 60, still());
+    expect(before - prey.hp).toBeCloseTo(g.P.dmg * 1.5 * 1.2, 0);             // marked: 20% more damage
+
+    g = createGame({ seed: 0, cls: 'necro' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
+    const imp = g.ents.find(e => e.type === 'imp'); expect(imp).toBeTruthy();
+    const victim = dummy(g, 150); victim.stun = 1e9; g.P.fire = 1e9; g.P.fireT = 1e9;
+    for (let i = 0; i < 240 && !(victim.fireT > 0); i++) step(g, 1 / 60, still());
+    expect(victim.fireT).toBeGreaterThan(0);                                  // the Imp's fireball set it burning
+    g.ents.splice(g.ents.indexOf(victim), 1); g.raiseC = 11;
+    const weak = dummy(g, 60); weak.hp = 1; weak.stun = 1e9; g.P.fire = 0.2; g.P.fireT = 0;
+    for (let i = 0; i < 120 && !g.ents.some(e => e.type === 'skeleton'); i++) step(g, 1 / 60, still());
+    const sk = g.ents.find(e => e.type === 'skeleton');
+    expect(sk && sk.team).toBe('ally'); expect(sk.ttl).toBeGreaterThan(10);
+  });
 });
 
 describe('save', () => {
@@ -341,5 +378,11 @@ describe('save', () => {
     expect(sanitize(JSON.parse(JSON.stringify(s))).gear.loadout.charm).toBe('thorn');
     equip(s, 'thorn'); expect(s.gear.loadout.charm).toBe(null);   // clicking it again takes it off
     expect(sanitize({ gear: { owned: [], loadout: { weapon: 'rod' } } }).gear.loadout.weapon).toBe('blaster');
+  });
+
+  it('class: old saves default to Knight; the choice round-trips', () => {
+    expect(sanitize({ runs: 1 }).cls).toBe('knight');
+    expect(sanitize({ cls: 'necro' }).cls).toBe('necro');
+    expect(sanitize({ cls: 'wizard' }).cls).toBe('knight');
   });
 });
