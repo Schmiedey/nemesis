@@ -23,6 +23,7 @@ export async function loadSprites() {
 }
 
 
+let pAng = 0, pPrev = { x: 0, y: 0 };
 export function resetFx() { parts = []; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
@@ -63,6 +64,14 @@ function shapePath(cx, s, r) {
 function drawEnt(cx, g, e) {
   const d = T[e.type], t = g.t;
   cx.save(); cx.translate(e.x, e.y);
+  if (e.boss) {
+    // The nemesis: a pulsing red aura so it never reads as just a big enemy.
+    const k = 0.5 + 0.5 * Math.sin(t * 5), R = e.r * 1.9;
+    const gr = cx.createRadialGradient(0, 0, e.r * 0.6, 0, 0, R);
+    gr.addColorStop(0, `rgba(255,59,92,${0.35 + 0.2 * k})`); gr.addColorStop(1, 'rgba(255,59,92,0)');
+    cx.fillStyle = gr; cx.beginPath(); cx.arc(0, 0, R, 0, 7); cx.fill();
+    cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 3; cx.beginPath(); cx.arc(0, 0, e.r * (1.25 + 0.08 * k), 0, 7); cx.stroke();
+  }
   if (e.team === 'ally') { cx.strokeStyle = 'rgba(125,255,176,.7)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, e.r + 5, 0, 7); cx.stroke(); }
   let r = e.r; if (d.shape === 'blob') r *= 1 + 0.08 * Math.sin(t * 6 + e.x * .1);
   const sp = sprites[e.type];
@@ -113,7 +122,17 @@ export function draw(cv, cx, g) {
   for (const gem of g.gems) { cx.fillStyle = gem.v >= 5 ? '#ffd23f' : '#7dffb0'; cx.fillRect(gem.x - 3, gem.y - 3, 6, 6); }
   for (const e of g.ents) drawEnt(cx, g, e);
   if (g.state !== 'dead' && !(P.inv > 0 && Math.sin(g.t * 60) > 0)) {
-    cx.fillStyle = P.flash > 0 ? '#ff3b5c' : '#fff'; cx.beginPath(); cx.arc(P.x, P.y, P.r, 0, 7); cx.fill();
+    // Face the way we are moving; the walk cycle only plays while moving.
+    const mx = P.x - pPrev.x, my = P.y - pPrev.y, moving = mx * mx + my * my > 0.01;
+    if (moving && mx * mx + my * my < 2500) pAng = Math.atan2(my, mx);
+    pPrev = { x: P.x, y: P.y };
+    const sp = sprites.player;
+    if (sp && P.flash <= 0) {
+      const size = P.r * sp.draw, f = moving ? Math.floor(g.t * sp.fps) % sp.frames : 0;
+      cx.save(); cx.translate(P.x, P.y); cx.rotate(pAng);
+      cx.drawImage(sp.img, f * sp.size, 0, sp.size, sp.size, -size / 2, -size / 2, size, size);
+      cx.restore();
+    } else { cx.fillStyle = P.flash > 0 ? '#ff3b5c' : '#fff'; cx.beginPath(); cx.arc(P.x, P.y, P.r, 0, 7); cx.fill(); }
     cx.strokeStyle = 'rgba(255,255,255,.15)'; cx.lineWidth = 1; cx.beginPath(); cx.arc(P.x, P.y, P.magnet, 0, 7); cx.stroke();
   }
   for (const b of g.bullets) { cx.fillStyle = b.color; cx.beginPath(); cx.arc(b.x, b.y, b.team === 'enemy' ? 4 : 3, 0, 7); cx.fill(); }

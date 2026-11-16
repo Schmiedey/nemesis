@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 1 merged to main. Phase 2 started on branch `phase-2-art`: Blender sprite pipeline works and the Bat is in the game. Next: add the other 5 enemies, player and boss to `art/make_sprites.py`, then menus and sound.
+**Status:** Phase 2 in progress on branch `phase-2-art`: all 6 enemies and the player have Blender sprites in game; the boss is its enemy's sprite scaled up with a red aura. Next: menus, roster screen, death screen, logo, then sound.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -13,7 +13,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 
 ## Phase 2: Make it look and sound good
 - [x] Blender script that renders a creature to a sprite sheet (`art/make_sprites.py`), proven on the Bat
-- [ ] Slime, Archer, Brute, Bomber, Wisp, player, boss
+- [x] Slime, Archer, Brute, Bomber, Wisp, player; boss = giant sprite of its type with a red aura
 - [ ] Menus, roster screen, death screen, logo
 - [ ] Sound effects and soundtrack made in code
 - Done when: no placeholder shapes or silent actions remain.
