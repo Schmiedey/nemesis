@@ -10,7 +10,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 const perkText = perks => Object.keys(perks).map(k => `${PERKS[k].label}${perks[k] > 1 ? ' ×' + perks[k] : ''}`).join(', ');
 
-const spr = (type, px = 48) => `<i class="spr" style="--s:${px}px;background-image:url(/sprites/${type}.png)"></i>`;
+const spr = (type, px = 48) => `<i class="spr" style="--s:${px}px;background-image:url(sprites/${type}.png)"></i>`;
 const stat = (v, label, cls = '') => `<div class="stat ${cls}"><b>${v}</b><span>${label}</span></div>`;
 
 function nemCard(n, picked) {

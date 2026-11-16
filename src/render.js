@@ -13,17 +13,18 @@ const sprites = {};
 const offs = new WeakMap(); // per-creature animation offset
 export async function loadSprites() {
   try {
-    const manifest = await (await fetch('/sprites/sprites.json')).json();
+    const manifest = await (await fetch('sprites/sprites.json')).json();
     for (const name in manifest) {
       const img = new Image();
       img.onload = () => { sprites[name] = { img, ...manifest[name] }; };
-      img.src = `/sprites/${name}.png`;
+      img.src = `sprites/${name}.png`;
     }
   } catch { /* no sprites yet: shapes only */ }
 }
 
 
 let pAng = 0, pPrev = { x: 0, y: 0 };
+const MAX_PARTS = 500; // cap so a huge fight cannot flood the screen with particles
 export function resetFx() { parts = []; shakeAmt = 0; surge = null; }
 
 // Pull the effects the sim queued this step.
@@ -34,6 +35,7 @@ export function consumeFx(g) {
     else if (f.k === 'snd') continue;
     else for (let i = 0; i < f.n; i++) {
       const a = Math.random() * 6.28, s = rnd(30, f.sp);
+      if (parts.length >= MAX_PARTS) break;
       parts.push({ x: f.x, y: f.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.3, .7), c: f.c });
     }
   }
@@ -47,7 +49,7 @@ export function updateFx(dt) {
 }
 
 export function resize(cv) {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(2, window.devicePixelRatio || 1); // phones report 3 or more; 2 is sharp enough and far cheaper
   cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
   cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
 }
