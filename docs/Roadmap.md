@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (Phases 13-16 and save slots) → `phase-17-hook` (Phases 17-19, the hook re-centred). Public repo: https://github.com/Schmiedey/nemesis. Next: measure the party table with inherited builds and grudge powers, then merge the stack. Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-19 merged to main (the hook re-centred in 17-19). Public repo: https://github.com/Schmiedey/nemesis. Next: measure the party table with inherited builds and grudge powers; fix party tier order and champion win rate. Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
