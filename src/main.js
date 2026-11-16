@@ -59,6 +59,7 @@ function begin(k = 'normal') {
     bossType: bossTypeFor(save), tier: kind === 'hard' ? save.tier : 0, boon: save.boon, meta: save.meta, mastery: masteryLevel(save.mastery[save.cls] || 0),
     loadout: save.gear.loadout, owned: save.gear.owned, cls: save.cls,
   });
+  for (const k in keys) keys[k] = false;                 // a new run never starts with a direction already held
   mode = 'play'; audio.sfx('start');
   if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again
 }
@@ -127,6 +128,7 @@ addEventListener('pointerdown', audio.unlock);
 addEventListener('click', e => { if (e.target.closest('button')) audio.sfx('ui'); });
 
 addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) { clearKeys(); return; }   // a shortcut, not a move: never let it stick a direction
   keys[e.code] = true; audio.unlock();
   if (e.code === 'KeyM' && !e.repeat) flipMute();
   const over = mode === 'dead' || mode === 'won';
@@ -146,7 +148,16 @@ addEventListener('keydown', e => {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
   } else if (mode === 'lvl') { const i = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code); if (i >= 0) choose(i); }
 });
-addEventListener('keyup', e => keys[e.code] = false);
+addEventListener('keyup', e => {
+  keys[e.code] = false;
+  // On a Mac, keys released while Cmd is held never send their keyup, which leaves you walking. When a modifier
+  // comes up, forget every held key; you only have to press the direction again.
+  if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Alt') clearKeys();
+});
+const clearKeys = () => { for (const k in keys) keys[k] = false; };
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearKeys(); });
+addEventListener('pagehide', clearKeys);
+addEventListener('contextmenu', clearKeys);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
   play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, reroll: () => doReroll(), share,

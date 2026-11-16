@@ -55,7 +55,7 @@ export const UP = [
     const m = 1 + 0.2 * s; g.allyHaste *= m;
     for (const e of g.ents) if (e.team === 'ally') e.haste *= m;
   } },
-  { id: 'wind', n: 'Second Wind', d: () => 'Fallen nemeses return; all get +1 life', ally: true, fixed: 'rare', f: g => g.secondWind = true },
+  { id: 'wind', n: 'Second Wind', d: () => 'Fallen nemeses return at once, and from now on they return twice as fast', ally: true, fixed: 'rare', f: g => g.secondWind = true },
   { id: 'blade', n: 'Orbiting Blade', d: s => `${plus(s, 'blade', 'blades')} circling you`, f: (g, s = 1) => g.P.blades += k(s) },
   { id: 'chain', n: 'Chain Shot', d: s => `Hits jump to +${k(s)} more ${k(s) > 1 ? 'enemies' : 'enemy'} nearby`, f: (g, s = 1) => g.P.chain += k(s) },
   { id: 'nova', n: 'Nova', d: s => `A blast around you throws enemies back${k(s) > 1 ? ', ' + k(s) + ' times as often' : ''}`, f: (g, s = 1) => g.P.nova += k(s) },

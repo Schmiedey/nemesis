@@ -518,14 +518,18 @@ export function draw(cv, cx, g, hud, hx) {
     label(cx, 'NEMESIS IN ' + Math.ceil(BOSS_TIME - t), W / 2, 68, PAL.r3, `12px ${TITLE}`);
   }
 
-  // Top-right: your party; a nemesis that has fallen for good is greyed out.
+  // Top-right: your party. Each nemesis shows its health and the kills it has made this run; while it is down,
+  // a countdown to its return.
   g.party.forEach((n, k) => {
-    const alive = g.ents.some(e => e.nem === n) || g.respawnQ.some(q => q.nem === n), y = 14 + k * 34;
-    panel(cx, W - 174, y, 160, 28);
-    cx.globalAlpha = alive ? 1 : 0.35;
-    const a = ATLAS['c_' + n.type]; if (a) icon(cx, 'c_' + n.type, W - 170 + (14 - Math.min(14, a.w * 0.5)), y + 14 - a.h * 0.5, 1);
-    cx.textAlign = 'left'; label(cx, String(n.name).toUpperCase(), W - 138, y + 19, alive ? PAL.mint : PAL.g2, `12px ${TITLE}`);
+    const mine = g.ents.filter(e => e.nem === n && !e.small && !e.dead), q = g.respawnQ.find(x => x.nem === n), y = 14 + k * 40, up = mine.length > 0;
+    panel(cx, W - 186, y, 172, 34);
+    cx.globalAlpha = up ? 1 : 0.45;
+    const a = ATLAS['c_' + n.type]; if (a) icon(cx, 'c_' + n.type, W - 182 + (14 - Math.min(14, a.w * 0.5)), y + 17 - a.h * 0.5, 1);
+    cx.textAlign = 'left'; label(cx, String(n.name).toUpperCase().slice(0, 9), W - 150, y + 16, up ? PAL.mint : PAL.g2, `12px ${TITLE}`);
     cx.globalAlpha = 1;
+    if (up) { const hp = mine.reduce((s, e) => s + e.hp, 0) / mine.reduce((s, e) => s + e.maxhp, 0); bar(cx, W - 150, y + 22, 84, 4, hp, PAL.mint, PAL.gr2); }
+    else if (q) label(cx, 'BACK IN ' + Math.max(1, Math.ceil(q.at - t)), W - 150, y + 29, PAL.y, `10px ${TITLE}`);
+    cx.textAlign = 'right'; icon(cx, 'i_skull', W - 48, y + 8, 0.75); label(cx, n.kills || 0, W - 20, y + 16, PAL.w, `12px ${TITLE}`);
   });
 
   // Bottom centre: health.

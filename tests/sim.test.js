@@ -53,10 +53,17 @@ describe('sim', () => {
     expect(allyShots).toBeGreaterThan(0);
   });
 
-  it('allies run out of lives', () => {
-    const g = createGame({ seed: 9, party: [nem(1, 'slime', 0.3)] });
-    for (let i = 0; i < 60 * 240 && g.state !== 'dead'; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; if (g.fallen.length) break; }
-    expect(g.fallen.length).toBe(1);
+  it('a fallen nemesis always comes back, a little slower each time', () => {
+    const party = [nem(1, 'slime', 0.3)];
+    const g = createGame({ seed: 9, party }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
+    const fall = () => { const e = g.ents.find(x => x.nem === party[0] && !x.small); e.x = g.P.x + 300; e.y = g.P.y; e.hp = 0.01; g.ents.push({ ...e, team: 'enemy', type: 'brute', nem: null, x: e.x + 4, y: e.y, dmg: 99, hp: 1e6, maxhp: 1e6, cd: 0, act: 99, spd: 0, stun: 0 }); const t0 = g.t;
+      for (let i = 0; i < 60 && !g.respawnQ.length; i++) { step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+      g.ents = g.ents.filter(x => x.team !== 'enemy'); return g.respawnQ[0].at - g.t; };
+    const first = fall();
+    expect(first).toBeGreaterThan(4); expect(first).toBeLessThan(5.1); expect(g.fallen.length).toBe(0);
+    for (let i = 0; i < 60 * 6; i++) { step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    expect(g.ents.some(x => x.nem === party[0])).toBe(true);                 // it came back
+    expect(fall()).toBeGreaterThan(first + 2);                               // and the next return takes longer
   });
 
   it('the boss arrives at 5:00 and killing it wins the run', () => {

@@ -63,6 +63,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     // Things the run keeps count of, for the HUD, missions and the end screen.
     streak: 0, streakT: 0, bestStreak: 0, killsBy: {}, elites: 0, acts: 0, epics: 0, bonusSouls: 0, minute: 0,
     rar: [], luck: 1 + 0.12 * mr('luck'), soulMul: 1, storm: false, stormT: 0, phoenix: false, twin: false, leechC: 0,
+    respawnMul: 1,
     cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0,
@@ -73,7 +74,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
       actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = 1.14 * (1 + 0.045 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
+  g.heat = 1.14 * (1 + 0.03 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
   // Shrine upgrades and class mastery.
   const P0 = g.P;
   P0.maxhp += 8 * mr('vit'); P0.hp = P0.maxhp; P0.dmg *= (1 + 0.05 * mr('might')) * (1 + 0.02 * clamp(mastery, 0, 4));
@@ -127,9 +128,9 @@ function spawnMinion(g, type, x = g.P.x + rr(g, -40, 40), y = g.P.y + rr(g, -40,
 function spawnAlly(g, nem, lives) {
   const pk = nem.perks || {};
   const e = mk(g, nem.type, 'ally', g.P.x + rr(g, -50, 50), g.P.y + rr(g, -50, 50), {
-    hpMul: (2.6 + 1.3 * nem.q) * (1 + 0.25 * (pk.tough || 0)) * g.allyBuff * (1 + g.t / 150) * (nem.evo === 'juggernaut' ? 2 : 1),
-    dmgMul: (0.7 + 1.3 * nem.q) * (1 + 0.2 * (pk.dmg || 0)) * g.allyBuff * (1 + g.t / 150),
-    spdMul: 1.1 * (1 + 0.08 * (pk.spd || 0)),
+    hpMul: (3.4 + 1.6 * nem.q) * (1 + 0.25 * (pk.tough || 0)) * g.allyBuff * (1 + g.t / 150) * (nem.evo === 'juggernaut' ? 2 : 1),
+    dmgMul: (0.9 + 1.5 * nem.q) * (1 + 0.2 * (pk.dmg || 0)) * g.allyBuff * (1 + g.t / 150),
+    spdMul: 1.2 * (1 + 0.08 * (pk.spd || 0)),
   });
   e.nem = nem; e.pk = pk; e.lives = lives; e.shotT = 1;
   e.haste = (1 + 0.2 * (pk.haste || 0)) * g.allyHaste * (nem.evo === 'ward' ? 1.5 : 1);
@@ -147,7 +148,9 @@ function spawnElite(g) {
   snd(g, 'surge');
 }
 
+const MAX_ENEMIES = 240;   // past this the swarm stops growing: it protects the frame rate and adds nothing to the fight
 function spawnEnemy(g, ang) {
+  if (g.ents.length >= MAX_ENEMIES) return;
   const pool = Object.keys(T).filter(k => g.t >= T[k].unlock);
   let r = g.rand() * pool.reduce((a, k) => a + T[k].w, 0), type = pool[0];
   for (const k of pool) { r -= T[k].w; if (r <= 0) { type = k; break; } }
@@ -287,7 +290,7 @@ function contact(g, e, foe) {
     const r = e.r + o.r + 2;
     if (d2(e, o) < r * r) {
       const hurtAt = g.P.hurtAt;
-      damage(g, o, e.dmg, e.type, e.boss, e.nem); e.cd = 0.6 / e.haste;
+      damage(g, o, e.dmg, e.type, e.boss, e.nem); e.cd = (e.team === 'ally' ? 0.45 : 0.6) / e.haste;
       if (o === g.P && g.P.charm === 'thorn' && g.P.hurtAt !== hurtAt && !e.boss) { damage(g, e, g.P.dmg * 2.5, 'player'); shove(g.P, e); }   // Thorn Mail
       if (e.team === 'ally' && e.type === 'brute') {
         // Job: a Brute nemesis knocks enemies back and stuns them. Quake hits everything close by.
@@ -400,7 +403,7 @@ function think(g, e, dt) {
     contact(g, e, foe); return;
   }
   // Enemies hunt the player; they only turn on a nemesis that gets in their way.
-  const tg = ally ? nearest(g, e, foe, 380) : ((g.decoy && d2(e, g.decoy) < 260 * 260 && g.decoy) || taunter(g, e) || nearest(g, e, foe, 110) || P);
+  const tg = ally ? nearest(g, e, foe, 460) : ((g.decoy && d2(e, g.decoy) < 260 * 260 && g.decoy) || taunter(g, e) || nearest(g, e, foe, 110) || P);
   if (!tg) {
     if (!ally) return;
     let gem = null, gd = 500 * 500;
@@ -511,10 +514,12 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
 function allyDown(g, e, delay, free = false) {
   if (e.small) return;
   if (e.minion) { if (e.type !== 'skeleton') g.respawnQ.push({ minion: e.type, at: g.t + 8 }); return; }
+  // A nemesis is never gone for good. Each time it falls it takes a little longer to return (5s, then +3s a fall,
+  // at most 20s). A Bomber blowing itself up (free) does not count as a fall.
+  const nem = e.nem;
+  if (!free) { delay = Math.min(20, 5 + 3 * (nem.downs || 0)); nem.downs = (nem.downs || 0) + 1; }
   if (g.P.charm === 'banner') delay *= 0.5;
-  if (free) g.respawnQ.push({ nem: e.nem, lives: e.lives, at: g.t + delay });
-  else if (e.lives > 1) g.respawnQ.push({ nem: e.nem, lives: e.lives - 1, at: g.t + delay });
-  else g.fallen.push(e.nem);
+  g.respawnQ.push({ nem, lives: e.lives, at: g.t + delay * g.respawnMul });
 }
 
 function kill(g, e) {
@@ -788,11 +793,10 @@ export function pick(g, i) {
   if (g.twin && g.cls) { g.twin = false; spawnMinion(g, CLASSES[g.cls].minion); }   // Twin Soul
   g.state = 'play';
   if (g.secondWind) {
-    g.secondWind = false;
-    for (const e of g.ents) if (e.team === 'ally' && !e.small) e.lives++;
-    for (const q of g.respawnQ) q.lives++;
-    for (const nem of g.fallen) spawnAlly(g, nem, 1);
-    g.fallen = [];
+    g.secondWind = false;                               // Second Wind: everyone who is down returns now, and returns are twice as fast from here on
+    for (const q of g.respawnQ) q.at = g.t;
+    for (const nem of g.party) nem.downs = 0;
+    g.respawnMul *= 0.5;
   }
   if (g.P.xp >= g.P.next) levelUp(g);
 }
