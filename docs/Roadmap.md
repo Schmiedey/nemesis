@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked). Phase 3 started on branch `phase-3-ship`: the arena now has a map (rocks, stone floor, minimap). Next: touch controls, performance, final name.
+**Status:** Phase 2 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked). Phase 3 in progress on branch `phase-3-ship`: map and touch controls done (touch checked only in a phone-size emulated browser, not on a real phone). Next: performance, final name, itch.io upload.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -21,7 +21,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 
 ## Phase 3: Ship it
 - [x] Map: fixed rocks and pillars, floor art, minimap
-- [ ] Touch controls, performance, final name
+- [x] Touch controls: drag-anywhere stick, pause button, phone-size menus, rotate hint in portrait
+- [ ] Performance, final name
 - [ ] itch.io upload, 10-second clip
 - [ ] Steam only if the web version gets traction ($100)
 - Done when: a stranger can play it from a link.

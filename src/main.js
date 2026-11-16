@@ -68,7 +68,7 @@ function onWin() {
 }
 
 const muteBtn = document.getElementById('mute');
-const showMute = () => { muteBtn.textContent = audio.isMuted() ? 'sound off (M)' : 'sound on (M)'; };
+const showMute = () => { muteBtn.textContent = (audio.isMuted() ? 'sound off' : 'sound on') + (matchMedia('(pointer:coarse)').matches ? '' : ' (M)'); };
 const flipMute = () => { audio.toggleMute(); showMute(); };
 muteBtn.onclick = () => { muteBtn.blur(); flipMute(); }; showMute();
 addEventListener('pointerdown', audio.unlock);
@@ -94,10 +94,34 @@ ui.bindMenus({
   reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
 });
 
-const input = () => ({
-  mx: (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0),
-  my: (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0),
+// Touch: a stick appears where the thumb lands on the game; drag to steer. Direction only, speed is always full.
+const joyEl = document.getElementById('joy'), knob = joyEl.firstElementChild, pauseBtn = document.getElementById('bPause');
+let joy = null; // { id, x0, y0, dx, dy }
+const JOY_R = 48, JOY_DEAD = 8;
+const endJoy = () => { joy = null; joyEl.classList.add('hidden'); };
+cv.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' || mode !== 'play' || joy) return;
+  joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
+  joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px';
+  knob.style.transform = ''; joyEl.classList.remove('hidden');
 });
+addEventListener('pointermove', e => {
+  if (!joy || e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.x0, dy = e.clientY - joy.y0; const l = Math.hypot(dx, dy);
+  if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
+  joy.dx = dx; joy.dy = dy; knob.style.transform = `translate(${dx}px,${dy}px)`;
+});
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if (joy && e.pointerId === joy.id) endJoy(); });
+addEventListener('contextmenu', e => e.preventDefault());
+pauseBtn.onclick = () => { pauseBtn.blur(); if (mode === 'play') { mode = 'pause'; ui.setPause(true); } };
+
+const input = () => {
+  if (joy && Math.hypot(joy.dx, joy.dy) > JOY_DEAD) return { mx: joy.dx, my: joy.dy };
+  return {
+    mx: (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0),
+    my: (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0),
+  };
+};
 
 let last = performance.now();
 function loop(now) {
@@ -110,6 +134,8 @@ function loop(now) {
     else if (g.state === 'won') onWin();
   }
   if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(dt);
+  if (mode !== 'play' && joy) endJoy();
+  pauseBtn.classList.toggle('hidden', mode !== 'play');
   audio.scene(mode, g);
   draw(cv, cx, g);
   requestAnimationFrame(loop);
