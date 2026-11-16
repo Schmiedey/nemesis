@@ -53,7 +53,7 @@ function growthCards(rows) {
   }).join('');
 }
 
-export function hideAll() { ['start', 'classes', 'shrine', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
+export function hideAll() { ['start', 'classes', 'shrine', 'missions', 'roster', 'feats', 'loadout', 'dead', 'won', 'lvl', 'pause'].forEach(hide); }
 const gearLines = ids => ids.map(id => `<div class="nem on show gear">${pix('i_' + id, 3)}<div><b>${gearOf(id).n}</b><span>${gearOf(id).d}</span></div><span class="stamp">NEW GEAR</span></div>`).join('');
 
 const featLines = feats => feats.map(f => `<div class="feat got">${pix('i_trophy', 2)}<div><b>FEAT: ${f.n}</b><span>${f.d}. Boon unlocked: ${upName(f.boon)}</span></div></div>`).join('');
@@ -64,7 +64,7 @@ export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
   on(['bPlay', 'bRosterPlay'], h.play);
   on(['bAgain', 'bWonAgain'], h.again);
-  on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
+  on(['bHome'], h.menu); on(['bMissions'], h.missions); on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
   on(['bShare', 'bWonShare'], h.share);
   on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bClassBack', 'bShrineBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
@@ -73,30 +73,60 @@ export function bindMenus(h) {
 }
 
 // Title screen: logo, current party, the boss you have earned, lifetime stats.
-// Title: the menu list on the left with what each item is set to; your character on the stage on the right.
-export function showStart(save, bossType) {
+// The hub: your hero, minion and party in a dungeon scene; one PLAY button; nothing else to read.
+export function showStart(save) {
   hideAll();
   const cls = CLASSES[save.cls], lo = save.gear.loadout, party = save.party.map(id => save.nemeses.find(n => n.id === id)).filter(Boolean);
-  const chip = id => `<span class="chip">${pix('i_' + id, 1)}${gearOf(id).n}</span>`;
-  $('stageScene').innerHTML = `<div class="party">${party.map(n => pix('c_' + n.type, 3, true)).join('')}</div>` + pix(cls.sprite, 6, true) + pix('c_' + cls.minion, 4, true);
-  const b = T[bossType], n = save.deaths[bossType] || 0;
-  $('stageInfo').innerHTML = `<h3>${cls.n.toUpperCase()}</h3><div>${cls.d}</div><div class="min">${cls.md}</div><div class="ult">Ultimate, ${cls.ult.n}: ${cls.ult.d}</div>` +
-    `<div class="chips">${chip(lo.weapon)}${chip(lo.ability)}${lo.charm ? chip(lo.charm) : ''}</div>` +
-    `<div class="boss">${n ? `Your true nemesis: the <b style="color:${b.color}">${b.name}</b>, ${n} kill${n > 1 ? 's' : ''} on you. It comes at <b>5:00</b>.` : 'Whatever kills you joins your roster. Your nemesis comes at <b>5:00</b>.'}</div>`;
-  $('stageQuests').innerHTML = questList(save);
-  const set = (id, text) => { $(id).querySelector('b').textContent = text; };
-  const d = save.daily.date === today() ? save.daily : null, got = FEATS.filter(f => save.feats[f.id]).length;
-  set('bDaily', d ? (d.won ? 'won ' : '') + fmt(d.best) : 'not played');
-  set('bClass', cls.n);
-  set('bLoadout', WEAPONS[lo.weapon].n + ' + ' + ABILITIES[lo.ability].n);
-  set('bRoster', save.nemeses.length ? `${party.length}/${PARTY_SIZE} of ${save.nemeses.length}` : 'empty');
-  set('bFeats', `${got}/${FEATS.length}`);
-  $('bHard').classList.toggle('hidden', !save.tierMax); $('bHard').classList.toggle('lit', save.tier > 0); set('bHard', save.tier ? `TIER ${save.tier} OF ${save.tierMax}` : 'OFF');
-  set('bShrine', save.souls + ' souls');
-  $('bBoon').classList.toggle('hidden', !boonsOf(save).length); set('bBoon', save.boon ? upName(save.boon) : 'none');
-  $('startStats').innerHTML = save.runs
-    ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + (save.bestHard ? stat(fmt(save.bestHard), 'best N+') : '') + stat(completion(save) + '%', 'complete') : '';
+  const actor = (name, k, c = '') => `<div class="actor ${c}">${pix(name, k, true)}</div>`;
+  $('hubActors').innerHTML = party.slice(0, 2).map(n => actor('c_' + n.type, n.type === 'brute' ? 4 : 5)).join('') + '<div class="gap"></div>' +
+    actor(cls.sprite, 8, 'hero') + actor('c_' + cls.minion, cls.minion === 'golem' ? 4 : 6) + '<div class="gap"></div>' + party.slice(2).map(n => actor('c_' + n.type, n.type === 'brute' ? 4 : 5)).join('');
+  // Enemies wander past along the back wall.
+  $('hubMarch').innerHTML = ['bat', 'slime', 'archer', 'bomber', 'wisp', 'brute'].map((t, i) => pix('c_' + t, 2, true).replace('style="', `style="animation-duration:.5s,${16 + i * 5}s;animation-delay:0s,${-i * 6.5}s;`)).join('');
+  $('hubPlate').innerHTML = `<h3>${cls.n.toUpperCase()}</h3>${stars(masteryLevel(save.mastery[save.cls] || 0))}` +
+    `<div class="gearrow">${[lo.weapon, lo.ability, lo.charm].filter(Boolean).map(id => `<span class="gi" title="${gearOf(id).n}">${pix('i_' + id, 2)}</span>`).join('')}</div>`;
+  $('hubB1').innerHTML = $('hubB2').innerHTML = pix('i_skull', 2);
+  $('hubSouls').innerHTML = pix('i_soul', 2) + save.souls;
+  const g = nextGoals(save)[0];
+  $('hubGoal').innerHTML = g ? `<span>NEXT: ${g.text.toUpperCase()}</span><b>${Math.floor(g.have / g.want * 100)}%</b>${bar2(0, g.have, g.want)}` : '';
+  const d = save.daily.date === today() ? save.daily : null;
+  $('bDaily').querySelector('b').textContent = d ? (d.won ? 'WON ' : '') + fmt(d.best) : 'NOT PLAYED';
+  $('bHard').classList.toggle('hidden', !save.tierMax); $('bHard').classList.toggle('lit', save.tier > 0);
+  $('bHard').querySelector('b').textContent = save.tier ? `TIER ${save.tier} OF ${save.tierMax}` : 'OFF';
   show('start');
+}
+
+// The tab bar: which tab is lit, and a badge where something is waiting.
+export function showTabs(save, mode) {
+  const t = $('tabs'), menus = ['start', 'classes', 'loadout', 'roster', 'shrine', 'missions', 'feats'];
+  t.classList.toggle('hidden', !menus.includes(mode));
+  if (!menus.includes(mode)) return;
+  const icons = { bHome: ['i_skull', 2], bClass: [CLASSES[save.cls].sprite, 1.5], bRoster: ['c_slime', 2], bShrine: ['i_soul', 2], bMissions: ['i_trophy', 2], bFeats: ['i_star', 3] };
+  for (const b of t.children) {
+    b.classList.toggle('on', b.dataset.m.split(' ').includes(mode));
+    const [name, k] = icons[b.id]; if (!b.firstElementChild.firstChild) b.firstElementChild.innerHTML = pix(name, k);
+    else if (b.id === 'bClass') b.firstElementChild.innerHTML = pix(name, k);
+  }
+  const badge = (id, v) => { const e = $(id).querySelector('.badge'); e.classList.toggle('hidden', !v); e.textContent = v === true ? '!' : v || ''; };
+  const seen = save.seen || { classes: 3, gear: 2 };
+  badge('bShrine', META.filter(m => { const c = metaCost(save, m.id); return c !== null && c <= save.souls; }).length || 0);   // ranks you can afford
+  badge('bRoster', save.nemeses.some(canEvolve));                                                                            // a Champion ready to evolve
+  badge('bClass', save.classes.length > seen.classes || save.gear.owned.length > seen.gear);                                   // a new class or new gear
+  badge('bMissions', save.missions.filter(m => m.have / m.n >= 0.75).length || 0);                                             // missions nearly done
+}
+
+// Missions: the three active ones, the daily bonus, and your records.
+export function showMissions(save, bossType) {
+  hideAll();
+  let h = '';
+  for (const m of save.missions) { const t = MISSIONS.find(x => x.id === m.id); h += `<div class="qcard"><b>${t.text(m.n).toUpperCase()}</b><span>${m.have} / ${m.n}</span>${bar2(0, m.have, m.n)}${pay(t.pay)}</div>`; }
+  const played = save.day.date === today(), next = Math.round(20 * (1 + 0.15 * Math.min(6, played ? save.day.streak : save.day.streak)));
+  h += `<div class="qcard day"><b>DAILY BONUS</b><span>${played ? 'Collected today. Come back tomorrow for more.' : 'Finish any run today to collect it.'}</span><span>${save.day.streak > 1 ? save.day.streak + ' days in a row' : 'Play on consecutive days to grow it.'}</span>${pay(played ? 'DONE' : '+' + next)}</div>`;
+  $('missionList').innerHTML = h;
+  $('startStats').innerHTML = save.runs
+    ? stat(fmt(save.best), 'best', 'best') + stat(save.runs, 'runs') + stat(save.wins, 'wins') + (save.bestHard ? stat(fmt(save.bestHard), 'best N+') : '') + stat(save.stats.kills.toLocaleString(), 'kills') + stat(completion(save) + '%', 'complete') : '';
+  const b = T[bossType], n = save.deaths[bossType] || 0;
+  $('missionBoss').innerHTML = n ? `Your true nemesis: the <b style="color:${b.color}">${b.name}</b>, with ${n} kill${n > 1 ? 's' : ''} on you. It comes at <b>5:00</b>.` : 'Whatever kills you joins your roster. Your nemesis comes at <b>5:00</b>.';
+  show('missions');
 }
 
 // ---------- little celebrations ----------
@@ -184,6 +214,9 @@ export function showShrine(save, onBuy) {
 // Class: three cards; each shows the hero, its minion and what they do.
 export function showClasses(save, onPick) {
   hideAll();
+  const lo = save.gear.loadout;
+  $('bLoadout').querySelector('b').textContent = WEAPONS[lo.weapon].n + ' + ' + ABILITIES[lo.ability].n;
+  $('bBoon').classList.toggle('hidden', !boonsOf(save).length); $('bBoon').querySelector('b').textContent = save.boon ? upName(save.boon) : 'none';
   const el = $('classList'); el.innerHTML = '';
   for (const id in CLASSES) {
     const c = CLASSES[id], card = document.createElement('div'), have = save.classes.includes(id), xp = save.mastery[id] || 0;

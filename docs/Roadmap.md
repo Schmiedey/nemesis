@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (also holds Phases 14-15: rarities, juice and reward loops, the nemesis rework, class ultimates, new projectile art). Next: user review, merge everything. Known balance gaps are in `docs/design/Core Loop.md`. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (holds Phases 13-16: progression, rarities, juice, nemesis rework, class ultimates, projectile art, and the menu rebuilt as a hero hub with a tab bar). Next: user review, merge everything. Known balance gaps are in `docs/design/Core Loop.md`. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -92,6 +92,12 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Animated projectile sprites with trails and impact sparks
 - [x] Nemeses never leave for good, hit harder, and show health and kills on the HUD
 - Done when: every class has something to look forward to in a run, not just a stat bonus.
+
+## Phase 16: Menu as a hero hub
+- [x] Front page: hero, minion and party in a dungeon scene, one PLAY button, almost no text
+- [x] Bottom tab bar on every menu page (Home, Hero, Roster, Shrine, Missions, Feats) with badges for things to claim or buy
+- [x] Missions, daily bonus and records moved to their own tab; loadout and boon reached from the Hero tab
+- Done when: the user is happy with the menu.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

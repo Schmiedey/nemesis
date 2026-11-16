@@ -14,7 +14,7 @@ const fresh = () => ({ v: VERSION, nemeses: [], party: [], best: 0, runs: 0, win
   // v9: progression. Souls buy Shrine ranks (meta); lifetime stats unlock classes; each class has mastery xp;
   // tier is the Nemesis+ level you play at, tierMax the highest you have unlocked.
   // v10: three active missions, and the day streak that pays a bonus on the first run of each day.
-  missions: [], day: { date: '', streak: 0 },
+  missions: [], day: { date: '', streak: 0 }, seen: { classes: 3, gear: 2 },   // seen: what the Hero tab's badge compares against
   souls: 0, meta: {}, stats: { kills: 0, chests: 0, time: 0, bosses: 0 }, classes: [...START_CLASSES], mastery: {}, tier: 0, tierMax: 0,
   gear: { owned: [...START_GEAR], loadout: { weapon: 'blaster', ability: 'dash', charm: null } } });   // v7 adds the charm slot
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -81,6 +81,7 @@ export function sanitize(raw) {
   s.hard = s.tier > 0;
   unlockClasses(s);
   if (CLASSES[raw.cls] && s.classes.includes(raw.cls)) s.cls = raw.cls;
+  if (raw.seen && typeof raw.seen === 'object') s.seen = { classes: count(raw.seen.classes) || 3, gear: count(raw.seen.gear) || 2 };
   if (raw.day && typeof raw.day.date === 'string') s.day = { date: raw.day.date.slice(0, 10), streak: count(raw.day.streak) };
   if (Array.isArray(raw.missions)) for (const m of raw.missions) {
     const t = m && MISSIONS.find(x => x.id === m.id);

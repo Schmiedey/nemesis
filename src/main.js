@@ -14,19 +14,21 @@ if (document.fonts) for (const f of ['16px Silkscreen', 'bold 16px Silkscreen', 
 
 let save = loadSave();
 let g = null;
+let tabMode = null;   // which screen the tab bar was last drawn for; null forces a redraw
 let mode = 'start'; // start | classes | roster | feats | loadout | play | lvl | pause | dead | won
 let kind = 'normal'; // what the current or last run was: normal | hard | daily
 const keys = {};
 
-function toStart() { mode = 'start'; g = null; ui.showStart(save, bossTypeFor(save)); }
-function toRoster() { mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
+function toStart() { tabMode = null; mode = 'start'; g = null; ui.showStart(save); }
+function toMissions() { tabMode = null; mode = 'missions'; ui.showMissions(save, bossTypeFor(save)); }
+function toRoster() { tabMode = null; mode = 'roster'; g = null; ui.showRoster(save, toggleParty, pickEvo); }
 function pickEvo(id, evoId) { if (evolve(save, id, evoId)) { audio.sfx('level'); checkFeats(save); writeSave(save); } ui.showRoster(save, toggleParty, pickEvo); }
-function toFeats() { mode = 'feats'; ui.showFeats(save); }
-function toClasses() { mode = 'classes'; ui.showClasses(save, id => { if (!save.classes.includes(id)) return; save.cls = id; writeSave(save); audio.sfx('pick'); toClasses(); }); }
-function toLoadout() { mode = 'loadout'; ui.showLoadout(save, id => { if (equip(save, id)) writeSave(save); toLoadout(); }); }
+function toFeats() { tabMode = null; mode = 'feats'; ui.showFeats(save); }
+function toClasses() { tabMode = null; mode = 'classes'; save.seen = { classes: save.classes.length, gear: save.gear.owned.length }; ui.showClasses(save, id => { if (!save.classes.includes(id)) return; save.cls = id; writeSave(save); audio.sfx('pick'); toClasses(); }); }
+function toLoadout() { tabMode = null; mode = 'loadout'; save.seen = { classes: save.classes.length, gear: save.gear.owned.length }; ui.showLoadout(save, id => { if (equip(save, id)) writeSave(save); toLoadout(); }); }
 // Nemesis+ steps through the tiers you have unlocked: 0 (off), 1, 2 ...
 function flipHard() { if (save.tierMax > 0) { save.tier = (save.tier + 1) % (save.tierMax + 1); save.hard = save.tier > 0; writeSave(save); toStart(); } }
-function toShrine() { mode = 'shrine'; ui.showShrine(save, id => { if (buyMeta(save, id)) { audio.sfx('level'); writeSave(save); ui.confetti(14); } toShrine(); }); }
+function toShrine() { tabMode = null; mode = 'shrine'; ui.showShrine(save, id => { if (buyMeta(save, id)) { audio.sfx('level'); writeSave(save); ui.confetti(14); } toShrine(); }); }
 // Copy a one-line result to the clipboard, to send to a friend (the daily run has the same map and spawns for everyone).
 let lastResult = '';
 function share() {
@@ -38,7 +40,7 @@ function share() {
 // The boon button steps through: none, then each boon you have unlocked.
 function nextBoon() {
   const list = [null, ...boonsOf(save)];
-  save.boon = list[(list.indexOf(save.boon) + 1) % list.length]; writeSave(save); toStart();
+  save.boon = list[(list.indexOf(save.boon) + 1) % list.length]; writeSave(save); toClasses();
 }
 function resume() { if (mode === 'pause') { mode = 'play'; ui.setPause(false); } }
 
@@ -140,9 +142,10 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyL' && mode === 'start') toLoadout();
   else if (e.code === 'KeyC' && mode === 'start') toClasses();
   else if (e.code === 'KeyU' && mode === 'start') toShrine();
+  else if (e.code === 'KeyG' && mode === 'start') toMissions();
   else if (e.code === 'KeyR' && mode === 'lvl') doReroll();
   else if (e.code === 'KeyR' && (mode === 'start' || over)) toRoster();
-  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || mode === 'shrine' || over)) toStart();
+  else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || mode === 'shrine' || mode === 'missions' || over)) toStart();
   else if (e.code === 'KeyQ' && mode === 'pause') toStart();
   else if ((e.code === 'Escape' || e.code === 'KeyP') && (mode === 'play' || mode === 'pause')) {
     mode = mode === 'play' ? 'pause' : 'play'; ui.setPause(mode === 'pause');
@@ -160,7 +163,7 @@ addEventListener('pagehide', clearKeys);
 addEventListener('contextmenu', clearKeys);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, reroll: () => doReroll(), share,
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, missions: toMissions, reroll: () => doReroll(), share,
   roster: toRoster, menu: toStart, resume,
   reset: () => { if (confirm('Forget all your nemeses and stats?')) { save = resetSave(); toRoster(); } },
 });
@@ -250,6 +253,7 @@ function frame(now) {
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play'); actBtn.classList.toggle('hidden', mode !== 'play');
   document.body.classList.toggle('playing', mode === 'play');
+  if (mode !== tabMode) { tabMode = mode; ui.showTabs(save, mode); }      // the tab bar follows whatever screen is up
   ultBtn.classList.toggle('hidden', mode !== 'play' || !g || !g.cls); ultBtn.classList.toggle('full', !!g && g.ult >= 1);
   audio.scene(mode, g);
   draw(cv, cx, g, hud, hx);

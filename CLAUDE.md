@@ -37,5 +37,8 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 Keep usage low: read only needed parts of files, trim output, no subagents unless asked.
 Commit at each checkpoint and update the status line in `docs/Roadmap.md`.
 
+## Menus
+The front page (`#start.hub`) is a scene, not a list: keep text off it. Everything else is a `.page` reached from the tab bar (`#tabs`, drawn by `showTabs` in `src/ui.js`), which carries badges. New menu content goes on a tab page, never on the hub.
+
 ## Look
 Pixel art throughout: one palette (`PAL` in `art/make_pixels.mjs`, mirrored as CSS variables in `index.html`), two pixel fonts, hard edges. No rounded corners, glows, gradients, emoji or text symbols as icons; use a sprite from the sheet instead. See-through areas (danger zones, auras) are a checkerboard `dither()` fill with a `dashRing()` outline in `src/render.js`, never a soft alpha fade.

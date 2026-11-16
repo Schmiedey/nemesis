@@ -243,6 +243,68 @@ button.quiet:hover{color:var(--w)}
 @keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
 .toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:21;font:400 12px var(--t);color:var(--k);background:var(--y);padding:6px 12px 8px;box-shadow:0 0 0 2px var(--k);animation:popin .2s steps(4) backwards}
 
+/* ---------- the hero hub: the front page ---------- */
+/* A dungeon wall and floor fill the screen; your hero, minion and nemeses stand on it; one PLAY button; tabs below. */
+#start.hub{padding:0 0 78px;gap:0;justify-content:flex-start;background:#17121f}
+.hubtop{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;box-sizing:border-box;padding:14px 22px 8px}
+.hubtop .logo{margin:0 0 10px}
+.goal{flex:1;max-width:340px;display:grid;grid-template-columns:1fr auto;gap:3px 10px;font:400 10px var(--t);color:var(--dim);text-align:left}
+.goal b{color:var(--y);font-weight:400}.goal .bar{grid-column:1/3;margin:0;height:6px}
+.hubscene{position:relative;flex:1;min-height:150px;width:100%;overflow:hidden;
+  background:#1c1728 repeating-linear-gradient(0deg,#141020 0 2px,transparent 2px 34px),repeating-linear-gradient(90deg,#141020 0 2px,transparent 2px 68px);box-shadow:inset 0 6px 0 #0f0b17}
+.floor{position:absolute;left:0;right:0;bottom:0;height:52%;background:repeating-conic-gradient(#2a2639 0 25%,#231f31 0 50%) 0 0/96px 96px;box-shadow:inset 0 6px 0 #3a3548,inset 0 12px 0 #1a1423}
+.actors{position:absolute;left:0;right:0;bottom:calc(52% - 70px);display:flex;justify-content:center;align-items:flex-end;gap:30px}
+.actor{position:relative;display:flex;flex-direction:column;align-items:center}
+.actor::after{content:"";position:absolute;bottom:-6px;left:10%;right:10%;height:10px;background:#0f0b17;opacity:.6}
+.actor .px{position:relative;z-index:1}
+.actor.hero .px{animation:px2 .5s steps(1) infinite,hop .9s steps(2) infinite}
+.actors .gap{width:16px}
+.marchers{position:absolute;left:0;right:0;bottom:calc(52% + 6px);height:40px;opacity:.4;filter:brightness(.55)}
+.marchers .px{position:absolute;bottom:0;animation:px2 .5s steps(1) infinite,march linear infinite}
+@keyframes march{from{left:104%}to{left:-12%}}
+.torch{position:absolute;top:16%;width:12px;height:30px;background:#733e39;box-shadow:0 0 0 2px var(--k)}
+.torch::before{content:"";position:absolute;left:-6px;top:-22px;width:24px;height:24px;background:var(--y);box-shadow:0 0 0 2px var(--k),inset 0 -8px 0 var(--gold),inset 6px 6px 0 var(--w);animation:flick .3s steps(2) infinite}
+@keyframes flick{50%{transform:translateY(-3px) scaleX(.8)}}
+.torch.t1{left:12%}.torch.t2{right:12%}
+/* Banners on the back wall, either side of the hero. */
+.banner{position:absolute;top:0;width:60px;height:32%;min-height:70px;background:var(--red2);box-shadow:0 0 0 2px var(--k),inset 6px 0 0 var(--red),inset -6px 0 0 #7a1b26;display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)}
+.banner.b1{left:calc(50% - 190px)}.banner.b2{left:calc(50% + 130px)}
+.hubplate{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px 16px 4px;flex-wrap:wrap}
+.hubplate h3{font:700 20px var(--t);color:var(--w);margin:0;letter-spacing:0}
+.hubplate .gearrow{display:flex;gap:6px}
+.hubplate .gi{background:var(--k);padding:4px;display:flex;box-shadow:0 0 0 2px var(--bg2)}
+.playrow{display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 16px 16px}
+button.play{font-size:34px;padding:14px 46px 20px;animation:beat 1.2s steps(2) infinite}
+@keyframes beat{50%{transform:translateY(-3px)}}
+button.side{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:118px;font-size:12px;padding:8px 10px 11px}
+button.side b{font-weight:400;font-size:10px;color:var(--y)}
+button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
+/* The tab bar: on every menu page. A badge marks a tab with something to claim or buy. */
+#tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;gap:8px;padding:8px 10px 10px;background:#110d1a;box-shadow:0 -2px 0 var(--bg2)}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:98px;padding:7px 8px 10px;font-size:10px}
+.tab i{display:flex;align-items:center;justify-content:center;height:34px}
+.tab.on{background:var(--red);box-shadow:0 0 0 2px var(--k),inset 0 2px 0 var(--red3),inset 0 -5px 0 var(--red2)}
+.badge{position:absolute;top:-7px;right:-5px;min-width:10px;font:700 10px var(--t);font-style:normal;color:var(--k);background:var(--y);padding:2px 5px 3px;box-shadow:0 0 0 2px var(--k);animation:beat .6s steps(2) infinite}
+.ov.menu.page{padding-bottom:92px}
+.backbtn,#bBack,#bFeatsBack,#bLoadoutBack,#bShrineBack{display:none}
+.phead button b{color:var(--y);font-weight:400;margin-left:8px}
+.mwrap{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%}
+.qcard{width:300px;padding:12px 14px 14px;text-align:left;display:flex;flex-direction:column;gap:6px;font-size:16px;line-height:1.25;color:var(--txt);background:var(--bg);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);box-sizing:border-box;animation:popin .28s steps(6) backwards}
+.qcard b{font:400 12px var(--t);color:var(--w)}.qcard .pay{font-size:12px}.qcard .bar{margin:0;height:8px}
+.qcard.day{box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--y),inset -2px -2px 0 var(--gold)}
+@media (max-height:640px){.actors{transform:scale(.8);transform-origin:bottom center}.hubtop{padding:8px 16px 4px}button.play{font-size:26px;padding:10px 34px 15px}.hubplate{padding:8px 12px 2px}.playrow{padding:8px 12px 10px}}
+@media (max-height:480px){
+  #start.hub{padding:0 0 64px;gap:0}.hubtop .logo{font-size:22px!important;margin-bottom:6px}.goal{display:none}
+  .hubscene{min-height:76px}.hubplate{padding:4px 10px 0;gap:8px}.hubplate h3{font-size:14px}.hubplate .stars{display:none}
+  .actors{transform:scale(.5);transform-origin:bottom center;bottom:calc(52% - 34px)}.banner,.marchers{display:none}.torch{top:8%;transform:scale(.6)}
+  .playrow{padding:4px 10px 6px;gap:10px}
+  button.play{font-size:20px;padding:7px 26px 11px}button.side{min-width:86px;font-size:10px;padding:5px 8px 8px}
+  #tabs{padding:5px 8px 6px;gap:5px}.tab{min-width:70px;padding:4px 6px 7px;font-size:8px}.tab i{height:22px}
+  .ov.menu.page{padding-bottom:68px}
+}
+@media (max-width:700px){.tab{min-width:0;flex:1}.tab span{font-size:8px}}
+
 /* In-run controls */
 #perf{position:fixed;left:8px;top:8px;z-index:9;font:400 10px var(--t);color:var(--mint);background:var(--k);padding:4px 6px;pointer-events:none}
 #joy{opacity:.75;position:fixed;width:112px;height:112px;margin:-56px 0 0 -56px;background:rgba(26,20,35,.55);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);pointer-events:none;z-index:4}
@@ -277,37 +339,34 @@ button.quiet:hover{color:var(--w)}
 <canvas id="c"></canvas>
 <canvas id="hud"></canvas>
 
-<div id="start" class="ov menu hidden">
-  <div class="home">
-    <div class="side">
-      <h1 class="logo">NEMESIS</h1>
-      <div class="tag">Whatever <em>kills you</em>, <i>joins you</i>.</div>
-      <nav class="mlist">
-        <button class="mi go" id="bPlay"><span>PLAY</span><b></b><span class="key">SPACE</span></button>
-        <button class="mi" id="bDaily"><span>DAILY RUN</span><b>not played</b><span class="key">D</span></button>
-        <button class="mi" id="bClass"><span>CLASS</span><b></b><span class="key">C</span></button>
-        <button class="mi" id="bLoadout"><span>LOADOUT</span><b></b><span class="key">L</span></button>
-        <button class="mi" id="bRoster"><span>ROSTER</span><b></b><span class="key">R</span></button>
-        <button class="mi" id="bShrine"><span>SHRINE</span><b></b><span class="key">U</span></button>
-        <button class="mi" id="bFeats"><span>FEATS</span><b>0/13</b><span class="key">F</span></button>
-        <button class="mi" id="bBoon"><span>BOON</span><b>none</b></button>
-        <button class="mi" id="bHard"><span>NEMESIS+</span><b>OFF</b></button>
-      </nav>
-    </div>
-    <div class="stage pn">
-      <div class="scene" id="stageScene"></div>
-      <div class="info" id="stageInfo"></div>
-      <div class="quests" id="stageQuests"></div>
-    </div>
+<div id="start" class="ov hub hidden">
+  <div class="hubtop">
+    <h1 class="logo sm">NEMESIS</h1>
+    <div class="goal" id="hubGoal"></div>
+    <div class="purse" id="hubSouls"></div>
   </div>
-  <div class="foot">
-    <div class="stats" id="startStats"></div>
-    <div class="how"><span class="mouse-only"><span class="key">WASD</span> move</span><span class="touch-only">drag to move</span><span class="mouse-only"><span class="key">SPACE</span> ability</span><span class="mouse-only"><span class="key">E</span> ultimate</span><span class="mouse-only"><span class="key">Esc</span> pause</span></div>
+  <div class="hubscene">
+    <div class="torch t1"></div><div class="torch t2"></div>
+    <div class="banner b1" id="hubB1"></div><div class="banner b2" id="hubB2"></div>
+    <div class="marchers" id="hubMarch"></div>
+    <div class="floor"></div>
+    <div class="actors" id="hubActors"></div>
+  </div>
+  <div class="hubplate" id="hubPlate"></div>
+  <div class="playrow">
+    <button id="bDaily" class="side"><span>DAILY</span><b></b></button>
+    <button class="go play" id="bPlay">PLAY <span class="key">SPACE</span></button>
+    <button id="bHard" class="side"><span>NEMESIS+</span><b></b></button>
   </div>
 </div>
 
+<div id="missions" class="ov menu page hidden">
+  <div class="phead"><h1 class="logo sm">MISSIONS</h1><div class="sub">Finish a mission for souls; a new one takes its place. The first run of each day pays a bonus.</div></div>
+  <div class="pbody"><div class="mwrap"><div class="roster" id="missionList"></div><div class="stats" id="startStats"></div><div class="sub" id="missionBoss"></div></div></div>
+</div>
+
 <div id="classes" class="ov menu page hidden">
-  <div class="phead"><h1 class="logo sm">CLASS</h1><div class="sub">Each class has a bonus and a minion with its own ability. Any class can use any gear.</div><button id="bClassBack">BACK <span class="key">Esc</span></button></div>
+  <div class="phead"><h1 class="logo sm">HERO</h1><div class="sub">Pick a class. Any class can use any gear.</div><button id="bLoadout">LOADOUT<b></b><span class="key">L</span></button><button id="bBoon">BOON<b></b></button><button id="bClassBack" class="backbtn">BACK</button></div>
   <div class="pbody"><div class="cards" id="classList"></div></div>
 </div>
 
@@ -384,6 +443,14 @@ button.quiet:hover{color:var(--w)}
   </div>
 </div>
 
+<nav id="tabs" class="hidden">
+  <button class="tab" id="bHome" data-m="start"><i></i><span>HOME</span></button>
+  <button class="tab" id="bClass" data-m="classes loadout"><i></i><span>HERO</span><em class="badge hidden"></em></button>
+  <button class="tab" id="bRoster" data-m="roster"><i></i><span>ROSTER</span><em class="badge hidden"></em></button>
+  <button class="tab" id="bShrine" data-m="shrine"><i></i><span>SHRINE</span><em class="badge hidden"></em></button>
+  <button class="tab" id="bMissions" data-m="missions"><i></i><span>MISSIONS</span><em class="badge hidden"></em></button>
+  <button class="tab" id="bFeats" data-m="feats"><i></i><span>FEATS</span></button>
+</nav>
 <div id="perf" class="hidden"></div>
 <div id="joy" class="hidden"><i></i></div>
 <button id="bPause" class="hidden" aria-label="Pause">II</button>
