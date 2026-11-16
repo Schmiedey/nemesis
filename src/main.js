@@ -144,6 +144,7 @@ addEventListener('keydown', e => {
   const over = mode === 'dead' || mode === 'won';
   const menu = mode === 'start' || mode === 'roster';
   if (e.code === 'Space' && mode === 'play') e.preventDefault();
+  if (e.code === 'Space' && mode === 'dead' && ui.deadNext()) { e.preventDefault(); return; }   // first Space: from the recruitment to the summary
   if (e.code === 'Space' && (menu || over)) { e.preventDefault(); begin(over ? kind : 'normal'); }
   else if (e.code === 'KeyD' && mode === 'start') begin('daily');
   else if (e.code === 'KeyF' && mode === 'start') toFeats();

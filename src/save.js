@@ -1,5 +1,5 @@
 // Versioned save. A corrupt or old save never crashes the game.
-import { T, PERKS, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_CLASSES, META, MAX_TIER, MASTERY, MISSIONS, masteryLevel, START_GEAR, ALL_GEAR } from './data.js';
+import { T, PERKS, LEG_TRAIT, EVOS, FEATS, CHAMPION_Q, rankName, WEAPONS, ABILITIES, CHARMS, CLASSES, START_CLASSES, META, MAX_TIER, MASTERY, MISSIONS, masteryLevel, START_GEAR, ALL_GEAR } from './data.js';
 
 const KEY = 'nemesis_save';
 const OLD_KEY = 'nemesis_v1';
@@ -32,6 +32,8 @@ function cleanNem(n, id) {
     // Added in v4: lifetime record and the evolution picked at Champion.
     kills: count(n.kills), runs: count(n.runs), wins: count(n.wins),
     evo: (EVOS[n.type] || []).some(e => e.id === n.evo) ? n.evo : null,
+    // Phase 17: the weapon it took from you and any Legendary powers you held.
+    weapon: WEAPONS[n.weapon] ? n.weapon : null, legs: Array.isArray(n.legs) ? Object.keys(LEG_TRAIT).filter(k => n.legs.includes(k)) : [],
   };
 }
 
@@ -50,7 +52,7 @@ export function sanitize(raw) {
     // Saves from before named nemeses: each old ally becomes a plain soldier.
     for (const k in raw.roster) {
       const n = Math.min(MAX_PER_TYPE, Math.floor(Number(raw.roster[k])) || 0);
-      for (let i = 0; i < n && T[k]; i++) s.nemeses.push({ id: s.nextId++, type: k, perks: {}, q: 0.8, name: 'Old ' + T[k].name, title: 'the Remembered', kills: 0, runs: 0, wins: 0, evo: null });
+      for (let i = 0; i < n && T[k]; i++) s.nemeses.push({ id: s.nextId++, type: k, perks: {}, q: 0.8, name: 'Old ' + T[k].name, title: 'the Remembered', kills: 0, runs: 0, wins: 0, evo: null, weapon: null, legs: [] });
     }
   }
   if (Array.isArray(raw.party)) for (const id of raw.party) {

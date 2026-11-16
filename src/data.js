@@ -91,6 +91,30 @@ export const PERKS = {
   shots: { label: 'Split Shot', title: 'the Splitter' },
   pierce: { label: 'Piercing', title: 'the Piercer' },
   regen: { label: 'Regrowth', title: 'the Undying' },
+  // Since Phase 17 a recruit takes the newer upgrades too. Each means something for an ally (see spawnAlly and think).
+  crit: { label: 'Lucky Shot', title: 'the Lucky' },
+  chain: { label: 'Chain Shot', title: 'the Chained' },
+  blade: { label: 'Orbiting Blade', title: 'the Bladed' },
+  nova: { label: 'Nova', title: 'the Bursting' },
+  armor: { label: 'Plating', title: 'the Plated' },
+  frost: { label: 'Frostbite', title: 'the Cold' },
+  ember: { label: 'Wildfire', title: 'the Burning' },
+};
+// What a recruit does with the weapon you died holding, and with a Legendary power you had.
+export const WEAPON_TRAIT = {
+  blaster: 'Shoots as well as fighting',
+  sword: 'Its hits cleave everything close by',
+  rang: 'Throws a blade that passes through everything',
+  flame: 'Leaves fire where it walks',
+  rod: 'Calls down lightning that arcs',
+  totem: 'Plants totems that shoot',
+};
+export const LEG_TRAIT = {
+  storm: 'Lightning strikes near it',
+  phoenix: 'Rises again at once, the first time it falls',
+  midas: 'Its kills drop gems worth double',
+  titan: 'Double health',
+  twin: 'Comes as two',
 };
 
 // What each nemesis type does for you at any rank, shown on its card.
@@ -195,13 +219,13 @@ export const CLASSES = {
   necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 10th kill rises as a Skeleton to fight for you (up to 5). Skeletons explode when they fall.', ult: { n: 'Army of the Dead', d: 'Seven Skeletons claw out of the ground around you at once.' }, minion: 'imp',
     md: 'Imp: throws fireballs that set enemies burning.' },
   // Locked classes. `lock.need(save)` returns [have, want]; unlocked for good once have >= want.
-  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', ult: { n: 'Blood Rage', d: 'For 5 seconds you deal 25% more damage, attack twice as fast, and every kill heals you.' }, minion: 'wolf',
+  berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', ult: { n: 'Blood Rage', d: 'For 4 seconds you deal 25% more damage, attack twice as fast, and kills heal you a little.' }, minion: 'wolf',
     md: 'Wolf: fast and savage. Its howl sends you into a frenzy, attacking twice as fast for a moment.',
     lock: { text: 'Kill 1,000 enemies in total', need: s => [s.stats.kills, 1000] } },
   engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', ult: { n: 'Orbital Laser', d: 'A beam from the sky spirals around you, burning everything it crosses.' }, minion: 'drone',
     md: 'Drone: cannot be hurt. Circles you, shooting the nearest enemy.',
     lock: { text: 'Open 8 chests in total', need: s => [s.stats.chests, 8] } },
-  warden: { n: 'Warden', sprite: 'c_warden', d: 'You regenerate 0.5 health a second.', ult: { n: 'Wrath of the Wild', d: 'Roots burst up and hold every enemy on screen for 3 seconds, and you heal a quarter of your health.' }, minion: 'golem',
+  warden: { n: 'Warden', sprite: 'c_warden', d: 'You slowly regenerate health.', ult: { n: 'Wrath of the Wild', d: 'Roots burst up and hold every enemy on screen for 2 seconds, and you heal a little.' }, minion: 'golem',
     md: 'Golem: a wall of stone. Slams the ground to stun everything close, and for a moment enemies turn on it instead of you.',
     lock: { text: 'Slay your nemesis once', need: s => [Math.min(1, s.wins), 1] } },
 };

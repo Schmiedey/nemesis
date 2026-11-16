@@ -1,5 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
@@ -67,6 +67,7 @@ export function bindMenus(h) {
   on(['bHome'], h.menu); on(['bMissions'], h.missions); on(['bSaves'], h.saves); on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
   on(['bShare', 'bWonShare'], h.share);
+  $('bDeadNext').onclick = e => { e.currentTarget.blur(); deadNext(); };
   on(['bBack', 'bFeatsBack', 'bLoadoutBack', 'bClassBack', 'bShrineBack', 'bDeadMenu', 'bWonMenu', 'bQuit'], h.menu);
   on(['bResume'], h.resume);
   on(['reset'], h.reset);
@@ -332,7 +333,7 @@ export function showRoster(save, onToggle, onEvo) {
     `<div class="rank">${pips(n.q)}${rankName(n.q).toUpperCase()} ${d.name.toUpperCase()}${evoOf(n) ? ' &middot; <span style="color:var(--y)">' + evoOf(n).n.toUpperCase() + '</span>' : ''}</div>` +
     (r < 3 ? `<span class="bar"><i style="width:${Math.round((n.q - lo) / (hi - lo) * 100)}%"></i></span>` : '') +
     `<div class="job">${JOB[n.type]}.${evoOf(n) ? ' ' + evoOf(n).d + '.' : ''}</div>` +
-    (Object.keys(n.perks).length ? `<div class="perkrow">${Object.keys(n.perks).map(k => `<span class="perk" title="${PERKS[k].label}">${pix('i_' + k, 1)}${PERKS[k].label.toUpperCase()}${n.perks[k] > 1 ? ' x' + n.perks[k] : ''}</span>`).join('')}</div>` : '<div class="hist">It inherited no powers from you.</div>') +
+    (Object.keys(n.perks).length || n.weapon || (n.legs || []).length ? `<div class="rank">TOOK FROM YOU</div><div class="took" style="justify-content:flex-start;gap:6px">${tookChips(n)}</div>` : '<div class="hist">It took no powers from you.</div>') +
     `<div class="hist">${n.runs ? `${n.runs} run${n.runs > 1 ? 's' : ''} with you &middot; ${n.kills} kill${n.kills === 1 ? '' : 's'}${n.wins ? ' &middot; ' + n.wins + ' win' + (n.wins > 1 ? 's' : '') : ''}` : 'Has not fought for you yet.'}</div>`;
   if (canEvolve(n)) {
     // A Champion chooses one of two evolutions, once.
@@ -354,20 +355,37 @@ export function showRoster(save, onToggle, onEvo) {
   show('roster');
 }
 
+// What a nemesis took from you, as chips: its weapon trait, its upgrades, its Legendary powers.
+export function tookChips(n, delay0 = 0) {
+  const out = [];
+  if (n.weapon && WEAPONS[n.weapon]) out.push([pix('i_' + n.weapon, 2), 'YOUR ' + WEAPONS[n.weapon].n.toUpperCase(), WEAPON_TRAIT[n.weapon], '']);
+  for (const k in n.perks) out.push([pix((UP.find(u => u.id === k) || {}).ic || 'i_' + k, 2), PERKS[k].label.toUpperCase() + (n.perks[k] > 1 ? ' x' + n.perks[k] : ''), '', '']);
+  for (const k of n.legs || []) { const u = UP.find(x => x.id === k); out.push([pix(u.ic || 'i_' + k, 2), u.n.toUpperCase(), LEG_TRAIT[k], ' leg']); }
+  return out.map(([ic, name, what, cls], i) => `<span class="tchip${cls}" style="animation-delay:${(delay0 + i * 0.12).toFixed(2)}s">${ic}<span><b>${name}</b>${what}</span></span>`).join('');
+}
+
+// Death has two beats. First the recruitment: what killed you turns to your side, named, carrying what it took.
+// Then the summary of what the run earned.
+let deadEnd = null;
 export function showDead(g, save, res, end) {
   const { newBest, growth = [], feats = [], best, kind } = end;
-  const d = T[g.killer], r = g.recruit;
-  $('dKiller').style.setProperty('--c', d.color);
-  $('dKiller').innerHTML = spr(g.killer, 112);
-  $('dTitle').innerHTML = `KILLED BY THE <span style="color:${d.color}">${d.name.toUpperCase()}</span>`;
-  const who = `<b style="color:${d.color}">${esc(r.name)} ${esc(r.title)}</b>, a ${rankName(r.q)} ${d.name}`;
-  $('dJoin').innerHTML =
-    res.status === 'joined' ? `${who}, joins you.` :
-    res.status === 'replaced' ? `${who}, takes the place of ${esc(res.old.name)}.` :
-    `${who}, is too weak to earn a place. Survive longer to earn a stronger one.`;
-  $('dCard').innerHTML = res.status === 'rejected' ? ''
-    : `<div class="nem on show">${nemCard(res.nem)}<span class="stamp">RECRUITED</span></div>`;
-  $('dCard').innerHTML += growthCards(growth.filter(r => r.nem !== res.old));
+  const d = T[g.killer], r = g.recruit, joined = res.status !== 'rejected', n = joined ? res.nem : r;
+  deadEnd = end;
+  // --- the recruitment ---
+  $('dRecruit').classList.remove('hidden'); $('dSummary').classList.add('hidden');
+  $('dRecruit').classList.toggle('no', !joined);
+  $('rKilled').textContent = `KILLED BY ${d.name === 'Archer' ? 'AN' : 'A'} ${d.name.toUpperCase()} AT ${fmt(g.t)}`;
+  $('dKiller').innerHTML = pix('c_' + g.killer, g.killer === 'brute' ? 5 : 7, true);
+  $('rName').innerHTML = `<span style="color:${d.color}">${esc(r.name).toUpperCase()}</span> ${esc(r.title).toUpperCase()}`;
+  $('rRank').innerHTML = `${pips(r.q)} ${rankName(r.q).toUpperCase()} ${d.name.toUpperCase()}`;
+  $('rTook').innerHTML = joined ? `<h4>IT TOOK FROM YOU</h4>` + (tookChips(n, 1.3) || '<span class="tchip" style="animation-delay:1.3s"><span>Nothing. You died with no powers to take.</span></span>') : '';
+  $('rVerdict').innerHTML =
+    res.status === 'joined' ? `<b style="color:var(--mint)">It joins you.</b> ${JOB[g.killer]}.` :
+    res.status === 'replaced' ? `<b style="color:var(--mint)">It joins you</b>, taking the place of ${esc(res.old.name)}. ${JOB[g.killer]}.` :
+    `Too weak to earn a place: you already have three stronger ${d.name}s. Last longer and a stronger one will come.`;
+  // --- the summary, shown after CONTINUE ---
+  $('dTitle').innerHTML = newBest ? 'A NEW BEST' : 'THE RUN';
+  $('dCard').innerHTML = growthCards(growth.filter(x => x.nem !== res.old));
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
     stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(best), 'best')) + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
   $('dProg').innerHTML = progLines(end.prog, save);
@@ -375,7 +393,14 @@ export function showDead(g, save, res, end) {
   const nxt = Object.values(T).filter(x => !x.minion && x.unlock > g.t).sort((a, b) => a.unlock - b.unlock)[0];
   $('dTease').innerHTML = nxt ? `Something new shows up at <b>${fmt(nxt.unlock)}</b>...`
     : g.bossAt ? 'So close. Your nemesis was right there.' : 'Your true nemesis arrives at <b>5:00</b>.';
-  show('dead'); celebrate(end);
+  show('dead');
+}
+// CONTINUE: from the recruitment to the summary. Returns false if the summary is already showing.
+export function deadNext() {
+  if ($('dRecruit').classList.contains('hidden')) return false;
+  $('dRecruit').classList.add('hidden'); $('dSummary').classList.remove('hidden');
+  if (deadEnd) celebrate(deadEnd);
+  return true;
 }
 
 export function showWon(g, save, end) {

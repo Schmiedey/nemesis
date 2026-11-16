@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (holds Phases 13-16: progression, rarities, juice, nemesis rework, class ultimates, projectile art, and the menu rebuilt as a hero hub with a tab bar). Next: user review, merge everything. Known balance gaps are in `docs/design/Core Loop.md`. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
+**Status:** Phases 1-10 merged to main. Not merged, stacked: `phase-11-polish` → `phase-12-classes` → `phase-13-progression` (Phases 13-16 and save slots) → `phase-17-hook`. Now re-centring the game on its hook (whatever kills you joins you) in Phases 17-19. Music on hold (`MUSIC_ON` in `src/audio.js`). Still the user's to do: itch.io upload, clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -98,6 +98,24 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Bottom tab bar on every menu page (Home, Hero, Roster, Shrine, Missions, Feats) with badges for things to claim or buy
 - [x] Missions, daily bonus and records moved to their own tab; loadout and boon reached from the Hero tab
 - Done when: the user is happy with the menu.
+
+## The hook, restated (read this before adding features)
+**Whatever kills you, joins you.** Dying is how you build your army: last longer and the recruit is stronger, and it arrives carrying what you died holding. Phases 11-16 added classes, minions, the Shrine, missions, rarities and gear, and the hook got buried: death became a receipt, recruits stopped inheriting most of your build, and nothing told you who would join. Phases 17-19 put it back in the centre. Anything new should make dying to something more interesting, not compete with it.
+
+## Phase 17: The recruit is the reward
+- [ ] Recruits inherit your whole build: the newer upgrades, Legendary powers, and a trait from your weapon
+- [ ] Death is a recruitment scene first; souls, missions and the rest come after
+- Done when: the first thing you feel on dying is who you just gained and what it took from you.
+
+## Phase 18: Choosing your killer
+- [ ] At low health the HUD shows who would join if you fell now, and whom it would replace
+- [ ] Elites and golden enemies are prize recruits
+- Done when: going down to a particular enemy is a decision you make on purpose.
+
+## Phase 19: A nemesis with a grudge
+- [ ] The boss has a name, remembers how often it has killed you, and returns with powers you used
+- [ ] Missions that point at the hook
+- Done when: the boss feels like the thing that has been killing you, not a big enemy.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

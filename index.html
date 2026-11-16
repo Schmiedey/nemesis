@@ -352,6 +352,26 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
 .slotc.on{background:#22382d;box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--green),inset -2px -2px 0 var(--green2)}
 .slotc.empty p{color:var(--dim)}
 
+/* ---------- death: the recruitment scene, then the summary ---------- */
+.recruit,.summary{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
+.recruit{gap:10px}
+.rk{font:400 12px var(--t);color:var(--red3);letter-spacing:2px;animation:popin .3s steps(5) backwards}
+.recruit .killer{height:150px;position:relative;animation:turn 1.1s steps(1) backwards}
+/* It arrives as the enemy that killed you (dark, red), then flashes and stands with you. */
+@keyframes turn{0%{filter:brightness(.45) sepia(1) hue-rotate(-50deg) saturate(4)}62%{filter:brightness(4)}70%{filter:none}}
+.recruit .killer::after{content:"";position:absolute;left:50%;top:-16px;width:16px;height:16px;margin-left:-8px;background:var(--mint);box-shadow:0 0 0 4px var(--k);animation:popin .3s .8s steps(4) backwards}
+.recruit.no .killer{animation:none;filter:brightness(.45) sepia(1) hue-rotate(-50deg) saturate(4)}.recruit.no .killer::after{display:none}
+#rName{animation:popin .32s .8s steps(6) backwards;font-size:36px}
+.rk2{font:400 12px var(--t);color:var(--txt);animation:popin .3s 1s steps(5) backwards}
+.took{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:760px;min-height:34px}
+.took h4{width:100%;margin:6px 0 0;font:400 10px var(--t);color:var(--dim);letter-spacing:2px;animation:popin .3s 1.2s steps(5) backwards}
+.tchip{display:flex;align-items:center;gap:8px;text-align:left;background:var(--bg);padding:6px 10px 6px 6px;box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);font-size:14px;line-height:1.2;color:var(--txt);animation:popin .28s steps(5) backwards}
+.tchip b{display:block;font:400 10px var(--t);color:var(--y)}
+.tchip.leg{box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--y),inset -2px -2px 0 var(--gold)}
+#rVerdict{animation:popin .3s 1.5s steps(5) backwards;max-width:640px}
+#bDeadNext{margin-top:6px;animation:popin .3s 1.9s steps(5) backwards}
+@media (max-height:480px){.recruit .killer{height:80px}#rName{font-size:22px}.tchip{font-size:12px;padding:3px 8px 3px 4px}}
+
 /* In-run controls */
 #perf{position:fixed;left:8px;top:8px;z-index:9;font:400 10px var(--t);color:var(--mint);background:var(--k);padding:4px 6px;pointer-events:none}
 #joy{opacity:.75;position:fixed;width:112px;height:112px;margin:-56px 0 0 -56px;background:rgba(26,20,35,.55);box-shadow:0 0 0 2px var(--k),inset 2px 2px 0 var(--hi),inset -2px -2px 0 var(--lo);pointer-events:none;z-index:4}
@@ -455,19 +475,30 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
 </div>
 
 <div id="dead" class="ov hidden">
-  <div class="killer" id="dKiller"></div>
-  <h2 id="dTitle"></h2>
-  <div class="roster" id="dCard"></div>
-  <div class="sub big" id="dJoin"></div>
-  <div class="stats" id="dStats"></div>
-  <div class="roster" id="dProg"></div>
-  <div class="roster" id="dFeats"></div>
-  <div class="sub" id="dTease"></div>
-  <div class="btns">
-    <button class="go" id="bAgain">GO AGAIN <span class="key">SPACE</span></button>
-    <button id="bShare">COPY RESULT</button>
-    <button id="bDeadRoster">ROSTER <span class="key">R</span></button>
-    <button id="bDeadMenu">MENU <span class="key">Esc</span></button>
+  <!-- First: the recruitment. Whatever killed you joins you. -->
+  <div id="dRecruit" class="recruit">
+    <div class="rk" id="rKilled"></div>
+    <div class="killer" id="dKiller"></div>
+    <h2 id="rName"></h2>
+    <div class="rk2" id="rRank"></div>
+    <div class="took" id="rTook"></div>
+    <div class="sub big" id="rVerdict"></div>
+    <button class="go" id="bDeadNext">CONTINUE <span class="key">SPACE</span></button>
+  </div>
+  <!-- Then: what the run earned. -->
+  <div id="dSummary" class="summary hidden">
+    <h2 id="dTitle"></h2>
+    <div class="stats" id="dStats"></div>
+    <div class="roster" id="dCard"></div>
+    <div class="roster" id="dProg"></div>
+    <div class="roster" id="dFeats"></div>
+    <div class="sub" id="dTease"></div>
+    <div class="btns">
+      <button class="go" id="bAgain">GO AGAIN <span class="key">SPACE</span></button>
+      <button id="bShare">COPY RESULT</button>
+      <button id="bDeadRoster">ROSTER <span class="key">R</span></button>
+      <button id="bDeadMenu">MENU <span class="key">Esc</span></button>
+    </div>
   </div>
 </div>
 
