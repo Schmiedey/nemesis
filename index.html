@@ -209,6 +209,11 @@ button.quiet:hover{color:var(--w)}
 .card .rk{display:flex;gap:3px}.card .rk i{width:12px;height:6px;background:var(--lo)}.card .rk i.on{background:var(--mint)}.card .rk i.nx{background:var(--y);animation:pipb .5s steps(2) infinite}@keyframes pipb{50%{background:var(--lo)}}
 .card .tag{font:400 9px var(--t);font-style:normal;color:var(--cyan);border:2px solid var(--lo);padding:2px 5px}.card .tag.on{color:var(--k);background:var(--cyan);border-color:var(--cyan)}.card .tag.evo{color:var(--y);border-color:var(--y)}
 .gearcard .evo{display:block;font:400 9px var(--t);color:var(--y);margin-top:4px}
+.build{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;max-width:640px;margin:0 auto}
+.build h4{width:100%;text-align:center;font:400 10px var(--t);color:var(--dim);margin:0}
+.build .bi{display:flex;align-items:center;gap:3px;border:2px solid var(--lo);padding:2px 5px;font:400 10px var(--t);color:var(--txt)}
+.build .bi.took{border-color:var(--mint);color:var(--mint)}.build .bi.evo{border-color:var(--y);color:var(--y)}.build .bi.pair{border-color:var(--cyan);color:var(--cyan)}
+.card.deep{border-width:4px}.card .kind{font:400 9px var(--t);font-style:normal;color:var(--dim)}
 .card .ba{font:400 10px var(--t);font-style:normal;color:var(--dim)}.card .ba b{color:var(--mint);font-weight:400;margin-left:6px}.card .ba b::before{content:'';display:inline-block;width:6px;height:6px;margin-right:6px;background:var(--mint);clip-path:polygon(0 0,100% 50%,0 100%)}
 
 /* Missions and goals */
@@ -496,6 +501,7 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
   <div id="dSummary" class="summary hidden">
     <h2 id="dTitle"></h2>
     <div class="stats" id="dStats"></div>
+    <div class="build" id="dBuild"></div>
     <div class="roster" id="dCard"></div>
     <div class="roster" id="dProg"></div>
     <div class="roster" id="dFeats"></div>

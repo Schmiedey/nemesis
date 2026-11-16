@@ -1,4 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
+import { pendingLevels } from './sim.js';
 import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, PAIRS, WEAPON_EVOS, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
@@ -389,6 +390,7 @@ export function showDead(g, save, res, end) {
     `Too weak to earn a place: you already have three stronger ${d.name}s. Last longer and a stronger one will come.`;
   // --- the summary, shown after CONTINUE ---
   $('dTitle').innerHTML = newBest ? 'A NEW BEST' : 'THE RUN';
+  $('dBuild').innerHTML = buildRow(g, r);
   $('dCard').innerHTML = growthCards(growth.filter(x => x.nem !== res.old));
   $('dStats').innerHTML = stat(fmt(g.t), newBest ? 'new best' : 'survived', newBest ? 'best' : '') +
     stat(g.kills, 'kills') + stat(g.P.lvl, 'level') + (newBest ? '' : stat(fmt(best), 'best')) + (KIND[kind] ? stat(KIND[kind], 'mode') : '');
@@ -420,7 +422,8 @@ export function showWon(g, save, end) {
 export function showLevel(g, onPick, banishing = false) {
   const el = $('cards'); el.innerHTML = '';
   const top = topRarity(g);
-  $('lvlTitle').textContent = top === 'legendary' ? 'LEGENDARY!' : g.chest ? 'CHEST' : 'LEVEL UP';
+  const more = pendingLevels(g);                      // several levels at once: say how many are queued
+  $('lvlTitle').textContent = (top === 'legendary' ? 'LEGENDARY!' : g.chest ? 'CHEST' : 'LEVEL UP') + (more ? '  +' + more + ' MORE' : '');
   $('lvlTitle').className = 't-' + top;
   $('bReroll').classList.toggle('hidden', !(g.rerolls > 0)); $('bReroll').querySelector('b').textContent = g.rerolls || '';
   $('bBanish').classList.toggle('hidden', !(g.banishes > 0)); $('bBanish').querySelector('b').textContent = g.banishes || '';
@@ -429,11 +432,11 @@ export function showLevel(g, onPick, banishing = false) {
   $('lvlSlots').innerHTML = `<span>UPGRADES ${held} / ${UP_SLOTS}</span>` + (held >= UP_SLOTS ? '<span>ALL SLOTS FULL: ONLY YOURS ARE OFFERED</span>' : '');
   g.choices.forEach((u, i) => {
     const rar = g.rar[i] || 'common', s = u.leg ? 1 : RARITY[rar].s;
-    const c = document.createElement('div'); c.className = 'card r-' + rar + (u.ally ? ' ally' : '');
     const have = g.picks[u.id] || 0;
+    const c = document.createElement('div'); c.className = 'card r-' + rar + (u.ally ? ' ally' : '') + (have >= 3 ? ' deep' : '');
     const d = upText(u, s, WEAPONS[g.P.weapon].up);          // some upgrades mean something different per weapon
     const sparks = rar === 'legendary' || rar === 'epic' ? `<i class="sp s1">${pix('glint', 2)}</i><i class="sp s2">${pix('glint', 2)}</i><i class="sp s3">${pix('glint', 2)}</i>` : '';
-    c.innerHTML = `<i class="rar">${RARITY[rar].n.toUpperCase()}</i>${sparks}${pix(u.ic || 'i_' + u.id, 4)}<b>${u.n}</b><span>${d}</span>` +
+    c.innerHTML = `<i class="rar">${RARITY[rar].n.toUpperCase()}</i>${sparks}${pix(u.ic || 'i_' + u.id, 4)}<b>${u.n}</b>${u.filler ? '' : `<i class="kind">${u.evo ? 'EVOLUTION' : u.leg ? 'LEGENDARY POWER' : kindOf(g, u)}</i>`}<span>${d}</span>` +
       preview(g, u, s) + (u.leg || u.filler ? '' : rankPips(have)) +
       pairTag(g, u) + `<em>${u.evo ? 'weapon evolution' : u.leg ? 'one of a kind' : u.filler ? 'nothing left to learn' : u.ally ? 'for your allies' : have ? 'rank ' + have + ' to ' + (have + 1) : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
@@ -442,6 +445,16 @@ export function showLevel(g, onPick, banishing = false) {
   show('lvl');
 }
 
+// Your build at the end: every upgrade with its rank, your evolution and pairs. What the recruit took is lit.
+function buildRow(g, r) {
+  const took = new Set([...Object.keys(r?.perks || {}), ...(r?.legs || [])]), out = [];
+  for (const u of UP) if (g.picks[u.id]) out.push(`<span class="bi${took.has(u.id) ? ' took' : ''}">${pix(u.ic || 'i_' + u.id, 2)}${u.leg ? '' : g.picks[u.id]}</span>`);
+  if (g.P.evo) out.push(`<span class="bi evo">${pix('i_' + g.P.weapon, 2)}${WEAPON_EVOS[g.P.weapon].n.toUpperCase()}</span>`);
+  for (const p of PAIRS) if (g.pairs[p.id]) out.push(`<span class="bi pair">${p.n.toUpperCase()}</span>`);
+  return out.length ? `<h4>YOUR BUILD${took.size ? ': LIT ONES WENT TO YOUR RECRUIT' : ''}</h4>` + out.join('') : '';
+}
+// What kind of upgrade a card is.
+const kindOf = (g, u) => u.ally || u.minion ? 'PARTY' : (WEAPONS[g.P.weapon].up || {})[u.id] || ['shots', 'pierce', 'haste', 'dmg', 'crit', 'chain'].includes(u.id) ? 'WEAPON' : 'PASSIVE';
 // A card that would complete a pair, or feeds your weapon's evolution, says so.
 function pairTag(g, u) {
   const ev = WEAPON_EVOS[g.P.weapon];

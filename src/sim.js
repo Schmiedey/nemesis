@@ -669,9 +669,13 @@ function die(g, src, byBoss) {
   burst(g, g.P.x, g.P.y, '#fff', 40, 300); shake(g, 16); snd(g, 'die');
 }
 
+// Experience needed for the next level, from the current requirement. Phase 22 tunes the pace.
+export const nextXp = n => Math.floor(n * 1.22 + 3);
+// How many more level-ups the experience you hold already covers (shown as "+2 MORE").
+export function pendingLevels(g) { let x = g.P.xp, n = g.P.next, c = 0; while (x >= n && c < 9) { x -= n; n = nextXp(n); c++; } return c; }
 function levelUp(g) {
   const P = g.P;
-  P.xp -= P.next; P.lvl++; P.next = Math.floor(P.next * 1.22 + 3);
+  P.xp -= P.next; P.lvl++; P.next = nextXp(P.next);
   g.state = 'lvl'; snd(g, 'level');
   rollChoices(g);
 }

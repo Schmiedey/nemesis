@@ -102,6 +102,13 @@ Built on a few well-established findings about why games are satisfying; each is
 - **A nemesis with a grudge** (Phase 19): the boss (whatever killed you most) gets a name, shows how often it has killed you, and carries up to two Legendary powers you held when you died, newest first. Its versions: Thunderstorm marks where you stand and strikes 0.9s later (24 damage, radius 46); Phoenix rises once at 40%; Titan +35% health; Twin Soul doubles its summons; Midas makes a quarter of its summons golden. Beating it wipes what it learned. Not yet measured by the bot (balance runs pass no grudge).
 - **Hook missions**: fall to an elite or golden enemy, recruit a Veteran or better, your nemeses kill N in one run, slay your nemesis.
 
+## Level-ups (Phases 20-22)
+- **Ranks and slots.** Each upgrade goes to rank 5 (`MAX_RANK`). A run holds six different upgrades (`UP_SLOTS`); Legendaries don't count. With all six filled, only those are offered; when every one is maxed or banished, fillers (Hearty Meal, Soul Purse, Spark) fill the cards.
+- **Weights.** Held upgrades x2.2, upgrades your weapon reads differently x1.5. Banish (1 a run, +1 per Shrine rank of Cast Out) removes a card for the run and deals a new one in its place. Four level-ups in a row with nothing Rare or better make one card Rare.
+- **Evolutions** (`WEAPON_EVOS`): Blaster + Trigger Happy = Gatling; Greatsword + Thick Skin = Kingsblade (heals 1 per enemy cut, up to 6 a swing); Boomerang + Swift = Moonblade; Flamewalker + Regrowth = Hellfire Trail; Storm Rod + Lucky Shot = Tempest; Totem + Magnet = Watchtower. Needs the partner at rank 5; the next chest after 3:00 offers it as a Legendary card.
+- **Pairs** (`PAIRS`): Frostbite + Wildfire = Steam (+40% damage to slowed, burning enemies); Leech + Regrowth = Bloodthirst; Lucky Shot + Executioner = Killing Edge; Thick Skin + Plating = Juggernaut; Rally + Pack Tactics = Warband; Scholar + Focus = Arcane Engine.
+- **The Knight** always fights with the Greatsword (`CLASSES.knight.weapon`). Solo with the sword: 2:59, as before.
+
 ## Progression (Phase 13)
 What carries over between runs, and why there is always something to work toward:
 - **Souls.** Every run pays souls, win or lose: 0.12 per kill + 0.2 per second + 4 per chest + 15 for reaching the boss + 60 for a win, then +25% per Nemesis+ tier and +10% per rank of Greed (`soulsFor` in `src/save.js`).

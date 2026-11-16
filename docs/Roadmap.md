@@ -117,6 +117,25 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Missions that point at the hook
 - Done when: the boss feels like the thing that has been killing you, not a big enemy.
 
+## Phase 20: Builds you steer
+- [x] Upgrade ranks up to 5, six upgrade slots; once full only your own upgrades are offered
+- [x] Offers weighted toward what you hold and what suits your weapon; banish (Shrine: Cast Out); pity Rare after 4 dry level-ups
+- [x] Cards show rank pips and before -> after numbers
+- Done when: by 3:00 a run has a clear build you chose.
+
+## Phase 21: Evolutions and pairs
+- [x] Each weapon evolves with a partner upgrade at rank 5, offered by the next chest after 3:00
+- [x] Six upgrade pairs that switch on a bonus; cards say PAIRS WITH / COMPLETES
+- [x] Loadout shows each weapon's recipe
+- Done when: players chase a recipe on purpose.
+
+## Phase 22: Pace and feel
+- [x] XP curve tuned with the bot (targets below)
+- [x] Several levels at once: "+N MORE" and a shorter pause between picks
+- [x] Cards tagged WEAPON / PASSIVE / PARTY; deeper frame from rank 3
+- [x] Build summary on the death screen, lighting what the recruit took
+- Done when: level-ups keep coming at a steady beat to the boss.
+
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.
 - Logic before art. Art by script. Balance by simulation.

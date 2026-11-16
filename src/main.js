@@ -89,7 +89,7 @@ function choose(i) {
   setTimeout(() => {                                   // let the chosen card flash before the game resumes
     if (g !== run || mode !== 'lvl') return;
     pickFx(g, g.choices[i].n, g.rar[i]); pick(g, i);
-    if (g.state === 'lvl') startLevel(0.5); else { ui.hideLevel(); mode = 'play'; picking = false; }
+    if (g.state === 'lvl') startLevel(0.3); else { ui.hideLevel(); mode = 'play'; picking = false; }
   }, 320);
 }
 
