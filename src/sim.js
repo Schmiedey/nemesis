@@ -30,7 +30,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute' } = {}) {
     state: 'play', t: 0, kills: 0, spawnT: 0.2, surgeT: 20, allyBuff: 1, allyHaste: 1, secondWind: false,
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
-    P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 210, fire: 0.42, fireT: 0,
+    P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   for (const nem of g.party) {
@@ -55,7 +55,7 @@ function mk(g, type, team, x, y, { small = false, hpMul = 1, dmgMul = 1, spdMul 
   e.maxhp = e.hp; g.ents.push(e); return e;
 }
 
-const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 130, dmgMul: 1 + g.t / 260 });
+const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 130, dmgMul: 1.25 + g.t / 200, spdMul: Math.min(1.45, 1 + g.t / 400) });
 
 function spawnAlly(g, nem, lives) {
   const pk = nem.perks || {};
@@ -78,7 +78,7 @@ function spawnEnemy(g, ang) {
   const a = ang ?? g.rand() * 6.28, dist = rr(g, 600, 680);
   const x = clamp(g.P.x + Math.cos(a) * dist, -30, ARENA.w + 30);
   const y = clamp(g.P.y + Math.sin(a) * dist, -30, ARENA.h + 30);
-  const n = type === 'bat' ? 3 + Math.floor(g.t / 70) : type === 'slime' && g.t > 90 ? 2 : 1;
+  const n = type === 'bat' ? 4 + Math.floor(g.t / 60) : type === 'slime' && g.t > 90 ? 2 : 1;
   for (let i = 0; i < n; i++) mkEnemy(g, type, x + rr(g, -20, 20), y + rr(g, -20, 20));
 }
 
@@ -172,8 +172,8 @@ function think(g, e, dt) {
     else if (dist > 230) moveTo(e, tg.x, tg.y, dt);
     else if (dist < 170) moveTo(e, 2 * e.x - tg.x, 2 * e.y - tg.y, dt);
     if (e.act <= 0 && dist < 400) {
-      e.act = (ally ? 1.1 : 1.7) / e.haste;
-      volley(g, e, tg, 1 + (pk?.shots || 0), ally ? 380 : 250, e.dmg, pk?.pierce || 0);
+      e.act = (ally ? 1.1 : 1.3) / e.haste;
+      volley(g, e, tg, 1 + (pk?.shots || 0), ally ? 380 : 300, e.dmg, pk?.pierce || 0);
     }
     e.x = clamp(e.x, -40, ARENA.w + 40); e.y = clamp(e.y, -40, ARENA.h + 40);
     return;
@@ -193,7 +193,7 @@ function damage(g, o, amt, src, byBoss = false) {
   const P = g.P;
   if (o === P) {
     if (P.inv > 0 || g.state !== 'play') return;
-    P.hp -= amt; P.inv = 0.35; P.flash = 0.15; shake(g, 8);
+    P.hp -= amt; P.inv = 0.25; P.flash = 0.15; shake(g, 8);
     if (P.hp <= 0) { P.hp = 0; die(g, src, byBoss); }
     return;
   }

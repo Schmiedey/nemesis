@@ -31,8 +31,10 @@ A human plays better than the bot, so read these as relative, not absolute.
 
 | Party | Median survival | Reached boss | Wins |
 |---|---|---|---|
-| None | 1:24 | 0/8 | 0 |
-| 3 runts | 1:27 | 0/8 | 0 |
-| 3 soldiers | 2:04 | 1/8 | 0 |
-| 3 veterans with perks | 2:07 | 0/8 | 0 |
-| 3 champions with perks | 3:34 | 1/8 | 1 |
+| None | 0:39 | 0/8 | 0 |
+| 3 runts | 0:49 | 0/8 | 0 |
+| 3 soldiers | 1:06 | 0/8 | 0 |
+| 3 veterans with perks | 1:43 | 0/8 | 0 |
+| 3 champions with perks | 2:25 | 0/8 | 0 |
+
+Tuning after two "too easy" playtests: enemies are 13–40% faster and speed up over a run (up to +45%), hit 25% harder, player speed 200, hit immunity 0.25s, bat packs of 4+.
