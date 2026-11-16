@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 built on branch `phase-2-art`, not yet merged: sprites, menus and sound effects. Music is on hold: the user disliked both soundtrack attempts, so it is switched off (`MUSIC_ON` in `src/audio.js`); do not work on it until asked. Enemies slowed and given a turn rate after playtest feedback. Next: confirm enemy speed feels right, merge, Phase 3.
+**Status:** Phase 2 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked). Phase 3 started on branch `phase-3-ship`: the arena now has a map (rocks, stone floor, minimap). Next: touch controls, performance, final name.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -20,6 +20,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: no placeholder shapes or silent actions remain.
 
 ## Phase 3: Ship it
+- [x] Map: fixed rocks and pillars, floor art, minimap
 - [ ] Touch controls, performance, final name
 - [ ] itch.io upload, 10-second clip
 - [ ] Steam only if the web version gets traction ($100)

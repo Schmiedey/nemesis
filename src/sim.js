@@ -3,6 +3,21 @@ import { T, UP, PERKS, BOSS_TIME } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
+// The map: fixed rocks and pillars, the same every run so it can be learned. Circles: { x, y, r }.
+// They block walkers and enemy bullets (your side's shots pass over). Flyers (Bat, Wisp) and the boss ignore them.
+export const ROCKS = [
+  { x: 560, y: 330, r: 34 }, { x: 1040, y: 330, r: 34 }, { x: 560, y: 670, r: 34 }, { x: 1040, y: 670, r: 34 },
+  { x: 300, y: 500, r: 48 }, { x: 1300, y: 500, r: 48 }, { x: 800, y: 190, r: 42 }, { x: 800, y: 810, r: 42 },
+  { x: 220, y: 200, r: 30 }, { x: 272, y: 252, r: 22 }, { x: 1380, y: 200, r: 30 }, { x: 1328, y: 252, r: 22 },
+  { x: 220, y: 800, r: 30 }, { x: 272, y: 748, r: 22 }, { x: 1380, y: 800, r: 30 }, { x: 1328, y: 748, r: 22 },
+];
+// Push a circle body out of any rock it overlaps.
+function unstick(o) {
+  for (const k of ROCKS) {
+    const dx = o.x - k.x, dy = o.y - k.y, r = k.r + o.r, dd = dx * dx + dy * dy;
+    if (dd < r * r) { const l = Math.sqrt(dd) || 0.01; o.x = k.x + dx / l * r; o.y = k.y + dy / l * r; }
+  }
+}
 export const BOSS_HP = 9000;
 const ALLY_LIVES = 3, BOMBER_LIVES = 6;
 
@@ -292,8 +307,9 @@ export function step(g, dt, input) {
   const P = g.P;
   g.t += dt;
   const ml = Math.hypot(input.mx, input.my) || 1;
-  P.x = clamp(P.x + input.mx / ml * P.spd * dt, P.r, ARENA.w - P.r);
-  P.y = clamp(P.y + input.my / ml * P.spd * dt, P.r, ARENA.h - P.r);
+  P.x += input.mx / ml * P.spd * dt; P.y += input.my / ml * P.spd * dt;
+  unstick(P);
+  P.x = clamp(P.x, P.r, ARENA.w - P.r); P.y = clamp(P.y, P.r, ARENA.h - P.r);
   P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * dt);
   P.fireT -= dt;
   if (P.fireT <= 0) {
@@ -333,8 +349,11 @@ export function step(g, dt, input) {
     }
   }
 
+  for (const e of ents) if (!e.dead && !e.boss && !T[e.type].fly) unstick(e);
+
   for (const b of g.bullets) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.team === 'enemy') for (const k of ROCKS) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
     if (b.x < -50 || b.y < -50 || b.x > ARENA.w + 50 || b.y > ARENA.h + 50) b.life = 0;
     if (b.life <= 0) continue;
     for (const o of targetsOf(g, b.team === 'ally' ? 'enemy' : 'ally')) {

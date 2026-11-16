@@ -31,6 +31,12 @@ A giant version of the enemy type that has killed you most. Chases you, summons 
 - A stronger party draws a slightly bigger swarm (+3% spawns per point of total quality).
 - Boss has 9000 HP.
 
+## Map
+- One fixed arena (1600x1000), the same every run so it can be learned: 16 rocks and pillars (`ROCKS` in `src/sim.js`), four pillars around the centre, big rocks on each side, clusters in the corners.
+- Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's ring. Your side's shots pass over them (blocking those too dropped a champion party to 3 wins in 10).
+- Bats and Wisps fly over rocks (`fly: true` in the enemy table). The boss ignores them.
+- A minimap in the bottom-left shows rocks, enemies (red), allies (green), the boss and the camera view.
+
 ## Difficulty targets
 Tuned by simulation against a bot that plays like a skilled person (`smart` in `tests/bot.js`): it dodges, avoids walls and collects gems.
 - Alone: die around 1:30–2:00, first hit before 0:30.
@@ -40,10 +46,10 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 1:38 | 0/10 | 0 | 0:31 |
-| 3 runts | 2:04 | 0/10 | 0 | 0:41 |
-| 3 soldiers | 2:04 | 1/10 | 1 | 0:46 |
-| 3 veterans with perks | 3:34 | 3/10 | 2 | 1:44 |
-| 3 champions with perks | 5:38 | 9/10 | 7 | 2:58 |
+| None | 1:48 | 2/10 | 1 | 0:26 |
+| 3 runts | 1:50 | 0/10 | 0 | 0:36 |
+| 3 soldiers | 1:50 | 0/10 | 0 | 0:43 |
+| 3 veterans with perks | 3:36 | 3/10 | 2 | 1:41 |
+| 3 champions with perks | 5:12 | 8/10 | 6 | 3:15 |
 
-Known gaps: a champion party is not hit until about 2:58, so its opening is still safe; runts and soldiers have the same median.
+Known gaps: a champion party is not hit until about 3:15, so its opening is still safe; runt and soldier parties last no longer than playing alone.

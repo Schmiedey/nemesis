@@ -1,6 +1,6 @@
 // Draws the game. Fixed 960x600 view scaled to the window, camera follows the player.
 import { T, BOSS_TIME } from './data.js';
-import { ARENA, VIEW } from './sim.js';
+import { ARENA, VIEW, ROCKS } from './sim.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a); // cosmetic only
@@ -98,6 +98,66 @@ function drawBar(cx, e) {
   }
 }
 
+// The floor, walls and rocks never change, so they are painted once and reused every frame.
+let groundCv = null;
+function ground() {
+  if (groundCv) return groundCv;
+  groundCv = document.createElement('canvas'); groundCv.width = ARENA.w; groundCv.height = ARENA.h;
+  const c = groundCv.getContext('2d');
+  let seed = 7; const rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  c.fillStyle = '#0e0e16'; c.fillRect(0, 0, ARENA.w, ARENA.h);
+  for (let x = 0; x < ARENA.w; x += 80) for (let y = 0; y < ARENA.h; y += 80) {   // flagstones
+    c.fillStyle = `rgba(255,255,255,${0.008 + rn() * 0.022})`; c.fillRect(x + 1, y + 1, 78, 78);
+  }
+  for (let i = 0; i < 900; i++) {                                                  // grit
+    c.fillStyle = rn() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.35)';
+    c.fillRect(rn() * ARENA.w, rn() * ARENA.h, 1 + rn() * 2, 1 + rn() * 2);
+  }
+  c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = 1.5;                             // cracks
+  for (let i = 0; i < 26; i++) {
+    let x = rn() * ARENA.w, y = rn() * ARENA.h, a = rn() * 6.28; c.beginPath(); c.moveTo(x, y);
+    for (let k = 0; k < 5; k++) { a += (rn() - 0.5) * 1.4; x += Math.cos(a) * 16; y += Math.sin(a) * 16; c.lineTo(x, y); }
+    c.stroke();
+  }
+  const v = c.createRadialGradient(ARENA.w / 2, ARENA.h / 2, 250, ARENA.w / 2, ARENA.h / 2, 950); // darker toward the walls
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)');
+  c.fillStyle = v; c.fillRect(0, 0, ARENA.w, ARENA.h);
+  for (const k of ROCKS) {
+    c.fillStyle = 'rgba(0,0,0,.5)'; c.beginPath(); c.ellipse(k.x + 7, k.y + 9, k.r * 1.02, k.r * 0.95, 0, 0, 7); c.fill(); // shadow
+    const pts = []; const n = 9 + Math.floor(rn() * 3), a0 = rn() * 6.28;
+    for (let i = 0; i < n; i++) { const a = a0 + i * 6.283 / n, q = k.r * (0.9 + rn() * 0.12); pts.push([k.x + Math.cos(a) * q, k.y + Math.sin(a) * q]); }
+    const gr = c.createRadialGradient(k.x - k.r * 0.4, k.y - k.r * 0.45, k.r * 0.1, k.x, k.y, k.r * 1.1);
+    gr.addColorStop(0, '#6c6c86'); gr.addColorStop(0.6, '#3a3a4e'); gr.addColorStop(1, '#1c1c28');
+    c.fillStyle = gr; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
+    c.strokeStyle = '#08080c'; c.lineWidth = 2.5; c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1.5; c.beginPath();                // facets
+    for (let i = 0; i < n; i += 3) { c.moveTo(k.x + (rn() - 0.5) * k.r * 0.5, k.y + (rn() - 0.5) * k.r * 0.5); c.lineTo(pts[i][0], pts[i][1]); }
+    c.stroke();
+  }
+  c.strokeStyle = '#2a1820'; c.lineWidth = 16; c.strokeRect(0, 0, ARENA.w, ARENA.h);    // wall
+  c.strokeStyle = '#ff3b5c88'; c.lineWidth = 2; c.strokeRect(9, 9, ARENA.w - 18, ARENA.h - 18);
+  return groundCv;
+}
+
+// Corner radar: the whole arena at a glance.
+function minimap(cx, g, camX, camY, H) {
+  const w = 168, h = w * ARENA.h / ARENA.w, x0 = 14, y0 = H - h - 14, k = w / ARENA.w;
+  cx.fillStyle = 'rgba(6,6,10,.72)'; cx.fillRect(x0, y0, w, h);
+  cx.fillStyle = '#4a4a60'; for (const r of ROCKS) { cx.beginPath(); cx.arc(x0 + r.x * k, y0 + r.y * k, Math.max(1.5, r.r * k), 0, 7); cx.fill(); }
+  for (const e of g.ents) {
+    if (e.boss) continue;
+    cx.fillStyle = e.team === 'ally' ? '#7dffb0' : '#ff3b5c'; cx.fillRect(x0 + e.x * k - 1, y0 + e.y * k - 1, 2, 2);
+  }
+  if (g.boss) {
+    const p = 4 + Math.sin(g.t * 6);
+    cx.fillStyle = '#ff3b5c'; cx.beginPath(); cx.arc(x0 + g.boss.x * k, y0 + g.boss.y * k, p, 0, 7); cx.fill();
+    cx.strokeStyle = '#fff'; cx.lineWidth = 1; cx.stroke();
+  }
+  cx.strokeStyle = 'rgba(255,255,255,.28)'; cx.lineWidth = 1; cx.strokeRect(x0 + camX * k, y0 + camY * k, VIEW.w * k, VIEW.h * k);
+  cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(x0 + g.P.x * k, y0 + g.P.y * k, 2.5, 0, 7); cx.fill();
+  cx.strokeStyle = '#3a3a4c'; cx.strokeRect(x0 + .5, y0 + .5, w, h);
+}
+
 export function draw(cv, cx, g) {
   cx.setTransform(1, 0, 0, 1, 0, 0);
   cx.fillStyle = '#050508'; cx.fillRect(0, 0, cv.width, cv.height);
@@ -111,14 +171,8 @@ export function draw(cv, cx, g) {
   cx.save();
   cx.beginPath(); cx.rect(ox, oy, VIEW.w * sc, VIEW.h * sc); cx.clip();
   cx.setTransform(sc, 0, 0, sc, ox + rnd(-shakeAmt, shakeAmt) * sc, oy + rnd(-shakeAmt, shakeAmt) * sc);
-  cx.fillStyle = '#0b0b10'; cx.fillRect(0, 0, VIEW.w, VIEW.h);
   cx.translate(-camX, -camY);
-
-  cx.strokeStyle = '#14141d'; cx.lineWidth = 1; cx.beginPath();
-  for (let x = 0; x <= ARENA.w; x += 40) { cx.moveTo(x, 0); cx.lineTo(x, ARENA.h); }
-  for (let y = 0; y <= ARENA.h; y += 40) { cx.moveTo(0, y); cx.lineTo(ARENA.w, y); }
-  cx.stroke();
-  cx.strokeStyle = '#ff3b5c55'; cx.lineWidth = 3; cx.strokeRect(0, 0, ARENA.w, ARENA.h);
+  cx.drawImage(ground(), camX, camY, VIEW.w, VIEW.h, camX, camY, VIEW.w, VIEW.h);
 
   for (const gem of g.gems) { cx.fillStyle = gem.v >= 5 ? '#ffd23f' : '#7dffb0'; cx.fillRect(gem.x - 3, gem.y - 3, 6, 6); }
   for (const e of g.ents) drawEnt(cx, g, e);
@@ -148,6 +202,7 @@ export function draw(cv, cx, g) {
   cx.font = '14px ' + font; cx.textAlign = 'left'; cx.fillStyle = '#aaa'; cx.fillText(`LV ${P.lvl}   KILLS ${g.kills}`, 16, 30);
   const bw = 260; cx.fillStyle = '#222'; cx.fillRect(W / 2 - bw / 2, H - 30, bw, 10);
   cx.fillStyle = '#ff3b5c'; cx.fillRect(W / 2 - bw / 2, H - 30, bw * P.hp / P.maxhp, 10);
+  minimap(cx, g, camX, camY, H);
   // Surge warning: a red arc on the side the wave is coming from.
   if (surge) {
     cx.globalAlpha = Math.min(1, surge.life) * (0.5 + 0.5 * Math.sin(g.t * 16));
