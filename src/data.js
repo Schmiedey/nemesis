@@ -80,6 +80,21 @@ export const UP = [
   { id: 'twin', n: 'Twin Soul', ic: 'i_decoy', leg: true, minion: true, d: () => 'A second copy of your class minion joins you', f: g => g.twin = true },
 ];
 // The text on a card. Some upgrades mean something different for the equipped weapon (see WEAPONS[...].up).
+// Phase 20: each upgrade goes up to rank 5, and a run holds at most six different ones (Legendaries aside).
+export const MAX_RANK = 5, UP_SLOTS = 6;
+// Offered only when there is nothing else left to offer (everything held is maxed or banished).
+export const FILLERS = [
+  { id: 'meal', n: 'Hearty Meal', ic: 'i_tough', filler: true, fixed: 'common', d: () => 'Heal 40% of your health', f: g => { g.P.hp = Math.min(g.P.maxhp, g.P.hp + g.P.maxhp * 0.4); } },
+  { id: 'purse', n: 'Soul Purse', ic: 'i_soul', filler: true, fixed: 'common', d: () => '+10 souls at the end of the run', f: g => { g.bonusSouls += 10; } },
+  { id: 'spark', n: 'Spark', ic: 'i_dmg', filler: true, fixed: 'common', d: () => '+5% damage', f: g => { g.P.dmg *= 1.05; } },
+];
+// What a card can show as before -> after. [label, read(g), decimals, unit]
+export const UP_STAT = {
+  dmg: ['Damage', g => g.P.dmg, 1], haste: ['Attacks a second', g => 1 / g.P.fire, 2], spd: ['Move speed', g => g.P.spd, 0],
+  tough: ['Max health', g => g.P.maxhp, 0], magnet: ['Pickup range', g => g.P.magnet, 0], regen: ['Health a second', g => g.P.regen, 1],
+  armor: ['Damage taken', g => g.armor * 100, 0, '%'], crit: ['Crit chance', g => g.P.crit * 15, 0, '%'], scholar: ['Experience', g => g.xpMul * 100, 0, '%'],
+  exec: ['Execute bonus', g => g.P.exec * 100, 0, '%'], dodge: ['Dodge chance', g => g.P.dodge * 100, 0, '%'],
+};
 export const upText = (u, s = 1, weaponUp) => (weaponUp && weaponUp[u.id] && k(s) === 1 ? weaponUp[u.id] : weaponUp && weaponUp[u.id] ? weaponUp[u.id] + ' (x' + k(s) + ')' : u.d(s));
 
 // Perks a recruit can inherit from the build you died with, and the title each one earns.
@@ -247,6 +262,7 @@ export const META = [
   { id: 'greed', n: 'Greed', i: 'i_coin', d: '+10% souls from every run', cost: [50, 100, 170, 260, 380] },
   { id: 'kin', n: 'Kinship', i: 'i_rally', d: '+8% strength for nemeses and minions', cost: [40, 80, 140, 220, 340] },
   { id: 'luck', n: 'Fortune', i: 'i_crit', d: 'Rare, Epic and Legendary upgrades turn up 12% more often', cost: [60, 120, 200, 300, 420] },
+  { id: 'banish', n: 'Cast Out', i: 'i_skull', d: '+1 banish each run: remove an upgrade from your choices for the rest of the run', cost: [90, 220] },
   { id: 'reroll', n: 'Second Thoughts', i: 'i_wind', d: '+1 reroll of your level-up choices each run', cost: [80, 200, 400] },
 ];
 // Nemesis+: a ladder of difficulty tiers. Winning at your highest tier unlocks the next.

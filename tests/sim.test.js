@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, step, pick, reroll, recruitQuality, ARENA } from '../src/sim.js';
+import { createGame, step, pick, reroll, banish, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
 import { grudgeFor, feedGrudge, sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
@@ -339,7 +339,7 @@ describe('sim', () => {
 
     // Over many level-ups every rarity turns up, Common most, Legendary least; luck shifts it up.
     const tally = luck => { const g = createGame({ seed: 5, meta: { luck } }); const c = { common: 0, rare: 0, epic: 0, legendary: 0 }; const seen = new Set();
-      for (let i = 0; i < 300; i++) { g.P.xp = g.P.next = 1; g.P.hp = g.P.maxhp = 1e9; g.state = 'play'; step(g, 1 / 60, still()); for (let j = 0; j < 3; j++) { c[g.rar[j]]++; seen.add(g.choices[j].id); } pick(g, 0); g.state = 'play'; }
+      for (let i = 0; i < 300; i++) { g.P.xp = g.P.next = 1; g.P.hp = g.P.maxhp = 1e9; g.state = 'play'; step(g, 1 / 60, still()); for (let j = 0; j < 3; j++) { c[g.rar[j]]++; seen.add(g.choices[j].id); } pick(g, 0); g.state = 'play'; if (i % 20 === 19) g.picks = {}; }   // fresh build now and then, so slots and ranks never run dry
       return { c, seen }; };
     const a = tally(0), b = tally(5);
     expect(a.c.common).toBeGreaterThan(a.c.rare); expect(a.c.rare).toBeGreaterThan(a.c.epic); expect(a.c.epic).toBeGreaterThan(a.c.legendary); expect(a.c.legendary).toBeGreaterThan(0);
@@ -648,6 +648,28 @@ describe('the grudge', () => {
     b2.hp = 1; b2.inv = 0; g2.P.inv = 99;
     for (let i = 0; i < 600 && b2.rise; i++) step(g2, 1 / 60, { mx: (b2.x - g2.P.x) / 1e3, my: (b2.y - g2.P.y) / 1e3 });
     expect(b2.rise).toBe(false); expect(g2.state).toBe('play'); expect(b2.hp).toBeGreaterThan(b2.maxhp * 0.3);
+  });
+});
+
+describe('level-ups (Phase 20)', () => {
+  const lvl = g => { g.P.xp = g.P.next = 1; g.P.hp = g.P.maxhp = 1e9; g.state = 'play'; step(g, 1 / 60, { mx: 0, my: 0 }); };
+  it('ranks cap at 5, six slots narrow the offers, and fillers appear when nothing is left', () => {
+    const g = createGame({ seed: 2 });
+    for (const id of ['dmg', 'haste', 'spd', 'tough', 'magnet', 'regen']) g.picks[id] = 2;
+    g.picks.dmg = 5;
+    for (let i = 0; i < 40; i++) { lvl(g); for (const u of g.choices) { expect(u.leg || u.filler || (g.picks[u.id] && u.id !== 'dmg')).toBeTruthy(); } }
+    for (const id of ['haste', 'spd', 'tough', 'magnet', 'regen']) g.picks[id] = 5;
+    lvl(g); expect(g.choices.filter(u => u.filler).length).toBeGreaterThan(0);
+  });
+  it('banish removes a card for the run and replaces it in place; pity forces a Rare', () => {
+    const g = createGame({ seed: 7 }); lvl(g);
+    const gone = g.choices.findIndex(u => !u.leg), id = g.choices[gone].id, others = g.choices.filter((_, i) => i !== gone);
+    expect(banish(g, gone)).toBe(true); expect(g.choices.length).toBe(3);
+    expect(g.choices.filter((_, i) => i !== gone)).toEqual(others); expect(g.choices[gone].id).not.toBe(id);
+    expect(banish(g, 0)).toBe(false);                                         // one banish by default
+    for (let i = 0; i < 60; i++) { lvl(g); pick(g, 0); g.picks = {}; expect(g.choices.some(u => u.id === id)).toBe(false); }
+    const h = createGame({ seed: 7 }); h.luck = 0; h.dry = 3; lvl(h);
+    expect(h.rar).toContain('rare'); expect(h.dry).toBe(0);
   });
 });
 

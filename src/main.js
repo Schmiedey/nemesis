@@ -1,5 +1,5 @@
 // Glue: input, game loop, saves, overlays.
-import { createGame, step, pick, reroll, recruitQuality } from './sim.js';
+import { createGame, step, pick, reroll, banish, recruitQuality } from './sim.js';
 import { loadSave, writeSave, resetSave, setSlot, currentSlot, addRecruit, bossTypeFor, grudgeFor, feedGrudge, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, progress, buyMeta, PARTY_SIZE } from './save.js';
 import { masteryLevel, LEG_TRAIT } from './data.js';
 import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites, levelFx, pickFx } from './render.js';
@@ -74,12 +74,16 @@ function begin(k = 'normal') {
   if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again
 }
 
-function doReroll() { if (mode === 'lvl' && lvlWait <= 0 && !picking && reroll(g)) { audio.sfx('ui'); ui.showLevel(g, choose); } }
+function doReroll() { if (mode === 'lvl' && lvlWait <= 0 && !picking && reroll(g)) { banishing = false; audio.sfx('ui'); ui.showLevel(g, choose); } }
+// Banish: the button (or B) arms it; the next card picked is cast out instead of taken.
+let banishing = false;
+function doBanish() { if (mode === 'lvl' && lvlWait <= 0 && !picking && g.banishes > 0) { banishing = !banishing; audio.sfx('ui'); ui.showLevel(g, choose, banishing); } }
 // Levelling up is a moment: the game freezes, a beam and sparks play, then the cards are dealt.
 let lvlWait = 0, picking = false;
-function startLevel(wait = 0.75) { mode = 'lvl'; lvlWait = wait; picking = false; ui.hideLevel(); levelFx(g); }
+function startLevel(wait = 0.75) { mode = 'lvl'; lvlWait = wait; picking = false; banishing = false; ui.hideLevel(); levelFx(g); }
 function choose(i) {
   if (mode !== 'lvl' || lvlWait > 0 || picking || !g.choices[i]) return;
+  if (banishing) { banishing = false; if (banish(g, i)) audio.sfx('thud'); ui.showLevel(g, choose); return; }
   picking = true; ui.pickCard(i); audio.sfx('pick');
   const run = g;
   setTimeout(() => {                                   // let the chosen card flash before the game resumes
@@ -156,6 +160,7 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyU' && mode === 'start') toShrine();
   else if (e.code === 'KeyG' && mode === 'start') toMissions();
   else if (e.code === 'KeyR' && mode === 'lvl') doReroll();
+  else if (e.code === 'KeyB' && mode === 'lvl') doBanish();
   else if (e.code === 'KeyR' && (mode === 'start' || over)) toRoster();
   else if (e.code === 'Escape' && (mode === 'roster' || mode === 'feats' || mode === 'loadout' || mode === 'classes' || mode === 'shrine' || mode === 'missions' || mode === 'saves' || over)) toStart();
   else if (e.code === 'KeyQ' && mode === 'pause') toStart();
@@ -175,7 +180,7 @@ addEventListener('pagehide', clearKeys);
 addEventListener('contextmenu', clearKeys);
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (mode === 'play') { mode = 'pause'; ui.setPause(true); } });
 ui.bindMenus({
-  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, missions: toMissions, saves: toSaves, reroll: () => doReroll(), share,
+  play: () => begin('normal'), again: () => begin(kind), daily: () => begin('daily'), hard: flipHard, boon: nextBoon, feats: toFeats, loadout: toLoadout, classes: toClasses, shrine: toShrine, missions: toMissions, saves: toSaves, reroll: () => doReroll(), banish: () => doBanish(), share,
   roster: toRoster, menu: toStart, resume,
   reset: () => { if (confirm(`Wipe save ${currentSlot()}? Nemeses, souls, unlocks and stats are all lost for good.`)) { save = resetSave(); toRoster(); } },
 });

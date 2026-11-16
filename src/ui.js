@@ -1,5 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
@@ -64,7 +64,7 @@ export function bindMenus(h) {
   const on = (ids, fn) => ids.forEach(id => { $(id).onclick = e => { e.currentTarget.blur(); fn(); }; });
   on(['bPlay', 'bRosterPlay'], h.play);
   on(['bAgain', 'bWonAgain'], h.again);
-  on(['bHome'], h.menu); on(['bMissions'], h.missions); on(['bSaves'], h.saves); on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll);
+  on(['bHome'], h.menu); on(['bMissions'], h.missions); on(['bSaves'], h.saves); on(['bDaily'], h.daily); on(['bHard'], h.hard); on(['bBoon'], h.boon); on(['bFeats'], h.feats); on(['bLoadout'], h.loadout); on(['bClass'], h.classes); on(['bShrine'], h.shrine); on(['bReroll'], h.reroll); on(['bBanish'], h.banish);
   on(['bRoster', 'bDeadRoster', 'bWonRoster'], h.roster);
   on(['bShare', 'bWonShare'], h.share);
   $('bDeadNext').onclick = e => { e.currentTarget.blur(); deadNext(); };
@@ -416,12 +416,16 @@ export function showWon(g, save, end) {
   show('won'); confetti(70); celebrate(end);
 }
 
-export function showLevel(g, onPick) {
+export function showLevel(g, onPick, banishing = false) {
   const el = $('cards'); el.innerHTML = '';
   const top = topRarity(g);
   $('lvlTitle').textContent = top === 'legendary' ? 'LEGENDARY!' : g.chest ? 'CHEST' : 'LEVEL UP';
   $('lvlTitle').className = 't-' + top;
   $('bReroll').classList.toggle('hidden', !(g.rerolls > 0)); $('bReroll').querySelector('b').textContent = g.rerolls || '';
+  $('bBanish').classList.toggle('hidden', !(g.banishes > 0)); $('bBanish').querySelector('b').textContent = g.banishes || '';
+  $('bBanish').classList.toggle('on', banishing); $('lvl').classList.toggle('banishing', banishing);
+  const held = UP.filter(u => !u.leg && g.picks[u.id]).length;
+  $('lvlSlots').innerHTML = `<span>UPGRADES ${held} / ${UP_SLOTS}</span>` + (held >= UP_SLOTS ? '<span>ALL SLOTS FULL: ONLY YOURS ARE OFFERED</span>' : '');
   g.choices.forEach((u, i) => {
     const rar = g.rar[i] || 'common', s = u.leg ? 1 : RARITY[rar].s;
     const c = document.createElement('div'); c.className = 'card r-' + rar + (u.ally ? ' ally' : '');
@@ -429,13 +433,23 @@ export function showLevel(g, onPick) {
     const d = upText(u, s, WEAPONS[g.P.weapon].up);          // some upgrades mean something different per weapon
     const sparks = rar === 'legendary' || rar === 'epic' ? `<i class="sp s1">${pix('glint', 2)}</i><i class="sp s2">${pix('glint', 2)}</i><i class="sp s3">${pix('glint', 2)}</i>` : '';
     c.innerHTML = `<i class="rar">${RARITY[rar].n.toUpperCase()}</i>${sparks}${pix(u.ic || 'i_' + u.id, 4)}<b>${u.n}</b><span>${d}</span>` +
-      `<em>${u.leg ? 'one of a kind' : u.ally ? 'for your allies' : have ? 'you have ' + have : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
+      preview(g, u, s) + (u.leg || u.filler ? '' : rankPips(have)) +
+      `<em>${u.leg ? 'one of a kind' : u.filler ? 'nothing left to learn' : u.ally ? 'for your allies' : have ? 'rank ' + have + ' to ' + (have + 1) : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
     el.appendChild(c);
   });
   show('lvl');
 }
 
+// Rank pips: filled for what you have, the next one lit.
+const rankPips = have => `<i class="rk">${Array.from({ length: MAX_RANK }, (_, k) => `<i class="${k < have ? 'on' : k === have ? 'nx' : ''}"></i>`).join('')}</i>`;
+// Before -> after for plain stat upgrades: apply the upgrade to a copy and read the number again.
+function preview(g, u, s) {
+  const st = UP_STAT[u.id]; if (!st) return '';
+  const g2 = { ...g, P: { ...g.P } }; u.f(g2, s);
+  const f = v => v.toFixed(st[2]) + (st[3] || '');
+  return `<i class="ba">${st[0].toUpperCase()} ${f(st[1](g))} <b>${f(st[1](g2))}</b></i>`;
+}
 export const hideLevel = () => hide('lvl');
 // The best rarity among the three cards on offer.
 export const topRarity = g => RARITIES[Math.max(0, ...g.rar.map(r => RARITIES.indexOf(r)))];

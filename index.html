@@ -202,7 +202,12 @@ button.quiet:hover{color:var(--w)}
 .cls .need{display:flex;align-items:center;gap:8px;margin:2px 14px 0;font:400 10px var(--t);color:var(--y)}
 #classList{max-width:900px}
 .soul b{color:var(--cyan)!important}
-#bReroll{font-size:12px}#bReroll b{color:var(--y);font-weight:400;margin:0 6px}
+#bReroll,#bBanish{font-size:12px}#bReroll b,#bBanish b{color:var(--y);font-weight:400;margin:0 6px}
+.lvlbtns{display:flex;gap:10px;justify-content:center}#bBanish.on{background:var(--red2);color:var(--w)}
+#lvl.banishing .card{outline:3px dashed var(--red)}
+.slots{display:flex;gap:16px;justify-content:center;font:400 10px var(--t);color:var(--dim)}.slots span+span{color:var(--y)}
+.card .rk{display:flex;gap:3px}.card .rk i{width:12px;height:6px;background:var(--lo)}.card .rk i.on{background:var(--mint)}.card .rk i.nx{background:var(--y);animation:pipb .5s steps(2) infinite}@keyframes pipb{50%{background:var(--lo)}}
+.card .ba{font:400 10px var(--t);font-style:normal;color:var(--dim)}.card .ba b{color:var(--mint);font-weight:400;margin-left:6px}.card .ba b::before{content:'';display:inline-block;width:6px;height:6px;margin-right:6px;background:var(--mint);clip-path:polygon(0 0,100% 50%,0 100%)}
 
 /* Missions and goals */
 .quests{padding:10px 16px 14px;display:flex;flex-direction:column;gap:7px;border-top:2px solid var(--k);background:#201b2d}
@@ -521,7 +526,8 @@ button.side.lit{background:var(--red2)}button.side.lit b{color:var(--w)}
   <h2 id="lvlTitle" style="color:var(--y)">LEVEL UP</h2>
   <div class="cards" id="cards"></div>
   <div class="sub mouse-only">Click or press <span class="key">1</span> <span class="key">2</span> <span class="key">3</span></div><div class="sub touch-only">Tap one</div>
-  <button id="bReroll" class="hidden">REROLL <b></b><span class="key">R</span></button>
+  <div id="lvlSlots" class="slots"></div>
+  <div class="lvlbtns"><button id="bReroll" class="hidden">REROLL <b></b><span class="key">R</span></button><button id="bBanish" class="hidden">BANISH <b></b><span class="key">B</span></button></div>
 </div>
 
 <div id="pause" class="ov soft hidden">

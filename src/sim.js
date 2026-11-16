@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
+import { MAX_RANK, UP_SLOTS, FILLERS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
@@ -68,7 +68,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     respawnMul: 1, hitBy: null, hint: null,
     // Class ultimate: charge 0..1 from kills; ultT is how long the current one has left; ultN how many you have used.
     ult: 0, ultT: 0, ultN: 0, ultTick: 0, laser: null, blockT: 0, shotN: 0,
-    cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
+    cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), banishes: 1 + mr('banish'), banned: new Set(), dry: 0, minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0, zaps: [],
     // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
@@ -682,20 +682,40 @@ function rollRarity(g) {
   for (const id of RARITIES) { r -= w[id]; if (r <= 0) return id; }
   return 'common';
 }
-function rollChoices(g) {
-  const no = WEAPONS[g.P.weapon].no || [], hasAllies = g.party.length > 0 || !!g.cls;
-  const ok = u => (!u.ally || hasAllies) && (!u.minion || g.cls) && !no.includes(u.id);
-  const pool = UP.filter(u => !u.leg && ok(u)), legs = UP.filter(u => u.leg && ok(u) && !g.picks[u.id]);
-  g.choices = []; g.rar = [];
-  while (g.choices.length < 3) {
+// Phase 20: ranks cap at 5; once six different upgrades are held only those are offered (so a build narrows
+// toward what you chose); upgrades you hold and ones your weapon reads differently come up more often;
+// banished ones never return this run; four level-ups in a row with nothing Rare or better force a Rare.
+export const heldCount = g => UP.filter(u => !u.leg && g.picks[u.id]).length;
+function rollChoices(g, keep = false) {
+  const no = WEAPONS[g.P.weapon].no || [], hasAllies = g.party.length > 0 || !!g.cls, wup = WEAPONS[g.P.weapon].up || {};
+  const ok = u => (!u.ally || hasAllies) && (!u.minion || g.cls) && !no.includes(u.id) && !g.banned.has(u.id);
+  const full = heldCount(g) >= UP_SLOTS;
+  const pool = UP.filter(u => !u.leg && ok(u) && (g.picks[u.id] || 0) < MAX_RANK && (!full || g.picks[u.id])), legs = UP.filter(u => u.leg && ok(u) && !g.picks[u.id]);
+  const wt = pool.map(u => (g.picks[u.id] ? 2.2 : 1) * (wup[u.id] ? 1.5 : 1)), sum = wt.reduce((a, b) => a + b, 0);
+  const draw = () => { let r = g.rand() * sum; for (let i = 0; i < pool.length; i++) if ((r -= wt[i]) <= 0) return pool[i]; return pool[pool.length - 1]; };
+  if (!keep) { g.choices = []; g.rar = []; }
+  for (let tries = 0; g.choices.length < 3 && tries < 200; tries++) {
     let rar = rollRarity(g), u;
     // A Legendary roll is usually one of the one-of-a-kind powers, while any are left.
     if (rar === 'legendary' && legs.length && g.rand() < 0.7) u = legs[Math.floor(g.rand() * legs.length)];
-    else u = pool[Math.floor(g.rand() * pool.length)];
+    else if (pool.length) u = draw(); else break;
     if (g.choices.includes(u) || (u.ally && g.choices.some(c => c.ally))) continue;
     if (u.fixed) rar = u.fixed;
     g.choices.push(u); g.rar.push(rar);
   }
+  for (const f of FILLERS) if (g.choices.length < 3) { g.choices.push(f); g.rar.push('common'); }   // nothing left to offer
+  if (keep) return;
+  if (g.rar.some(r => r !== 'common')) g.dry = 0;
+  else if (++g.dry >= 4) { const i = g.choices.findIndex(u => !u.filler && !u.fixed); if (i >= 0) { g.rar[i] = 'rare'; g.dry = 0; } }
+}
+// Banish the card at i: it never comes back this run, and a new card takes its place.
+export function banish(g, i) {
+  const u = g.choices[i];
+  if (g.state !== 'lvl' || g.banishes <= 0 || !u || u.filler || u.leg) return false;
+  g.banishes--; g.banned.add(u.id); g.choices.splice(i, 1); const rar = g.rar.splice(i, 1);
+  rollChoices(g, true);
+  g.choices.splice(i, 0, g.choices.pop()); g.rar.splice(i, 0, g.rar.pop());
+  return true;
 }
 
 // ---------- weapons ----------
@@ -917,7 +937,7 @@ export function pick(g, i) {
   if (g.state !== 'lvl' || !g.choices[i]) return;
   const u = g.choices[i];
   const rar = g.rar[i] || 'common';
-  u.f(g, u.leg ? 1 : RARITY[rar].s); g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false;
+  u.f(g, u.leg ? 1 : RARITY[rar].s); if (!u.filler) g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false;
   g.lastPick = { id: u.id, rar }; if (rar === 'epic' || rar === 'legendary') g.epics++;
   if (g.twin && g.cls) { g.twin = false; spawnMinion(g, CLASSES[g.cls].minion); }   // Twin Soul
   g.state = 'play';
