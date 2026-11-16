@@ -212,7 +212,7 @@ export const gearOf = id => WEAPONS[id] || ABILITIES[id] || CHARMS[id] || null;
 // A class is chosen on the title screen. It gives a passive bonus and a starter minion with its own ability.
 // Weapons, abilities and charms stay a free choice on the loadout screen.
 export const CLASSES = {
-  knight: { n: 'Knight', sprite: 'c_knight', d: '+30 health, and you take 15% less damage. Every 10 seconds your shield blocks one hit outright.', ult: { n: 'Bulwark', d: 'For 4 seconds nothing can hurt you, and everything that comes near is cut down and thrown back.' }, minion: 'squire',
+  knight: { n: 'Knight', sprite: 'c_knight', weapon: 'sword', d: 'Fights up close with a sword. +30 health, and you take 15% less damage. Every 10 seconds your shield blocks one hit outright.', ult: { n: 'Bulwark', d: 'For 4 seconds nothing can hurt you, and everything that comes near is cut down and thrown back.' }, minion: 'squire',
     md: 'Squire: stays close, blocks enemy shots with his shield and stuns with a shield bash.' },
   ranger: { n: 'Ranger', sprite: 'c_ranger', d: '+10% move speed and +8% attack speed. Every 5th attack is a power shot: triple damage, and it passes through everything.', ult: { n: 'Arrow Storm', d: 'Arrows rain from the sky for 4 seconds, striking enemies all across the screen.' }, minion: 'hawk',
     md: 'Hawk: cannot be hurt. Dives at the toughest enemy and marks it; marked enemies take 20% more damage.' },

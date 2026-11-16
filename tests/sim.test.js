@@ -263,6 +263,7 @@ describe('sim', () => {
 
     let g = quiet({ cls: 'knight' });
     expect(g.P.maxhp).toBe(base.P.maxhp + 30); expect(g.armor).toBeCloseTo(0.85);
+    expect(g.P.weapon).toBe('sword'); expect(quiet({ cls: 'knight', loadout: { weapon: 'rod' } }).P.weapon).toBe('sword');   // a sword, whatever the loadout
     g = createGame({ seed: 0, cls: 'knight' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
     const squire = g.ents.find(e => e.type === 'squire');
     expect(squire && squire.team).toBe('ally');
@@ -270,7 +271,7 @@ describe('sim', () => {
     step(g, 1 / 60, still());
     expect(g.bullets.length).toBe(0);                                         // the shield ate it
     squire.hp = 0.01; g.ents.push({ ...squire, team: 'enemy', type: 'slime', x: squire.x + 6, y: squire.y, dmg: 50, hp: 1e6, maxhp: 1e6, cd: 0, act: 99, minion: false, stun: 0, spd: 0, nem: null });
-    for (let i = 0; i < 30 && g.ents.includes(squire); i++) { step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    for (let i = 0; i < 30 && g.ents.includes(squire); i++) { g.P.fireT = 99; step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }   // the Knight's sword would knock the slime away
     expect(g.respawnQ.some(q => q.minion === 'squire')).toBe(true);           // minions come back
 
     g = createGame({ seed: 0, cls: 'ranger' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;

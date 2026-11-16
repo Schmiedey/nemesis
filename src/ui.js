@@ -235,7 +235,7 @@ export function showShrine(save, onBuy) {
 export function showClasses(save, onPick) {
   hideAll();
   const lo = save.gear.loadout;
-  $('bLoadout').querySelector('b').textContent = WEAPONS[lo.weapon].n + ' + ' + ABILITIES[lo.ability].n;
+  $('bLoadout').querySelector('b').textContent = WEAPONS[CLASSES[save.cls]?.weapon || lo.weapon].n + ' + ' + ABILITIES[lo.ability].n;
   $('bBoon').classList.toggle('hidden', !boonsOf(save).length); $('bBoon').querySelector('b').textContent = save.boon ? upName(save.boon) : 'none';
   const el = $('classList'); el.innerHTML = '';
   for (const id in CLASSES) {
@@ -255,8 +255,10 @@ export function showClasses(save, onPick) {
 // Loadout: pick one weapon and one ability from the gear you have found.
 export function showLoadout(save, onEquip) {
   hideAll();
-  const col = (el, table, cur) => {
-    el.innerHTML = '';
+  const fixed = CLASSES[save.cls]?.weapon;              // a class that brings its own weapon (the Knight's sword)
+  const col = (el, table, cur, lock = null) => {
+    el.innerHTML = lock ? `<div class="nem gearcard on">${pix('i_' + lock, 3)}<div><b>${table[lock].n}</b><span>The ${CLASSES[save.cls].n} always fights with this. Pick another hero to change weapon.</span></div></div>` : '';
+    if (lock) return;
     for (const id in table) {
       const have = save.gear.owned.includes(id), it = table[id];
       const c = document.createElement('div');
@@ -267,7 +269,7 @@ export function showLoadout(save, onEquip) {
       el.appendChild(c);
     }
   };
-  col($('loWeapons'), WEAPONS, save.gear.loadout.weapon);
+  col($('loWeapons'), WEAPONS, save.gear.loadout.weapon, fixed);
   col($('loAbilities'), ABILITIES, save.gear.loadout.ability);
   col($('loCharms'), CHARMS, save.gear.loadout.charm);
   show('loadout');

@@ -47,6 +47,7 @@ let parts = [], shakeAmt = 0, surge = null;
 const offs = new WeakMap();                     // per-creature animation offset
 let pFlip = false, pPrev = { x: 0, y: 0 };
 const MAX_PARTS = 400;
+const SWEEP_T = 0.2;
 let rings = [], nums = [], sweeps = [], bolts = [], booms = [], banner = null;
 let trailTick = 0;
 let lvl = null, glints = [];                      // the level-up moment
@@ -83,7 +84,7 @@ export function consumeFx(g) {
     if (f.k === 'shake') shakeAmt = Math.max(shakeAmt, f.v);
     else if (f.k === 'surge') surge = { a: f.a, life: 2 };
     else if (f.k === 'snd' || f.k === 'act') continue;
-    else if (f.k === 'sweep') sweeps.push({ ...f, life: 0.16 });
+    else if (f.k === 'sweep') sweeps.push({ ...f, life: SWEEP_T });
     else if (f.k === 'bolt') bolts.push({ pts: f.pts, life: 0.14 });
     else if (f.k === 'gear') banner = { text: 'NEW GEAR: ' + gearOf(f.id).n, life: 3.5 };
     else if (f.k === 'power') banner = { text: POWERUPS[f.id].n + '!', life: 1.6, c: POWERUPS[f.id].c };
@@ -426,12 +427,13 @@ export function draw(cv, cx, g, hud, hx) {
   for (let k = 0; k < P.blades && g.state !== 'dead'; k++) {
     const a = t * 3.2 + k * 6.283 / P.blades; spr(cx, 'blade', P.x + Math.cos(a) * BLADE_R, P.y + Math.sin(a) * BLADE_R, t * 12, 1.2);
   }
-  for (const s of sweeps) {                              // Greatsword arcs
-    // Solid bands, no fading: a white edge with two blue trails that drop away as the swing ends.
-    const k = s.life / 0.16, arc = (r, w, col) => { cx.strokeStyle = col; cx.lineWidth = w; cx.beginPath(); cx.arc(snap(s.x), snap(s.y), r, s.a - s.half, s.a + s.half); cx.stroke(); };
-    if (k > 0.66) arc(s.r - 22, 8, PAL.c2);
-    if (k > 0.33) arc(s.r - 12, 8, PAL.ice);
-    arc(s.r - 3, 6, PAL.w);
+  for (const s of sweeps) {                              // Greatsword: a blade swung through the arc, close in
+    // The blade turns from one side of the arc to the other; behind it, a dithered smear of where it has been.
+    const p = clamp(1 - s.life / SWEEP_T, 0, 1), from = s.a - s.half, to = from + 2 * s.half * Math.min(1, p * 1.4), x = snap(s.x), y = snap(s.y);
+    cx.fillStyle = dither(cx, PAL.ice); cx.beginPath(); cx.arc(x, y, s.r, from, to); cx.arc(x, y, 16, to, from, true); cx.closePath(); cx.fill();
+    cx.strokeStyle = PAL.w; cx.lineWidth = 4; cx.beginPath(); cx.arc(x, y, s.r - 2, Math.max(from, to - 0.9), to); cx.stroke();
+    const bx = Math.cos(to), by = Math.sin(to), blade = (w, col, r0, r1) => { cx.strokeStyle = col; cx.lineWidth = w; cx.beginPath(); cx.moveTo(x + bx * r0, y + by * r0); cx.lineTo(x + bx * r1, y + by * r1); cx.stroke(); };
+    blade(10, PAL.k, 8, s.r + 2); blade(6, PAL.w, 10, s.r); blade(10, PAL.y, 8, 16);   // outline, steel, golden hilt
   }
   for (const b of bolts) {                               // Storm Rod lightning: a jagged line through each target
     // A blue glow with a white core, kinked once between each pair of targets.

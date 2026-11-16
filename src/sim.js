@@ -74,9 +74,10 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
     grudge: grudge && T[bossType] ? { name: String(grudge.name || ''), kills: grudge.kills | 0, powers: (grudge.powers || []).filter(k => GRUDGE_POWERS[k]).slice(0, 2) } : null,
     chests: [], chest: false, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
+    // The Knight always fights with a sword (CLASSES.knight.weapon); other classes use the loadout.
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
-      weapon: WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster', ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
+      weapon: CLASSES[cls]?.weapon || (WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster'), ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
       actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
