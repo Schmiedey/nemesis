@@ -20,9 +20,19 @@ function blit(cx, sp, ang, frame, size, flash, lift = 0) {
   if (sp.dirs) { row = ((Math.round(ang / (Math.PI / 4)) % sp.dirs) + sp.dirs) % sp.dirs; y = -size * 0.56 - lift; }
   else cx.rotate(ang);
   cx.drawImage(sp.img, frame * sp.size, row * sp.size, sp.size, sp.size, -size / 2, y, size, size);
-  if (flash > 0) { cx.globalAlpha = 0.8; cx.drawImage(sp.white, frame * sp.size, row * sp.size, sp.size, sp.size, -size / 2, y, size, size); cx.globalAlpha = 1; }
+  if (flash > 0) { cx.globalAlpha = 0.8; cx.drawImage(sp.white || (sp.white = whiteCopy(sp.img)), frame * sp.size, row * sp.size, sp.size, sp.size, -size / 2, y, size, size); cx.globalAlpha = 1; }
 }
-const shadow = (cx, r, lift = 0) => { cx.fillStyle = 'rgba(0,0,0,.38)'; cx.beginPath(); cx.ellipse(0, r * 0.3, r * (lift ? 0.8 : 1.05), r * (lift ? 0.4 : 0.55), 0, 0, 7); cx.fill(); };
+// A white copy of a sheet, drawn over a creature for a moment when it is hit. Built the first time it is needed.
+function whiteCopy(img) {
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const w = c.getContext('2d'); w.drawImage(img, 0, 0); w.globalCompositeOperation = 'source-in'; w.fillStyle = '#fff'; w.fillRect(0, 0, img.width, img.height);
+  return c;
+}
+const shadow = (cx, r, lift = 0) => {
+  if (lowDetail) return;
+  const w = r * (lift ? 1.7 : 2.3), h = r * (lift ? 0.85 : 1.2);
+  cx.drawImage(shadowCv, -w / 2, r * 0.3 - h / 2, w, h);
+};
 
 export async function loadSprites() {
   try {
@@ -30,10 +40,7 @@ export async function loadSprites() {
     for (const name in manifest) {
       const img = new Image();
       img.onload = () => {
-        // A white copy of the sheet, drawn over a creature for a moment when it is hit.
-        const white = document.createElement('canvas'); white.width = img.width; white.height = img.height;
-        const w = white.getContext('2d'); w.drawImage(img, 0, 0); w.globalCompositeOperation = 'source-in'; w.fillStyle = '#fff'; w.fillRect(0, 0, img.width, img.height);
-        sprites[name] = { img, white, ...manifest[name] };
+        sprites[name] = { img, white: null, ...manifest[name] };
       };
       img.src = `sprites/${name}.png`;
     }
@@ -72,10 +79,33 @@ export function updateFx(dt) {
   shakeAmt *= 0.88; if (shakeAmt < .3) shakeAmt = 0;
 }
 
+// The canvas is always the 960x600 view at `quality` pixels per unit, and CSS stretches it to fit the window.
+// It used to be the whole window at full pixel density (7.5 million pixels full-screen), which made everything slow.
+let quality = 2, lowDetail = false;
+export const QUALITY_STEPS = [2, 1.5, 1];
+export function setQuality(q, cv, low = false) { quality = q; lowDetail = low; resize(cv); }
 export function resize(cv) {
-  const dpr = Math.min(2, window.devicePixelRatio || 1); // phones report 3 or more; 2 is sharp enough and far cheaper
-  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
-  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  const fit = Math.min(innerWidth / VIEW.w, innerHeight / VIEW.h);
+  const q = Math.min(quality, fit * (window.devicePixelRatio || 1));   // never more pixels than the screen can show
+  cv.width = Math.round(VIEW.w * q); cv.height = Math.round(VIEW.h * q);
+  cv.style.width = Math.floor(VIEW.w * fit) + 'px'; cv.style.height = Math.floor(VIEW.h * fit) + 'px';
+}
+
+// Painted once and reused: the pool of light around the player, and the soft shadow under creatures.
+let lightCv = null, shadowCv = null;
+const LIGHT_R = 1150;
+function baked() {
+  if (lightCv) return;
+  lightCv = document.createElement('canvas'); lightCv.width = lightCv.height = 256;
+  let c = lightCv.getContext('2d');
+  let gr = c.createRadialGradient(128, 128, 4, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(255,236,200,.09)'); gr.addColorStop(0.19, 'rgba(0,0,0,0)'); gr.addColorStop(0.54, 'rgba(0,0,0,.5)'); gr.addColorStop(1, 'rgba(0,0,0,.5)');
+  c.fillStyle = gr; c.fillRect(0, 0, 256, 256);
+  shadowCv = document.createElement('canvas'); shadowCv.width = 64; shadowCv.height = 32;
+  c = shadowCv.getContext('2d'); c.scale(1, 0.5);
+  gr = c.createRadialGradient(32, 32, 6, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(0,0,0,.5)'); gr.addColorStop(0.7, 'rgba(0,0,0,.32)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
 }
 
 function shapePath(cx, s, r) {
@@ -226,20 +256,16 @@ export function draw(cv, cx, g) {
   cx.fillStyle = '#050508'; cx.fillRect(0, 0, cv.width, cv.height);
   if (!g) return;
   const P = g.P;
-  // Letterbox the fixed view into the window.
-  const sc = Math.min(cv.width / VIEW.w, cv.height / VIEW.h);
-  const ox = (cv.width - VIEW.w * sc) / 2, oy = (cv.height - VIEW.h * sc) / 2;
+  baked();
+  const sc = cv.width / VIEW.w, ox = 0, oy = 0;   // the canvas is exactly the view
   const camX = clamp(P.x - VIEW.w / 2, 0, ARENA.w - VIEW.w), camY = clamp(P.y - VIEW.h / 2, 0, ARENA.h - VIEW.h);
 
   cx.save();
-  cx.beginPath(); cx.rect(ox, oy, VIEW.w * sc, VIEW.h * sc); cx.clip();
   cx.setTransform(sc, 0, 0, sc, ox + rnd(-shakeAmt, shakeAmt) * sc, oy + rnd(-shakeAmt, shakeAmt) * sc);
   cx.translate(-camX, -camY);
   cx.drawImage(ground(g.rocks), camX, camY, VIEW.w, VIEW.h, camX, camY, VIEW.w, VIEW.h);
   // A pool of light around you; the arena falls into dark further out.
-  const lg = cx.createRadialGradient(P.x, P.y, 40, P.x, P.y, 620);
-  lg.addColorStop(0, 'rgba(255,236,200,.09)'); lg.addColorStop(0.35, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,.5)');
-  cx.fillStyle = lg; cx.fillRect(camX, camY, VIEW.w, VIEW.h);
+  if (!lowDetail) cx.drawImage(lightCv, P.x - LIGHT_R, P.y - LIGHT_R, LIGHT_R * 2, LIGHT_R * 2);
 
   for (const gem of g.gems) { cx.fillStyle = gem.v >= 5 ? '#ffd23f' : '#7dffb0'; cx.fillRect(gem.x - 3, gem.y - 3, 6, 6); }
   for (const c of g.chests) {
@@ -258,9 +284,11 @@ export function draw(cv, cx, g) {
     cx.restore();
   }
   cx.textAlign = 'center';
+  let bigFont = null;                                   // changing the font is slow, so only do it when the size changes
   for (const n of nums) {
     const big = n.v >= 40;
-    cx.globalAlpha = Math.min(1, n.life * 3); cx.font = `bold ${big ? 15 : 11}px ui-monospace,Menlo,monospace`;
+    if (big !== bigFont) { bigFont = big; cx.font = `bold ${big ? 15 : 11}px ui-monospace,Menlo,monospace`; }
+    cx.globalAlpha = Math.min(1, n.life * 3);
     cx.fillStyle = '#000'; cx.fillText(n.v, n.x + 1, n.y + 1); cx.fillStyle = big ? '#ffd23f' : '#fff'; cx.fillText(n.v, n.x, n.y);
   }
   cx.globalAlpha = 1;

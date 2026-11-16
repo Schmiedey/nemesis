@@ -24,6 +24,7 @@ Start every session by reading `docs/Roadmap.md` (status line says where we are)
 
 ## Testing
 - Balance questions: use `simulate(seed, { party, bot, choose })` from `tests/bot.js`; do not play in the browser.
+- Performance: the canvas is always the 960x600 view times a quality step (2, 1.5 or 1), stretched by CSS; never size it to the window. Backquote toggles a frame counter; `window.__game.perf` returns the same numbers.
 - Browser checks: `window.__game` exposes `g`, `mode`, `save`, `begin()`, `choose(i)`, `audio` (use `audio.debugState()`; a dynamic `import()` gets a different module copy).
 
 ## Working style

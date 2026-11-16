@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-6 merged to main; the three-phase improvement plan is complete. Music on hold (switched off via `MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload of `nemesis-web.zip`, 10-second clip, real-phone test. Phases 4-6 have not been played through by a person; expect balance feedback. Known gaps are listed in `docs/design/Core Loop.md`.
+**Status:** Phases 1-6 merged to main. Phase 7 (performance) built on branch `phase-7-perf`, not merged: waiting for the user to confirm with the frame counter (backquote key) that the lag is gone on their machine. Next: Phase 8 (weapons and abilities). Music on hold (`MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload, 10-second clip, real-phone test.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -45,6 +45,21 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Feel: tinted hit flash, damage numbers, hit-stop, restyled level-up screen
 - [x] Nemesis+ mode, daily run, feats that unlock starting perks, nemesis history on roster cards
 - Done when: it looks finished and there is always a next thing to chase.
+
+## Phase 7: Performance
+- [x] Canvas at a fixed resolution scaled by CSS; baked light and shadow; adaptive quality; no slow motion; frame counter
+- Done when: the frame counter (backquote key) shows a steady 60 fps on the user's machine in a full-screen window.
+
+## Phase 8: Weapons and active abilities
+- [ ] Six weapons (Blaster, Greatsword, Boomerang, Flamewalker, Storm Rod, Totem)
+- [ ] Five abilities on a button (Dash, Shockwave, Time Slow, Decoy, Rally)
+- [ ] Gear is found and kept; loadout screen
+- Done when: how you attack is a choice and every weapon is within about 20% of the Blaster in the balance table.
+
+## Phase 9: Power-up pickups and charms
+- [ ] Six power-ups that drop in the arena
+- [ ] About 8 charms as a third loadout slot
+- Done when: a run has moments of sudden power and the loadout has three meaningful choices.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

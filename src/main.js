@@ -1,7 +1,7 @@
 // Glue: input, game loop, saves, overlays.
 import { createGame, step, pick } from './sim.js';
 import { loadSave, writeSave, resetSave, addRecruit, bossTypeFor, partyOf, growParty, evolve, checkFeats, boonsOf, today, dailySeed, PARTY_SIZE } from './save.js';
-import { draw, resize, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
+import { draw, resize, setQuality, QUALITY_STEPS, consumeFx, updateFx, resetFx, loadSprites } from './render.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
 
@@ -43,6 +43,7 @@ function begin(k = 'normal') {
     bossType: bossTypeFor(save), hard: kind === 'hard', boon: save.boon,
   });
   mode = 'play'; audio.sfx('start');
+  if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again
 }
 
 function choose(i) {
@@ -122,7 +123,9 @@ const joyEl = document.getElementById('joy'), knob = joyEl.firstElementChild, pa
 let joy = null; // { id, x0, y0, dx, dy }
 const JOY_R = 48, JOY_DEAD = 8;
 const endJoy = () => { joy = null; joyEl.classList.add('hidden'); };
-cv.addEventListener('pointerdown', e => {
+// Listens on the page, not just the canvas, so a thumb on the black bars beside the game still steers.
+addEventListener('pointerdown', e => {
+  if (e.target !== cv && e.target !== document.body && e.target !== document.documentElement) return;
   if (e.pointerType === 'mouse' || mode !== 'play' || joy) return;
   joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
   joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px';
@@ -147,23 +150,40 @@ const input = () => {
 };
 
 let last = performance.now(), hitStop = 0;
+
+// Performance: if frames stay slow, draw fewer pixels; at the lowest step also drop the lighting and shadows.
+let qStep = 0, slowFor = 0, frameMs = 16.7, workMs = 0, showPerf = false;
+const perfEl = document.getElementById('perf');
+function applyQuality(i) { qStep = Math.max(0, Math.min(QUALITY_STEPS.length - 1, i)); slowFor = 0; setQuality(QUALITY_STEPS[qStep], cv, qStep === QUALITY_STEPS.length - 1); }
+const perf = () => ({ fps: Math.round(1000 / frameMs), frameMs: +frameMs.toFixed(1), workMs: +workMs.toFixed(2), canvas: cv.width + 'x' + cv.height, quality: QUALITY_STEPS[qStep], lowDetail: qStep === QUALITY_STEPS.length - 1 });
+addEventListener('keydown', e => { if (e.code === 'Backquote') { showPerf = !showPerf; perfEl.classList.toggle('hidden', !showPerf); } });
+let perfTick = 0;
 function loop(now) {
-  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  const w0 = performance.now(), gap = now - last; last = now;
+  frameMs += (Math.min(gap, 200) - frameMs) * 0.05;
+  const total = Math.min(0.1, gap / 1000);                                // real time since the last frame
   if (mode === 'play') {
-    if (hitStop > 0) hitStop -= dt;                                     // a few frozen frames make a big hit land
-    else {
+    slowFor = frameMs > 20 ? slowFor + total : 0;
+    if (slowFor > 2 && qStep < QUALITY_STEPS.length - 1) applyQuality(qStep + 1);
+    // A slow frame must not slow the game clock: take up to 3 steps to catch up.
+    let left = total;
+    for (let n = 0; n < 3 && left > 0.0005 && g.state === 'play'; n++) {
+      const dt = Math.min(0.033, left); left -= dt;
+      if (hitStop > 0) { hitStop -= dt; continue; }                       // a few frozen frames for the biggest hits only
       step(g, dt, input()); consumeFx(g);
-      for (const f of g.fx) { if (f.k === 'snd') audio.sfx(f.n); else if (f.k === 'shake' && f.v >= 10) hitStop = 0.05; }
+      for (const f of g.fx) { if (f.k === 'snd') audio.sfx(f.n); else if (f.k === 'shake' && f.v >= 16) hitStop = 0.05; }
     }
     if (g.state === 'lvl') { mode = 'lvl'; ui.showLevel(g, choose); }
     else if (g.state === 'dead') onDeath();
     else if (g.state === 'won') onWin();
   }
-  if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(dt);
+  if (mode === 'play' || mode === 'dead' || mode === 'won') updateFx(total);
   if (mode !== 'play' && joy) endJoy();
   pauseBtn.classList.toggle('hidden', mode !== 'play');
   audio.scene(mode, g);
   draw(cv, cx, g);
+  workMs += (performance.now() - w0 - workMs) * 0.05;
+  if (showPerf && now - perfTick > 400) { perfTick = now; const p = perf(); perfEl.textContent = `${p.fps} fps · ${p.workMs} ms work · ${p.canvas} · quality ${p.quality}${p.lowDetail ? ' low detail' : ''}`; }
   requestAnimationFrame(loop);
 }
 
@@ -172,4 +192,4 @@ toStart();
 requestAnimationFrame(loop);
 
 // Debug hook for automated tests (Playwright).
-window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster, audio };
+window.__game = { get g() { return g; }, get mode() { return mode; }, get save() { return save; }, begin, choose, toStart, toRoster, audio, get perf() { return perf(); }, applyQuality };
