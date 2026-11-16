@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-5 merged to main. Phase 6 built on branch `phase-6-depth`, not merged: depth and feel, plus Nemesis+, daily run, feats with boons, nemesis history. Music on hold (switched off via `MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload of `nemesis-web.zip` (rebuilt after Phase 6), 10-second clip, real-phone test. Next: user plays it, merge.
+**Status:** Phases 1-6 merged to main; the three-phase improvement plan is complete. Music on hold (switched off via `MUSIC_ON` in `src/audio.js`; do not work on it until asked). Still the user's to do: itch.io upload of `nemesis-web.zip`, 10-second clip, real-phone test. Phases 4-6 have not been played through by a person; expect balance feedback. Known gaps are listed in `docs/design/Core Loop.md`.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
