@@ -78,7 +78,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
       weapon: CLASSES[cls]?.weapon || (WEAPONS[loadout.weapon] ? loadout.weapon : 'blaster'), ability: ABILITIES[loadout.ability] ? loadout.ability : 'dash',
-      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: 5, inv: 0, flash: 0 },
+      actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: XP_START, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
   g.heat = 1.14 * (1 + 0.03 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
@@ -670,7 +670,8 @@ function die(g, src, byBoss) {
 }
 
 // Experience needed for the next level, from the current requirement. Phase 22 tunes the pace.
-export const nextXp = n => Math.floor(n * 1.22 + 3);
+export const XP_START = 12, XP_STEP = 14;              // linear: a steady beat of level-ups all the way to the boss
+export const nextXp = n => n + XP_STEP;
 // How many more level-ups the experience you hold already covers (shown as "+2 MORE").
 export function pendingLevels(g) { let x = g.P.xp, n = g.P.next, c = 0; while (x >= n && c < 9) { x -= n; n = nextXp(n); c++; } return c; }
 function levelUp(g) {

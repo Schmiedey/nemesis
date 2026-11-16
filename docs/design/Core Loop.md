@@ -107,6 +107,7 @@ Built on a few well-established findings about why games are satisfying; each is
 - **Weights.** Held upgrades x2.2, upgrades your weapon reads differently x1.5. Banish (1 a run, +1 per Shrine rank of Cast Out) removes a card for the run and deals a new one in its place. Four level-ups in a row with nothing Rare or better make one card Rare.
 - **Evolutions** (`WEAPON_EVOS`): Blaster + Trigger Happy = Gatling; Greatsword + Thick Skin = Kingsblade (heals 1 per enemy cut, up to 6 a swing); Boomerang + Swift = Moonblade; Flamewalker + Regrowth = Hellfire Trail; Storm Rod + Lucky Shot = Tempest; Totem + Magnet = Watchtower. Needs the partner at rank 5; the next chest after 3:00 offers it as a Legendary card.
 - **Pairs** (`PAIRS`): Frostbite + Wildfire = Steam (+40% damage to slowed, burning enemies); Leech + Regrowth = Bloodthirst; Lucky Shot + Executioner = Killing Edge; Thick Skin + Plating = Juggernaut; Rally + Pack Tactics = Warband; Scholar + Focus = Arcane Engine.
+- **Pace.** Experience needed is linear: 12 for level 2, then +14 a level (`XP_START`, `XP_STEP`). Bot median (Knight, 4 seeds): level 6 at 1:00, 10 at 2:00, 15 at 3:00, 20 at 4:00, 23 at 5:00; was 9, 12, 15, 17, 19 under the old x1.22 curve.
 - **The Knight** always fights with the Greatsword (`CLASSES.knight.weapon`). Solo with the sword: 2:59, as before.
 
 ## Progression (Phase 13)
