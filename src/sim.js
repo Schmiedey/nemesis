@@ -58,7 +58,7 @@ function mk(g, type, team, x, y, { small = false, hpMul = 1, dmgMul = 1, spdMul 
   e.maxhp = e.hp; g.ents.push(e); return e;
 }
 
-const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 160, dmgMul: 1.25 + g.t / 320, spdMul: Math.min(1.3, 1 + g.t / 700) });
+const mkEnemy = (g, type, x, y, small) => mk(g, type, 'enemy', x, y, { small, hpMul: 1 + g.t / 160, dmgMul: 1.25 + g.t / 320, spdMul: Math.min(1.15, 1 + g.t / 1400) });
 
 function spawnAlly(g, nem, lives) {
   const pk = nem.perks || {};
@@ -119,9 +119,17 @@ function nearest(g, o, team, maxd = 1e9) {
   return best;
 }
 
+const TURN = 3; // enemy turn rate, radians per second
 function moveTo(e, x, y, dt, stop = 0) {
   const dx = x - e.x, dy = y - e.y, l = Math.hypot(dx, dy);
-  if (l > stop && l > 0.1) { e.x += dx / l * e.spd * dt; e.y += dy / l * e.spd * dt; e.ang = Math.atan2(dy, dx); }
+  if (l <= stop || l <= 0.1) return;
+  const want = Math.atan2(dy, dx);
+  // Enemies steer instead of snapping onto you, so a sharp turn shakes them off. Up close they turn freely.
+  if (e.team === 'enemy' && !e.boss && l > 90) {
+    const diff = Math.atan2(Math.sin(want - e.ang), Math.cos(want - e.ang));
+    e.ang += clamp(diff, -TURN * dt, TURN * dt);
+  } else e.ang = want;
+  e.x += Math.cos(e.ang) * e.spd * dt; e.y += Math.sin(e.ang) * e.spd * dt;
 }
 
 function shoot(g, x, y, a, sp, dmg, team, src, pierce, color, boss = false) {

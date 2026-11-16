@@ -24,8 +24,8 @@ export function unlock() {
   sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
   musFilter = ac.createBiquadFilter(); musFilter.type = 'lowpass'; musFilter.frequency.value = 18000; musFilter.connect(master);
   musBus = ac.createGain(); musBus.gain.value = 0.5; musBus.connect(musFilter);
-  echo = ac.createDelay(1); echo.delayTime.value = 0.28;
-  const fb = ac.createGain(); fb.gain.value = 0.35; echo.connect(fb); fb.connect(echo); echo.connect(musBus);
+  echo = ac.createDelay(1); echo.delayTime.value = 0.22;
+  const fb = ac.createGain(); fb.gain.value = 0.2; echo.connect(fb); fb.connect(echo); echo.connect(musBus);
   noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   nextTime = ac.currentTime + 0.1;
@@ -104,11 +104,28 @@ export function sfx(name, delay = 0) {
 }
 
 // ---------- soundtrack ----------
-// A four-bar loop in A minor. Layers come in as the run goes on; the boss gets its own chords and tempo.
-const PROG = { calm: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], boss: [[57, 60, 64], [58, 62, 65], [57, 60, 64], [52, 56, 59]] };
-const BPM = { menu: 96, play: 132, boss: 150, over: 84 };
+// Chiptune, like an old console: a pulse lead with a real tune, a triangle bass, a quiet arpeggio and noise drums.
+// Each bar is [bass root, chord, melody]. The melody has 8 slots (eighth notes): a note, 0 = rest, -1 = hold.
+const Am = [57, 60, 64], F = [53, 57, 60], C = [60, 64, 67], G = [55, 59, 62], Em = [52, 55, 59], E = [52, 56, 59], Bb = [58, 62, 65];
+const SONGS = {
+  main: [ // 16 bars: an 8-bar tune, then an 8-bar lift that climbs and falls back into it
+    [45, Am, [76, -1, 69, 72, 76, -1, 74, 72]], [41, F, [72, -1, 69, 72, 77, -1, 76, 72]],
+    [48, C, [76, -1, 72, 76, 79, -1, 76, 74]], [43, G, [74, -1, 71, 74, 79, 74, 71, 74]],
+    [45, Am, [76, -1, 69, 72, 76, -1, 81, 79]], [41, F, [77, -1, 76, 77, 81, -1, 77, 76]],
+    [43, G, [74, -1, 79, 74, 71, -1, 74, 71]], [45, Am, [69, -1, -1, -1, 72, 71, 69, 0]],
+    [41, F, [81, -1, 77, 81, 84, -1, 81, 77]], [43, G, [83, -1, 79, 83, 86, -1, 83, 79]],
+    [40, Em, [79, -1, 76, 79, 83, -1, 79, 76]], [45, Am, [81, -1, 76, 72, 69, -1, 72, 76]],
+    [41, F, [77, -1, 81, 77, 72, -1, 77, 81]], [43, G, [79, -1, 83, 79, 74, -1, 79, 83]],
+    [40, E, [80, -1, 76, 80, 83, -1, 80, 83]], [40, E, [88, -1, 86, 83, 80, -1, 76, 0]],
+  ],
+  boss: [ // 4 tense bars with a pounding low note
+    [45, Am, [69, 69, 81, 69, 72, 69, 81, 76]], [46, Bb, [70, 70, 82, 70, 74, 70, 82, 77]],
+    [45, Am, [69, 69, 81, 69, 72, 69, 84, 81]], [40, E, [76, 76, 88, 76, 80, 76, 83, 80]],
+  ],
+};
+const BPM = { menu: 104, play: 138, boss: 158, over: 88 };
 let cur = { scene: 'menu', level: 0, muffle: false };
-let nextTime = 0, stepI = 0;
+let nextTime = 0, stepI = 0, songName = 'main';
 
 export function scene(mode, g) {
   if (!ac) return;
@@ -116,7 +133,7 @@ export function scene(mode, g) {
   const s = !inRun ? (mode === 'dead' || mode === 'won' ? 'over' : 'menu') : g && g.boss ? 'boss' : 'play';
   const level = !inRun || !g ? 0 : g.boss ? 3 : g.t < 25 ? 0 : g.t < 70 ? 1 : g.t < 150 ? 2 : 3;
   const muffle = mode === 'pause' || mode === 'lvl' || mode === 'dead';
-  if (muffle !== cur.muffle) musFilter.frequency.setTargetAtTime(muffle ? 500 : 18000, ac.currentTime, 0.08);
+  if (muffle !== cur.muffle) musFilter.frequency.setTargetAtTime(muffle ? 600 : 18000, ac.currentTime, 0.08);
   cur = { scene: s, level, muffle };
 }
 
@@ -124,34 +141,42 @@ function tick() {
   if (!ac || ac.state !== 'running') return;
   if (nextTime < ac.currentTime) nextTime = ac.currentTime + 0.05; // tab was asleep
   while (nextTime < ac.currentTime + 0.15) {
+    const want = cur.scene === 'boss' ? 'boss' : 'main';
+    if (want !== songName) { songName = want; stepI = 0; }       // a new tune starts from its first bar
     playStep(stepI, nextTime);
     nextTime += 60 / BPM[cur.scene] / 4;
-    stepI = (stepI + 1) % 64;
+    stepI = (stepI + 1) % (SONGS[songName].length * 16);
   }
 }
 
+// One 16th-note step. Pulse voices go through a low-pass so they sound round, not buzzy.
 function playStep(i, t) {
-  const { scene: sc, level } = cur, s = i & 15, sixteenth = 60 / BPM[sc] / 4;
-  const chord = (sc === 'boss' ? PROG.boss : PROG.calm)[i >> 4], root = chord[0] - 24;
-  const mus = { at: t, out: musBus };
-  if (s === 0) for (const m of chord) for (const dt of [-8, 8]) // pad
-    tone('sawtooth', hz(m), hz(m), sixteenth * 16, 0.035, { ...mus, atk: sixteenth * 3, lp: 700, detune: dt });
-  if (sc === 'menu' || sc === 'over') {
-    if (s % 2 === 0) tone('triangle', hz(chord[(s / 2) % 3] + 12), hz(chord[(s / 2) % 3] + 12), sixteenth * 2.5, 0.07, { at: t, out: echo });
-    if (s === 0) tone('sine', hz(root + 12), hz(root + 12), sixteenth * 12, 0.16, mus);
-    return;
+  const { scene: sc, level } = cur, s = i & 15, six = 60 / BPM[sc] / 4;
+  const [root, chord, mel] = SONGS[songName][i >> 4];
+  const mus = { at: t, out: musBus }, quiet = sc === 'menu' || sc === 'over';
+  if (s % 2 === 0) {
+    // lead
+    const k = s / 2, m = mel[k];
+    if (m > 0) {
+      let len = 1; while (k + len < 8 && mel[k + len] === -1) len++;
+      const dur = six * 2 * len * 0.95;
+      tone('square', hz(m), hz(m), dur, quiet ? 0.045 : 0.06, { at: t, out: echo, lp: quiet ? 1400 : 2200, atk: 0.008 });
+      tone('triangle', hz(m), hz(m), dur, 0.05, mus);                                  // body under the pulse
+      if (level >= 3) tone('square', hz(m + 12), hz(m + 12), dur * 0.6, 0.018, { ...mus, lp: 2600 });
+    }
+    // bass: bouncing octaves in a run, one long note per half bar on the menu
+    if (quiet) { if (s % 8 === 0) tone('triangle', hz(root), hz(root), six * 7, 0.2, mus); }
+    else { const b = root + (s % 4 === 2 ? 12 : 0); tone('triangle', hz(b), hz(b), six * 1.8, 0.24, mus); }
   }
-  // kick and bass: always on during a run
-  if (s % 4 === 0) tone('sine', 150, 42, 0.16, 0.5, mus);
-  if (s % 2 === 0) { const m = root + (s % 4 === 2 ? 12 : 0); tone('sawtooth', hz(m), hz(m), sixteenth * 1.7, 0.16, { ...mus, lp: 500 + level * 250 }); }
-  if (level >= 1) {
-    if (s % 4 === 2 || (level >= 2 && s % 2 === 0) || level >= 3) noise(0.03, s % 4 === 2 ? 0.07 : 0.035, 'highpass', 7000, 7000, mus);
-    const m = chord[[0, 1, 2, 1][s % 4]] + (level >= 3 ? 24 : 12) + (s >= 8 && s % 4 === 3 ? 12 : 0);
-    tone('square', hz(m), hz(m), sixteenth * 0.9, 0.03, { at: t, out: echo, lp: 2400 });
+  if (quiet) return;
+  if (level >= 2) { const a = chord[s % 3] + 12; tone('square', hz(a), hz(a), six * 0.8, 0.014, { ...mus, lp: 1800 }); } // arpeggio
+  if (level >= 1 || sc === 'boss') {
+    if (s % 4 === 0) tone('triangle', 160, 45, 0.14, 0.45, mus);                         // kick
+    if (s % 4 === 2) noise(0.03, 0.035, 'highpass', 8000, 8000, mus);                    // hat
   }
-  if (level >= 2 && (s === 4 || s === 12)) { noise(0.13, 0.2, 'bandpass', 1800, 900, mus); tone('triangle', 200, 110, 0.09, 0.14, mus); }
-  if (sc === 'boss' && s % 8 === 6) tone('sawtooth', hz(root + 13), hz(root + 12), sixteenth * 2, 0.1, { ...mus, lp: 1200 }); // uneasy stab
+  if (level >= 2 && (s === 4 || s === 12)) noise(0.11, 0.12, 'bandpass', 1900, 1200, mus); // snare
+  if (sc === 'boss' && s % 4 === 0) tone('triangle', hz(root - 12), hz(root - 12), six * 3, 0.2, mus);
 }
 
 // For browser checks: is the audio clock running, and what is the soundtrack doing.
-export const debugState = () => ({ state: ac ? ac.state : 'none', time: ac ? ac.currentTime : 0, step: stepI, ...cur });
+export const debugState = () => ({ state: ac ? ac.state : 'none', time: ac ? ac.currentTime : 0, step: stepI, song: songName, ...cur });

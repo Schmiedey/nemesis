@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 built on branch `phase-2-art`, not yet merged: sprites, menus, and code-made sound effects and soundtrack (`src/audio.js`). Sound has not been listened to by a human yet: play a run, tune volumes, then merge. Next: Phase 3.
+**Status:** Phase 2 built on branch `phase-2-art`, not yet merged: sprites, menus, sound effects and a chiptune soundtrack (`src/audio.js`). Enemies slowed and given a turn rate after playtest feedback. Waiting on the user's verdict on the new music and enemy speed, then merge. Next: Phase 3.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs

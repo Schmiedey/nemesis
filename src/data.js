@@ -1,11 +1,11 @@
 // Game data only. No logic that touches the DOM.
 export const T = {
-  bat:    { name: 'Bat',    color: '#b06cff', r: 7,  hp: 6,   spd: 170, dmg: 6,  unlock: 0,   w: 5,   xp: 1, shape: 'tri', pack: 3 },
+  bat:    { name: 'Bat',    color: '#b06cff', r: 7,  hp: 6,   spd: 140, dmg: 6,  unlock: 0,   w: 5,   xp: 1, shape: 'tri', pack: 3 },
   slime:  { name: 'Slime',  color: '#4cff8a', r: 13, hp: 30,  spd: 75,  dmg: 10, unlock: 10,  w: 3,   xp: 2, shape: 'blob', split: true },
   archer: { name: 'Archer', color: '#ffd23f', r: 10, hp: 16,  spd: 85,  dmg: 9,  unlock: 25,  w: 2.5, xp: 2, shape: 'diamond', ranged: true },
   brute:  { name: 'Brute',  color: '#ff7a2f', r: 20, hp: 120, spd: 65,  dmg: 25, unlock: 45,  w: 1.2, xp: 6, shape: 'square' },
-  bomber: { name: 'Bomber', color: '#ff3b5c', r: 10, hp: 10,  spd: 135, dmg: 35, unlock: 70, w: 2,   xp: 2, shape: 'circle', explode: true },
-  wisp:   { name: 'Wisp',   color: '#4cd9ff', r: 8,  hp: 14,  spd: 135, dmg: 6,  unlock: 95, w: 2,   xp: 3, shape: 'star', blink: true },
+  bomber: { name: 'Bomber', color: '#ff3b5c', r: 10, hp: 10,  spd: 120, dmg: 35, unlock: 70, w: 2,   xp: 2, shape: 'circle', explode: true },
+  wisp:   { name: 'Wisp',   color: '#4cd9ff', r: 8,  hp: 14,  spd: 120, dmg: 6,  unlock: 95, w: 2,   xp: 3, shape: 'star', blink: true },
 };
 
 export const ALLY_LINE = {
