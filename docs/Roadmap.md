@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phase 2 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked). Phase 3 in progress on branch `phase-3-ship`: map, touch controls and performance done; the build uses relative paths and runs from any folder. Not tried on a real phone. Next: final name, itch.io upload, 10-second clip.
+**Status:** Phase 2 merged to main (music on hold: switched off via `MUSIC_ON` in `src/audio.js`, do not work on it until asked). Phase 3 in progress on branch `phase-3-ship`: map, touch controls and performance done; the build uses relative paths and runs from any folder. Not tried on a real phone. Final name is NEMESIS. Next: itch.io upload (`nemesis-web.zip`, made by zipping `dist/`), 10-second clip.
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -23,7 +23,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Map: fixed rocks and pillars, floor art, minimap
 - [x] Touch controls: drag-anywhere stick, pause button, phone-size menus, rotate hint in portrait
 - [x] Performance: measured 0.8 ms of work per frame with 268 enemies on a Mac, sim step 0.13 ms; pixel ratio capped at 2, particles capped at 500
-- [ ] Final name
+- [x] Final name: NEMESIS
 - [ ] itch.io upload, 10-second clip
 - [ ] Steam only if the web version gets traction ($100)
 - Done when: a stranger can play it from a link.
