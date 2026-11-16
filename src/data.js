@@ -95,6 +95,25 @@ export const UP_STAT = {
   armor: ['Damage taken', g => g.armor * 100, 0, '%'], crit: ['Crit chance', g => g.P.crit * 15, 0, '%'], scholar: ['Experience', g => g.xpMul * 100, 0, '%'],
   exec: ['Execute bonus', g => g.P.exec * 100, 0, '%'], dodge: ['Dodge chance', g => g.P.dodge * 100, 0, '%'],
 };
+// Phase 21: a weapon evolves when its partner upgrade reaches rank 5: the next chest after 3:00 offers it.
+export const EVO_TIME = 180;
+export const WEAPON_EVOS = {
+  blaster: { id: 'gatling', n: 'Gatling', need: 'haste', d: 'Fires a third faster, and one more shot every volley' },
+  sword: { id: 'kingsblade', n: 'Kingsblade', need: 'tough', d: 'Longer reach, and every enemy cut heals you 1 health (up to 6 a swing)' },
+  rang: { id: 'moonblade', n: 'Moonblade', need: 'spd', d: 'One more boomerang, larger blades, 15% more damage' },
+  flame: { id: 'hellfire', n: 'Hellfire Trail', need: 'regen', d: 'A wider trail that burns longer, and 25% more damage' },
+  rod: { id: 'tempest', n: 'Tempest', need: 'crit', d: 'Two more arcs and 30% more damage' },
+  totem: { id: 'watchtower', n: 'Watchtower', need: 'magnet', d: 'One more totem, they last longer, and you attack 25% faster' },
+};
+// Pairs: hold both upgrades (any rank) and a bonus switches on for the rest of the run.
+export const PAIRS = [
+  { id: 'steam', n: 'Steam', a: 'frost', b: 'ember', d: 'Enemies both slowed and burning take 40% more damage from you' },
+  { id: 'thirst', n: 'Bloodthirst', a: 'leech', b: 'regen', d: 'Below half health your regeneration is doubled' },
+  { id: 'edge', n: 'Killing Edge', a: 'crit', b: 'exec', d: 'Executioner counts double, and +15% Lucky Shot chance' },
+  { id: 'jugg', n: 'Juggernaut', a: 'tough', b: 'armor', d: '+20% max health, and heal that much' },
+  { id: 'warband', n: 'Warband', a: 'rally', b: 'pack', d: 'Your nemeses and minions get Rally and Pack Tactics once more, free' },
+  { id: 'engine', n: 'Arcane Engine', a: 'scholar', b: 'focus', d: 'Your ability recharges 20% faster and you gain 15% more experience' },
+];
 export const upText = (u, s = 1, weaponUp) => (weaponUp && weaponUp[u.id] && k(s) === 1 ? weaponUp[u.id] : weaponUp && weaponUp[u.id] ? weaponUp[u.id] + ' (x' + k(s) + ')' : u.d(s));
 
 // Perks a recruit can inherit from the build you died with, and the title each one earns.

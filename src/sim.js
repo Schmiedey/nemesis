@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { MAX_RANK, UP_SLOTS, FILLERS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
+import { MAX_RANK, UP_SLOTS, FILLERS, EVO_TIME, WEAPON_EVOS, PAIRS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
 
 export const ARENA = { w: 1600, h: 1000 };
 export const VIEW = { w: 960, h: 600 };
@@ -68,7 +68,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     respawnMul: 1, hitBy: null, hint: null,
     // Class ultimate: charge 0..1 from kills; ultT is how long the current one has left; ultN how many you have used.
     ult: 0, ultT: 0, ultN: 0, ultTick: 0, laser: null, blockT: 0, shotN: 0,
-    cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), banishes: 1 + mr('banish'), banned: new Set(), dry: 0, minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
+    cls: CLASSES[cls] ? cls : null, armor: 1, raiseC: 0, tier: tr, xpMul: 1 + 0.08 * mr('wisdom'), rerolls: mr('reroll'), pairs: {}, banishes: 1 + mr('banish'), banned: new Set(), dry: 0, minionBuff: 1 + 0.15 * clamp(mastery, 0, 4),
     pickups: [], frenzyT: 0, giantT: 0, hourUsed: false, afterT: 0, powerups: 0,
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0, zaps: [],
     // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
@@ -100,6 +100,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
   g.soulMul *= 1 + 0.15 * g.party.filter(n => n.prize === 'gold').length;   // a golden nemesis in the party: +15% souls   // a class is a lot of extra power, so the swarm grows to match
   const b = boon && UP.find(u => u.id === boon);
   if (b) { b.f(g); g.picks[b.id] = 1; }
+  checkPairs(g);
   return g;
 }
 
@@ -566,7 +567,8 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   if (src === 'player' && g.cls === 'berserker') amt *= 1 + 0.6 * (1 - g.P.hp / g.P.maxhp);   // Berserker: hurt means angry
   if (src === 'player' && o.team === 'enemy') {
     const P = g.P;
-    if (P.exec && o.hp < o.maxhp * 0.34) amt *= 1 + P.exec;                                    // Executioner
+    if (P.exec && o.hp < o.maxhp * 0.34) amt *= 1 + P.exec * (g.pairs.edge ? 2 : 1);            // Executioner (Killing Edge: double)
+    if (g.pairs.steam && o.slowT > 0 && o.fireT > 0) amt *= 1.4;                                // Steam
     if (P.frost && !o.boss) { o.slowT = Math.max(o.slowT || 0, 1.2 + 0.6 * P.frost); o.slowK = 0.65; }   // Frostbite
     if (P.ember) { o.fireT = 3; o.fireD = Math.max(o.fireD || 0, amt * 0.2 * P.ember / 6); }   // Wildfire: a share of the hit, over 6 ticks
   }
@@ -685,6 +687,25 @@ function rollRarity(g) {
 // Phase 20: ranks cap at 5; once six different upgrades are held only those are offered (so a build narrows
 // toward what you chose); upgrades you hold and ones your weapon reads differently come up more often;
 // banished ones never return this run; four level-ups in a row with nothing Rare or better force a Rare.
+// ---------- evolutions and pairs (Phase 21) ----------
+const EVO_F = {
+  gatling: P => { P.fire /= 1.35; P.multi += 1; }, kingsblade: P => { P.pierce += 2; },
+  moonblade: P => { P.multi += 1; P.pierce += 1; P.dmg *= 1.15; }, hellfire: P => { P.multi += 1; P.pierce += 2; P.dmg *= 1.25; },
+  tempest: P => { P.multi += 1; P.dmg *= 1.3; }, watchtower: P => { P.multi += 1; P.pierce += 2; P.fire /= 1.25; },
+};
+// The evolution as a card: always Legendary, one per run.
+export const evoCard = w => { const ev = WEAPON_EVOS[w]; return ev && { id: ev.id, n: ev.n, ic: 'i_' + w, evo: true, fixed: 'legendary', d: () => ev.d, f: g => { g.P.evo = ev.id; EVO_F[ev.id](g.P); g.fx.push({ k: 'evo', n: ev.n }); snd(g, 'legendary'); } }; };
+export const evoReady = g => { const ev = WEAPON_EVOS[g.P.weapon]; return !!ev && !g.P.evo && (g.picks[ev.need] || 0) >= MAX_RANK; };
+const PAIR_F = {
+  steam: () => {}, thirst: () => {}, edge: g => { g.P.crit += 1; },
+  jugg: g => { const v = Math.round(g.P.maxhp * 0.2); g.P.maxhp += v; g.P.hp = Math.min(g.P.maxhp, g.P.hp + v); },
+  warband: g => { for (const id of ['rally', 'pack']) UP.find(u => u.id === id).f(g, 1); },
+  engine: g => { g.P.cdMul *= 0.8; g.xpMul *= 1.15; },
+};
+function checkPairs(g) {
+  for (const p of PAIRS) if (!g.pairs[p.id] && g.picks[p.a] && g.picks[p.b]) { g.pairs[p.id] = true; PAIR_F[p.id](g); g.fx.push({ k: 'pair', n: p.n }); snd(g, 'rare'); }
+}
+
 export const heldCount = g => UP.filter(u => !u.leg && g.picks[u.id]).length;
 function rollChoices(g, keep = false) {
   const no = WEAPONS[g.P.weapon].no || [], hasAllies = g.party.length > 0 || !!g.cls, wup = WEAPONS[g.P.weapon].up || {};
@@ -705,6 +726,7 @@ function rollChoices(g, keep = false) {
   }
   for (const f of FILLERS) if (g.choices.length < 3) { g.choices.push(f); g.rar.push('common'); }   // nothing left to offer
   if (keep) return;
+  if (g.chest && g.t >= EVO_TIME && evoReady(g)) { g.choices[0] = evoCard(g.P.weapon); g.rar[0] = 'legendary'; }   // the weapon is ready to evolve
   if (g.rar.some(r => r !== 'common')) g.dry = 0;
   else if (++g.dry >= 4) { const i = g.choices.findIndex(u => !u.filler && !u.fixed); if (i >= 0) { g.rar[i] = 'rare'; g.dry = 0; } }
 }
@@ -750,13 +772,14 @@ function fireWeapon(g, dt) {
         P.fireT = P.fire * 1.6; snd(g, 'sweep');
         const a = Math.atan2(tg.y - P.y, tg.x - P.x), half = P.multi >= 3 ? Math.PI : 1.25, hit = new Set();
         for (const back of P.multi === 2 ? [0, Math.PI] : [0]) {
-          g.fx.push({ k: 'sweep', x: P.x, y: P.y, a: a + back, r: reach, half });
+          g.fx.push({ k: 'sweep', x: P.x, y: P.y, a: a + back, r: reach, half, evo: !!P.evo });
           for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !hit.has(o) && d2(o, P) < (reach + o.r) ** 2) {
             const da = Math.atan2(Math.sin(Math.atan2(o.y - P.y, o.x - P.x) - a - back), Math.cos(Math.atan2(o.y - P.y, o.x - P.x) - a - back));
             if (Math.abs(da) <= half) { hit.add(o); damage(g, o, hitDmg(g, P.dmg * 2.1 * (1 + 0.15 * Math.max(0, P.multi - 3))), 'player'); shove(P, o); }
           }
         }
         if (hit.size) spark(g, tg.x, tg.y, hit, P.dmg * 2, P.chain);
+        if (P.evo === 'kingsblade') P.hp = Math.min(P.maxhp, P.hp + Math.min(6, hit.size));
       }
     } else if (w === 'rang') {
       const tg = g.rangs.length < P.multi ? nearest(g, P, 'enemy', 440) : null;
@@ -937,7 +960,7 @@ export function pick(g, i) {
   if (g.state !== 'lvl' || !g.choices[i]) return;
   const u = g.choices[i];
   const rar = g.rar[i] || 'common';
-  u.f(g, u.leg ? 1 : RARITY[rar].s); if (!u.filler) g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false;
+  u.f(g, u.leg ? 1 : RARITY[rar].s); if (!u.filler) g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false; checkPairs(g);
   g.lastPick = { id: u.id, rar }; if (rar === 'epic' || rar === 'legendary') g.epics++;
   if (g.twin && g.cls) { g.twin = false; spawnMinion(g, CLASSES[g.cls].minion); }   // Twin Soul
   g.state = 'play';
@@ -973,7 +996,7 @@ export function step(g, dt, input) {
   if (g.cls === 'knight') g.blockT -= dt;
   unstick(g, P);
   P.x = clamp(P.x, P.r, ARENA.w - P.r); P.y = clamp(P.y, P.r, ARENA.h - P.r);
-  P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * dt);
+  P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * (g.pairs.thirst && P.hp < P.maxhp / 2 ? 2 : 1) * dt);
   const wdt = g.frenzyT > 0 ? dt * 2 : dt;              // Frenzy: every weapon timer runs twice as fast
   g.frenzyT -= dt;
   P.fireT -= wdt;

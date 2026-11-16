@@ -1,5 +1,5 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, PAIRS, WEAPON_EVOS, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
@@ -263,7 +263,8 @@ export function showLoadout(save, onEquip) {
       const have = save.gear.owned.includes(id), it = table[id];
       const c = document.createElement('div');
       c.className = 'nem gearcard' + (id === cur ? ' on' : '') + (have ? '' : ' locked');
-      c.innerHTML = `${pix(have ? 'i_' + id : 'i_lock', 3)}<div><b>${have ? it.n : 'Not found yet'}</b><span>${have ? it.d : 'Dropped by your nemesis and by elite chests.'}</span>` +
+      const evo = table === WEAPONS && WEAPON_EVOS[id] ? `<span class="evo">EVOLVES INTO ${WEAPON_EVOS[id].n.toUpperCase()} WITH ${upName(WEAPON_EVOS[id].need).toUpperCase()} AT RANK ${MAX_RANK}</span>` : '';
+      c.innerHTML = `${pix(have ? 'i_' + id : 'i_lock', 3)}<div><b>${have ? it.n : 'Not found yet'}</b><span>${have ? it.d : 'Dropped by your nemesis and by elite chests.'}</span>${have ? evo : ''}` +
         (have ? `<span class="pick">${id === cur ? 'EQUIPPED' : 'click to equip'}</span>` : '') + '</div>';
       if (have) c.onclick = () => onEquip(id);
       el.appendChild(c);
@@ -434,13 +435,20 @@ export function showLevel(g, onPick, banishing = false) {
     const sparks = rar === 'legendary' || rar === 'epic' ? `<i class="sp s1">${pix('glint', 2)}</i><i class="sp s2">${pix('glint', 2)}</i><i class="sp s3">${pix('glint', 2)}</i>` : '';
     c.innerHTML = `<i class="rar">${RARITY[rar].n.toUpperCase()}</i>${sparks}${pix(u.ic || 'i_' + u.id, 4)}<b>${u.n}</b><span>${d}</span>` +
       preview(g, u, s) + (u.leg || u.filler ? '' : rankPips(have)) +
-      `<em>${u.leg ? 'one of a kind' : u.filler ? 'nothing left to learn' : u.ally ? 'for your allies' : have ? 'rank ' + have + ' to ' + (have + 1) : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
+      pairTag(g, u) + `<em>${u.evo ? 'weapon evolution' : u.leg ? 'one of a kind' : u.filler ? 'nothing left to learn' : u.ally ? 'for your allies' : have ? 'rank ' + have + ' to ' + (have + 1) : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
     el.appendChild(c);
   });
   show('lvl');
 }
 
+// A card that would complete a pair, or feeds your weapon's evolution, says so.
+function pairTag(g, u) {
+  const ev = WEAPON_EVOS[g.P.weapon];
+  if (ev && ev.need === u.id && !g.P.evo) return `<i class="tag evo">EVOLVES YOUR ${WEAPONS[g.P.weapon].n.toUpperCase()} AT RANK ${MAX_RANK}</i>`;
+  for (const p of PAIRS) { const other = p.a === u.id ? p.b : p.b === u.id ? p.a : null; if (other && !g.pairs[p.id]) return `<i class="tag${g.picks[other] && !g.picks[u.id] ? ' on' : ''}">${g.picks[other] && !g.picks[u.id] ? 'COMPLETES ' + p.n.toUpperCase() : 'PAIRS WITH ' + upName(other).toUpperCase()}</i>`; }
+  return '';
+}
 // Rank pips: filled for what you have, the next one lit.
 const rankPips = have => `<i class="rk">${Array.from({ length: MAX_RANK }, (_, k) => `<i class="${k < have ? 'on' : k === have ? 'nx' : ''}"></i>`).join('')}</i>`;
 // Before -> after for plain stat upgrades: apply the upgrade to a copy and read the number again.

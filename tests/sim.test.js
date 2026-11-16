@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, step, pick, reroll, banish, recruitQuality, ARENA } from '../src/sim.js';
+import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA } from '../src/sim.js';
 import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
 import { grudgeFor, feedGrudge, sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
@@ -670,6 +670,26 @@ describe('level-ups (Phase 20)', () => {
     for (let i = 0; i < 60; i++) { lvl(g); pick(g, 0); g.picks = {}; expect(g.choices.some(u => u.id === id)).toBe(false); }
     const h = createGame({ seed: 7 }); h.luck = 0; h.dry = 3; lvl(h);
     expect(h.rar).toContain('rare'); expect(h.dry).toBe(0);
+  });
+});
+
+describe('evolutions and pairs (Phase 21)', () => {
+  const chest = g => { g.chest = true; g.state = 'play'; g.P.xp = g.P.next = 1; step(g, 1 / 60, { mx: 0, my: 0 }); };
+  it('a rank-5 partner upgrade evolves the weapon at a chest after 3:00, once', () => {
+    const g = createGame({ seed: 3, cls: 'knight' }); g.P.hp = g.P.maxhp = 1e9;
+    g.picks.tough = 5; expect(evoReady(g)).toBe(true);
+    g.t = 100; chest(g); expect(g.choices[0].evo).toBeFalsy();               // too early
+    g.t = 200; chest(g); expect(g.choices[0].id).toBe('kingsblade'); expect(g.rar[0]).toBe('legendary');
+    const p0 = g.P.pierce; pick(g, 0); expect(g.P.evo).toBe('kingsblade'); expect(g.P.pierce).toBe(p0 + 2);
+    expect(evoReady(g)).toBe(false); chest(g); expect(g.choices.some(u => u.evo)).toBe(false);
+  });
+  it('holding both halves of a pair switches its bonus on', () => {
+    const g = createGame({ seed: 3 }); g.P.hp = g.P.maxhp = 1e9;
+    const up = id => UP.find(u => u.id === id);
+    g.picks.tough = 1; const hp0 = g.P.maxhp;
+    g.P.xp = g.P.next; step(g, 1 / 60, { mx: 0, my: 0 }); g.choices = [up('armor'), up('dmg'), up('spd')]; g.rar = ['common', 'common', 'common'];
+    pick(g, 0); expect(g.pairs.jugg).toBe(true); expect(g.P.maxhp).toBeCloseTo(hp0 * 1.2, 0);
+    expect(g.pairs.steam).toBeFalsy();
   });
 });
 

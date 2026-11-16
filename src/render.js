@@ -96,6 +96,8 @@ export function consumeFx(g) {
     else if (f.k === 'strike') { if (strikes.length < 40) strikes.push({ x: f.x, y: f.y, life: 0.16 }); }
     else if (f.k === 'ult') { ultFx = { id: f.id, life: 1.5 }; rings.push({ x: g.P.x, y: g.P.y, r: 320, life: 0.5 }, { x: g.P.x, y: g.P.y, r: 200, life: 0.35 }); }
     else if (f.k === 'block') blockFx = 0.3;
+    else if (f.k === 'evo') banner = { text: 'EVOLVED: ' + f.n.toUpperCase(), life: 3, c: PAL.y };
+    else if (f.k === 'pair') banner = { text: 'PAIR: ' + f.n.toUpperCase(), life: 2.4, c: PAL.c };
     else if (f.k === 'minute') banner = { text: f.n + ':00 survived', life: 1.8, c: PAL.w };
     else if (f.k === 'gold') { booms.push({ x: f.x, y: f.y, life: 0.32, k: 1 }); for (let i = 0; i < 14; i++) glints.push({ x: f.x + rnd(-24, 24), y: f.y + rnd(-10, 20), vy: -rnd(40, 150), life: rnd(0.4, 0.9), f: Math.floor(rnd(0, 3)) }); }
     else {
@@ -433,7 +435,7 @@ export function draw(cv, cx, g, hud, hx) {
     cx.fillStyle = dither(cx, PAL.ice); cx.beginPath(); cx.arc(x, y, s.r, from, to); cx.arc(x, y, 16, to, from, true); cx.closePath(); cx.fill();
     cx.strokeStyle = PAL.w; cx.lineWidth = 4; cx.beginPath(); cx.arc(x, y, s.r - 2, Math.max(from, to - 0.9), to); cx.stroke();
     const bx = Math.cos(to), by = Math.sin(to), blade = (w, col, r0, r1) => { cx.strokeStyle = col; cx.lineWidth = w; cx.beginPath(); cx.moveTo(x + bx * r0, y + by * r0); cx.lineTo(x + bx * r1, y + by * r1); cx.stroke(); };
-    blade(10, PAL.k, 8, s.r + 2); blade(6, PAL.w, 10, s.r); blade(10, PAL.y, 8, 16);   // outline, steel, golden hilt
+    blade(10, PAL.k, 8, s.r + 2); blade(6, s.evo ? PAL.y : PAL.w, 10, s.r); blade(10, s.evo ? PAL.w : PAL.y, 8, 16);   // outline, steel (gold once evolved), hilt
   }
   for (const b of bolts) {                               // Storm Rod lightning: a jagged line through each target
     // A blue glow with a white core, kinked once between each pair of targets.
