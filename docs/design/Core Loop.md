@@ -28,7 +28,7 @@ A giant version of the enemy type that has killed you most. Chases you, summons 
 - Enemies steer at 3 radians per second instead of snapping onto you, so a sharp turn shakes them off. Within 90 units they turn freely.
 - **Enemies hunt the player.** They only turn on a nemesis within 110 units, so allies help but do not hide you.
 - **Surge** every 20s: a wave closes in from one side (3 groups, +1 every 50s), with a red arc warning.
-- A stronger party draws a slightly bigger swarm (+4.5% spawns per point of total quality).
+- A stronger party draws a slightly bigger swarm (+3% spawns per point of total quality), on top of a base 1.14x. At most 240 enemies are alive at once.
 
 ## Nemesis jobs, growth and evolutions (Phase 4)
 Every nemesis has a job that works at any rank, so even a Runt changes a run (`JOB` in `src/data.js`, rules in `src/sim.js`):
@@ -39,7 +39,7 @@ Every nemesis has a job that works at any rank, so even a Runt changes a run (`J
 - **Bomber**: blows itself up, then returns in 3s without losing a life (being killed still costs one).
 - **Wisp**: burns up enemy shots that come near it (not the boss's).
 
-Ally strength: health x(2.6 + 1.3q), damage x(0.7 + 1.3q), where q is quality. The floor is what keeps Runts alive long enough to matter.
+Ally strength: health x(3.4 + 1.6q), damage x(0.9 + 1.5q), where q is quality; they move at 1.2x, attack every 0.45s and go for enemies within 460. **A nemesis is never gone for good**: it returns 5s after falling, 3s longer each fall, at most 20s (the old three-lives rule left most of the party dead by mid-run: the Archer and Slime were alive about a quarter of the time). Second Wind brings everyone back at once and halves return times. The party HUD shows each nemesis's health, kills this run and return countdown.
 
 **Growth.** A nemesis is credited with its own kills. After each run it gains quality: 0.006 per kill (at most 0.3 a run), plus 0.25 for a win (`growParty` in `src/save.js`). Its lifetime kills, runs and wins are saved.
 
@@ -174,10 +174,10 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 1:37 | 0/10 | 0 | 0:21 |
-| 3 runts | 1:55 | 1/10 | 0 | 0:56 |
-| 3 soldiers | 2:13 | 2/10 | 0 | 1:22 |
-| 3 veterans with perks | not re-run since rarities (was 5:54, 3 wins) | | | |
-| 3 champions with perks | not re-run since rarities (was 6:27, 6 wins) | | | |
+| None | 1:36 | 1/10 | 0 | 0:21 |
+| 3 runts (bat, slime, bat) | 3:41 | 1/10 | 0 | 1:03 |
+| 3 soldiers (bat, slime, bat) | 3:10 | 3/10 | 0 | 1:06 |
+| 3 veterans with perks (brute, archer, wisp) | 2:29 | 1/10 | 0 | 0:46 |
+| 3 champions with perks (brute, archer, bomber) | 6:08 | 7/10 | 2 | 3:30 |
 
-Known gaps (table uses Blaster + Dash, no charm; the bot presses the ability when crowded and walks to power-ups): a champion party is not hit until about 5:12, so everything before the boss is safe for it. Soldiers do worse than runts (2:19 vs 2:49), within 10-seed noise. Decoy is the strongest ability. Small number changes swing weapons and power-ups wildly, so re-run after any change. Charms, evolutions, Nemesis+ and boons are not in the table. The full table now takes over 10 minutes: run it in two halves with `--rows`.
+Known gaps (measured after rarities, the 14% swarm increase and the nemesis rework; Blaster + Dash, no class, no Shrine): any party now adds one to two minutes over solo, which was the point of the rework, but the tiers are out of order: the veteran row (brute, archer, wisp) does worse than runts and soldiers (bat, slime, bat). Which creatures you bring now matters more than their rank; Bats that fetch gems plus a Slime that draws enemies is the strongest mix. Champions reach the boss 7 of 10 but win only 2 (target about half), so the boss is now slightly too hard for them. Ten seeds is noisy (veteran range 1:29-9:28). Classes, Shrine ranks, mastery, charms and Nemesis+ are not in the table.
