@@ -76,7 +76,7 @@ Each enemy shows what it is about to do, and has an answer:
 A giant of the type that has killed you most. It moves at 150 or more (you move at 200), so you cannot just walk away. It summons its kind every 5s, fires a ring of 18 shots every 3.5s, and between rings fires aimed bursts of 3 every 1.3s. Its shots do 22. Regular enemies keep spawning during the fight at 80% of the normal rate. Every 5s it winds up for 0.85s with a tell and uses its type's move:
 - Brute and Bat: a long charge, ending in a shockwave ring. Slime: leaps onto where you stood and scatters small slimes. Archer: a wide fan of arrows. Bomber: a huge blast around itself. Wisp: blinks beside you and fires two offset rings.
 - **Enrage** below half health: 25% faster, specials every 3.2s, rings of 26, aimed bursts of 5 every 0.8s.
-- Health is 14000 x (1 + 1.3 x the square root of total party quality) x (1 + 0.02 x your level), so a stronger party and build face a tougher nemesis, but less than they gain (was 1 + 0.6 x quality: three champions faced 6x health and veterans never won). (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
+- Health is 14000 x (1 + 1.3 x the square root of total party quality) x (1 + 0.045 x your level), so a stronger party and build face a tougher nemesis, but less than they gain (was 1 + 0.6 x quality: three champions faced 6x health and veterans never won). (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
 
 ## Elites, chests and upgrades (Phase 5)
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
