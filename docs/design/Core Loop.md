@@ -202,15 +202,15 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 - A top party reaches the boss most runs and wins about half.
 - Even weak recruits matter: 3 runts last at least 20s longer than solo, 3 soldiers at least 40s.
 
-## Balance (10 seeds, `node tests/balance.js`)
+## Balance (20 seeds, `node tests/balance.js --seeds 20`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 2:21 | 1/10 | 0 | 0:21 |
-| 3 runts (bat, slime, bat) | 2:27 | 3/10 | 1 | 1:15 |
-| 3 soldiers (bat, slime, bat) | 5:38 | 5/10 | 3 | 2:20 |
-| 3 veterans with perks (brute, archer, wisp) | 2:29 | 2/10 | 2 | 1:36 |
-| 3 champions with perks (brute, archer, bomber) | 5:54 | 8/10 | 6 | 2:49 |
+| None | 1:54 | 1/20 | 0 | 0:21 |
+| 3 runts (bat, slime, bat) | 2:26 | 3/20 | 2 | 1:30 |
+| 3 soldiers (bat, slime, bat) | 5:38 | 10/20 | 4 | 1:41 |
+| 3 veterans with perks (brute, archer, wisp) | 3:38 | 9/20 | 7 | 1:55 |
+| 3 champions with perks (brute, archer, bomber) | 6:16 | 17/20 | 11 | 3:59 |
 
-Phase 23, after Phases 20-22 and the softer boss and swarm scaling (before it: soldiers 3 wins, veterans 0 of 2 at the boss, champions 4). `--mix` swaps the creatures: bat/slime/bat at 1.7 3:03 (4 boss, 2 wins); brute/archer/wisp at 1 1:59, at 1.7 2:36. `--cls` and `--grudge` run the table as a class or against a boss with grudge powers.
+Phase 23. Boss health and swarm now scale by the square root of party quality (before: veterans 0 wins, champions 4 of 10). Ally jobs grow with rank (`jobK` in `src/sim.js`: 0.6 + 0.4 x quality, so runt 0.76, champion 1.72): Bat gem reach, Slime pull radius, Archer slow time, Brute knockback and stun, Wisp shot-burning radius. Before jobs scaled, veterans reached the boss 6 of 20 and won 5. Options: `--seeds N`, `--cls`, `--grudge storm,phoenix`, `--mix` (creatures swapped between ranks).
 
-Known gaps (Phase 23): champions are on target (6 of 10 wins) and veterans win when they reach the boss, but they rarely get there. Which creatures you bring still matters more than rank: Bats fetch gems, so a bat/slime/bat party levels faster (19-20 against 14-18) and beats brute/archer/wisp at either rank. Runts add almost nothing over solo (target +20s). Ten seeds cannot separate the tiers (ranges run 1:00-12:00, and bat/slime/bat at 1.7 measured worse than at 1), so tune rank with more seeds.
+Known gaps (Phase 23): wins now rise with every tier (2, 4, 7, 11 of 20) and runts add 32s over solo. Survival is bimodal (ranges 1:20-12:00), so medians jump; read boss and wins first. Open: bat/slime/bat at rank 1.7 does worse than at rank 1 (2:30, 5 boss against 5:38, 10 boss); at 2:00 both are level 13 with the same health, so the gap opens later. Not yet run with a class or grudge powers.

@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-22 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 23 (the hook pays) started: party table re-measured, boss and swarm scale less with party quality (champions win 6/10). Next: more seeds to separate the tiers, then make rank matter more than creature type (Bat gem fetching). Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-22 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 23 (the hook pays) done: boss and swarm scale by the square root of party quality; ally jobs grow with rank; wins rise with every tier. Next: Phase 24, a real map (plan in `docs/design/Map.md`). Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -140,9 +140,18 @@ One phase per session. Each ends with a commit and an updated status line here.
 ## Phase 23: The hook pays
 - [x] Re-measure the party table after Phases 20-22; `--cls`, `--grudge` and `--mix` options in the balance script
 - [x] Boss health and swarm scale less with party quality (square root), so better recruits pay off
-- [ ] Each tier clearly beats the one below (needs more seeds; creature mix matters more than rank)
-- [ ] Runts add at least 20s over solo
+- [x] Each tier wins more than the one below (2, 4, 7, 11 of 20); ally jobs grow with rank (`jobK`)
+- [x] Runts add at least 20s over solo (32s)
+- [ ] Open: bat/slime/bat at rank 1.7 does worse than at rank 1
 - Done when: a better recruit always makes the next run better.
+
+## Phase 24: A real map (plan: `docs/design/Map.md`)
+- [ ] Bigger seeded world (4800x3000) with a rock grid and chunked floor
+- [ ] Rectangle walls and a flow field for walking enemies; bot paths round walls
+- [ ] Three biomes in rings round the Crypt
+- [ ] Landmarks: lairs (prize elites you walk to), shrines, vaults, the boss mark
+- [ ] Minimap fog
+- Done when: a run is a trip somewhere, and where you die is a choice.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

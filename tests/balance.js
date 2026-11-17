@@ -8,7 +8,7 @@ const PREF = ['dmg', 'haste', 'shots', 'chain', 'pierce', 'blade', 'crit', 'embe
 const RV = { common: 0, rare: 3, epic: 7, legendary: 14 };
 const rank = (g, i) => { const p = PREF.indexOf(g.choices[i].id); return (p < 0 ? PREF.length : p) - RV[g.rar[i] || 'common'] - (g.choices[i].leg ? 6 : 0); };
 const choose = g => { let b = 0; g.choices.forEach((u, i) => { if (rank(g, i) < rank(g, b)) b = i; }); return b; };
-const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const SEEDS = Array.from({ length: +(process.argv[process.argv.indexOf("--seeds") + 1] || 0) || 10 }, (_, i) => i + 1);   // --seeds 20 for steadier medians
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 function run(seed, party, loadout = {}) {

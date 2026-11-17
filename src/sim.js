@@ -21,6 +21,8 @@ export const LAYOUTS = [
     { x: 250, y: 200, r: 44 }, { x: 1350, y: 200, r: 44 }, { x: 250, y: 800, r: 44 }, { x: 1350, y: 800, r: 44 },
   ] },
 ];
+// How strong a nemesis's job is: runt 0.76, soldier 1, veteran 1.28, champion 1.72. Minions without a rank count as soldiers.
+export const jobK = e => 0.6 + 0.4 * Math.min(e && e.nem ? e.nem.q : 1, 3);
 // Push a circle body out of any rock it overlaps.
 function unstick(g, o) {
   for (const k of g.rocks) {
@@ -334,7 +336,7 @@ function volley(g, e, tg, n, sp, dmg, pierce) {
     b.nem = e.nem; if (e.pk && e.pk.chain) b.chain = e.pk.chain;
     if (e.type === 'imp') { b.burn = true; b.color = '#ff7a2f'; }   // the Imp's fireballs set things alight
     // Job: an Archer nemesis slows whatever it hits.
-    if (e.team === 'ally' && e.type === 'archer') { b.slowT = e.evo === 'frost' ? 4 : 2; b.slowK = e.evo === 'frost' ? 0.3 : 0.55; }
+    if (e.team === 'ally' && e.type === 'archer') { b.slowT = (e.evo === 'frost' ? 4 : 2) * jobK(e); b.slowK = e.evo === 'frost' ? 0.3 : 0.55; }
   }
 }
 
@@ -368,7 +370,7 @@ export const BLADE_R = 62, NOVA_R = 120;
 function shove(e, o) {
   if (o.boss || o.dead) return;
   const dx = o.x - e.x, dy = o.y - e.y, l = Math.hypot(dx, dy) || 1;
-  o.x += dx / l * 46; o.y += dy / l * 46; o.stun = 0.6;
+  const k = jobK(e); o.x += dx / l * 46 * k; o.y += dy / l * 46 * k; o.stun = 0.6 * k;
 }
 
 // What each class minion does that nothing else does. Returns true when it has handled the whole turn.
@@ -429,7 +431,7 @@ function minionThink(g, e, dt) {
 // Job: a Slime nemesis draws walking enemies onto itself.
 function taunter(g, e) {
   if (T[e.type].fly || T[e.type].ranged) return null;
-  for (const o of g.ents) if (o.team === 'ally' && (o.type === 'slime' || (o.type === 'golem' && o.tauntT > g.t)) && !o.small && !o.dead && d2(e, o) < 150 * 150) return o;
+  for (const o of g.ents) if (o.team === 'ally' && (o.type === 'slime' || (o.type === 'golem' && o.tauntT > g.t)) && !o.small && !o.dead && d2(e, o) < (150 * jobK(o)) ** 2) return o;
   return null;
 }
 
@@ -447,7 +449,7 @@ function think(g, e, dt) {
   if (e.minion && minionThink(g, e, dt)) return;
   if (e.stun > 0) { e.stun -= dt; return; }
   // Job: Bat nemeses fetch gems. Any gem they pass flies to you.
-  if (ally && e.type === 'bat') for (const gem of g.gems) if (!gem.pull && d2(e, gem) < 80 * 80) gem.pull = true;
+  if (ally && e.type === 'bat') { const r = 80 * jobK(e); for (const gem of g.gems) if (!gem.pull && d2(e, gem) < r * r) gem.pull = true; }
   const pk = ally ? e.pk || {} : null;
   if (pk) {
     if (e.rallyT > 0 && (e.rallyT -= dt) <= 0) e.haste /= 1.5;
@@ -1079,7 +1081,7 @@ export function step(g, dt, input) {
     const bd = b.team === 'enemy' ? edt : dt;
     b.x += b.vx * bd; b.y += b.vy * bd; b.life -= bd;
     // Job: a Wisp nemesis burns up enemy shots that come near it.
-    if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && (w.type === 'wisp' || w.type === 'squire') && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : w.type === 'squire' ? 30 * 30 : 24 * 24)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
+    if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && (w.type === 'wisp' || w.type === 'squire') && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : w.type === 'squire' ? 30 * 30 : (24 * jobK(w)) ** 2)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
     if (b.life > 0 && b.team === 'enemy') for (const k of g.rocks) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
     if (b.x < -50 || b.y < -50 || b.x > ARENA.w + 50 || b.y > ARENA.h + 50) b.life = 0;
     if (b.life <= 0) continue;
