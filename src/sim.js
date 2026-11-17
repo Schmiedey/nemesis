@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { MAX_RANK, UP_SLOTS, FILLERS, EVO_TIME, WEAPON_EVOS, PAIRS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES, NEM_RANKS, NEM_UPS } from './data.js';
+import { cardS, MAX_RANK, UP_SLOTS, FILLERS, EVO_TIME, WEAPON_EVOS, PAIRS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES, NEM_RANKS, NEM_UPS } from './data.js';
 
 export const ARENA = { w: 4800, h: 3000 };   // about five screens across
 export const VIEW = { w: 960, h: 600 };
@@ -235,7 +235,7 @@ function unstick(g, o) {
     if (dd < r * r) { const l = Math.sqrt(dd) || 0.01; o.x = k.x + dx / l * r; o.y = k.y + dy / l * r; }
   }
 }
-export const BOSS_HP = 11500;
+export const BOSS_HP = 14000;   // was 11500: with wider builds (Phase 27) a solo player who reached the boss nearly always won
 const ALLY_LIVES = 3, BOMBER_LIVES = 6;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -280,7 +280,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0, zaps: [],
     // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
     grudge: grudge && T[bossType] ? { name: String(grudge.name || ''), kills: grudge.kills | 0, powers: (grudge.powers || []).filter(k => GRUDGE_POWERS[k]).slice(0, 2) } : null,
-    chests: [], chest: false, hitName: null, bossMark: null, mines: [], wells: [], chainD: 0, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
+    chests: [], chest: false, sealed: new Set(), hitName: null, bossMark: null, mines: [], wells: [], chainD: 0, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     // The Knight always fights with a sword (CLASSES.knight.weapon); other classes use the loadout.
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
@@ -439,7 +439,7 @@ function spawnBoss(g) {
   const d = T[g.bossType], a = g.rand() * 6.28, M = g.bossMark;   // it rises where the minimap marked it
   const e = mk(g, g.bossType, 'enemy', M ? M.x : clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), M ? M.y : clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
   e.boss = true; e.spT = 4; e.aimT = 2; e.spd = Math.max(e.spd, 150); // never slow enough to simply walk away from
-   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 1.3 * Math.sqrt(g.party.reduce((a, n) => a + n.q, 0))) * (1 + g.P.lvl * 0.03); // a stronger party faces a tougher nemesis, but by the square root so better recruits still pay off e.dmg = 30;
+   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 1.3 * Math.sqrt(g.party.reduce((a, n) => a + n.q, 0))) * (1 + g.P.lvl * 0.045); // a stronger party faces a tougher nemesis, but by the square root so better recruits still pay off e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
   if (g.grudge) { e.name = g.grudge.name; e.powers = g.grudge.powers; for (const k of e.powers) GRUDGE_POWERS[k](e); }
   g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);
@@ -974,24 +974,40 @@ function checkPairs(g) {
   for (const p of PAIRS) if (!g.pairs[p.id] && g.picks[p.a] && g.picks[p.b]) { g.pairs[p.id] = true; PAIR_F[p.id](g); g.fx.push({ k: 'pair', n: p.n }); snd(g, 'rare'); }
 }
 
-export const heldCount = g => UP.filter(u => !u.leg && g.picks[u.id]).length;
+export const heldCount = g => UP.filter(u => !u.leg && g.picks[u.id] && !g.sealed.has(u.id)).length;
+// With every slot full, a new card seals the held card with the lowest rank: it keeps what it gives you but stops growing and frees its slot.
+export function sealTarget(g) {
+  if (heldCount(g) < UP_SLOTS) return null;
+  let best = null;
+  for (const u of UP) if (!u.leg && g.picks[u.id] && !g.sealed.has(u.id) && (!best || g.picks[u.id] < g.picks[best.id])) best = u;
+  return best;
+}
 function rollChoices(g, keep = false) {
   const no = WEAPONS[g.P.weapon].no || [], hasAllies = g.party.length > 0 || !!g.cls, wup = WEAPONS[g.P.weapon].up || {};
   const ok = u => (!u.ally || hasAllies) && (!u.minion || g.cls) && !no.includes(u.id) && !g.banned.has(u.id);
-  const full = heldCount(g) >= UP_SLOTS;
-  const pool = UP.filter(u => !u.leg && ok(u) && (g.picks[u.id] || 0) < MAX_RANK && (!full || g.picks[u.id])), legs = UP.filter(u => u.leg && ok(u) && !g.picks[u.id]);
-  const wt = pool.map(u => (g.picks[u.id] ? 2.2 : 1) * (wup[u.id] ? 1.5 : 1)), sum = wt.reduce((a, b) => a + b, 0);
-  const draw = () => { let r = g.rand() * sum; for (let i = 0; i < pool.length; i++) if ((r -= wt[i]) <= 0) return pool[i]; return pool[pool.length - 1]; };
+  // Phase 27: every hand is one card you hold (to rank up), one you don't, and one wild card. Cards in the last hand come up less.
+  const pool = UP.filter(u => !u.leg && ok(u) && !g.sealed.has(u.id) && (g.picks[u.id] || 0) < MAX_RANK), legs = UP.filter(u => u.leg && ok(u) && !g.picks[u.id]);
+  const held = pool.filter(u => g.picks[u.id]), fresh = pool.filter(u => !g.picks[u.id]), last = g.lastHand || [];
+  const weight = u => (wup[u.id] ? 1.5 : 1) * (last.includes(u.id) ? 0.35 : 1);
+  const draw = list => { const ws = list.map(weight), sum = ws.reduce((a, b) => a + b, 0); let r = g.rand() * sum; for (let i = 0; i < list.length; i++) if ((r -= ws[i]) <= 0) return list[i]; return list[list.length - 1]; };
   if (!keep) { g.choices = []; g.rar = []; }
-  for (let tries = 0; g.choices.length < 3 && tries < 200; tries++) {
+  const wants = keep ? [pool] : [held.length ? held : fresh, fresh.length ? fresh : held, pool];
+  for (const from of wants) for (let tries = 0; tries < 40; tries++) {
+    if (g.choices.length >= 3) break;
     let rar = rollRarity(g), u;
     // A Legendary roll is usually one of the one-of-a-kind powers, while any are left.
     if (rar === 'legendary' && legs.length && g.rand() < 0.7) u = legs[Math.floor(g.rand() * legs.length)];
-    else if (pool.length) u = draw(); else break;
+    else if (from.length) u = draw(from); else break;
     if (g.choices.includes(u) || (u.ally && g.choices.some(c => c.ally))) continue;
     if (u.fixed) rar = u.fixed;
-    g.choices.push(u); g.rar.push(rar);
+    g.choices.push(u); g.rar.push(rar); break;
   }
+  for (let tries = 0; g.choices.length < 3 && pool.length && tries < 60; tries++) {   // a slot that found nothing above
+    const u = draw(pool); if (g.choices.includes(u) || (u.ally && g.choices.some(c => c.ally))) continue;
+    g.choices.push(u); g.rar.push(rollRarity(g));
+  }
+  if (!keep) for (let i = g.choices.length - 1; i > 0; i--) { const j = Math.floor(g.rand() * (i + 1)); [g.choices[i], g.choices[j]] = [g.choices[j], g.choices[i]]; [g.rar[i], g.rar[j]] = [g.rar[j], g.rar[i]]; }
+  g.lastHand = g.choices.map(u => u.id);
   for (const f of FILLERS) if (g.choices.length < 3) { g.choices.push(f); g.rar.push('common'); }   // nothing left to offer
   if (keep) return;
   if (g.chest && g.t >= EVO_TIME && evoReady(g)) { g.choices[0] = evoCard(g.P.weapon); g.rar[0] = 'legendary'; }   // the weapon is ready to evolve
@@ -1275,7 +1291,8 @@ export function pick(g, i) {
   if (g.state !== 'lvl' || !g.choices[i]) return;
   const u = g.choices[i];
   const rar = g.rar[i] || 'common';
-  u.f(g, u.leg ? 1 : RARITY[rar].s); if (!u.filler) g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false; checkPairs(g);
+  if (!u.leg && !u.filler && !u.evo && !g.picks[u.id]) { const old = sealTarget(g); if (old) g.sealed.add(old.id); }   // full: the weakest card is sealed
+  u.f(g, cardS(u, rar)); if (!u.filler) g.picks[u.id] = (g.picks[u.id] || 0) + 1; g.chest = false; checkPairs(g);
   g.lastPick = { id: u.id, rar }; if (rar === 'epic' || rar === 'legendary') g.epics++;
   if (g.twin && g.cls) { g.twin = false; spawnMinion(g, CLASSES[g.cls].minion); }   // Twin Soul
   g.state = 'play';

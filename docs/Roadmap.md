@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-26 on main. Public repo: https://github.com/Schmiedey/nemesis. Live: https://nemesis-rose-nu.vercel.app. Phase 26: twelve level-up cards that change how you play, and nemeses that rank up from their own kills (`docs/design/Upgrades.md`). Next: rename, itch.io upload, clip. Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-27 on main. Public repo: https://github.com/Schmiedey/nemesis. Live: https://nemesis-rose-nu.vercel.app. Phase 27: level-up hands mix held, new and wild cards; 8 slots and 3 ranks; sealing when full (33 of 43 cards seen per run, was 16). Next: fusions and gamble cards, or rename and itch.io. Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -164,6 +164,12 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Twelve cards that change how you play: Seeker Rounds, Corpse Blast, Overkill, Static Step, Stand Fast, Glass Cannon, Adrenaline, Momentum, Minefield, Ability Surge, Mirror Ward, Gravity Well
 - [x] Nemeses rank up from their own kills (25/60/120) and take a trait; a banner names it, pips on the party panel; no pause
 - Done when: a level-up offers a choice about how to play, not just which number goes up.
+
+## Phase 27: Fresh hands
+- [x] Every hand: one held card, one new, one wild; last hand's cards less likely
+- [x] 8 slots and 3 ranks (each 1.15x); with slots full a new card seals your weakest
+- [x] Boss base health 14,000 and +4.5% per level
+- Done when: a run shows most of the cards, and no two level-ups in a row look the same.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

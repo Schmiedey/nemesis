@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA, rocksNear, gapTo, seenAt } from '../src/sim.js';
-import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
+import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA, rocksNear, gapTo, seenAt, heldCount } from '../src/sim.js';
+import { T, BOSS_TIME, UP, RARITY, MAX_RANK } from '../src/data.js';
 import { grudgeFor, feedGrudge, sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
 
@@ -334,7 +334,7 @@ describe('sim', () => {
   it('rarity: a higher rarity is a stronger upgrade; legendary powers are offered once', () => {
     const dmgUp = UP.find(u => u.id === 'dmg');
     const gain = rar => { const g = createGame({ seed: 3 }); g.P.xp = g.P.next; step(g, 1 / 60, still()); g.choices = [dmgUp, dmgUp, dmgUp]; g.rar = [rar, rar, rar]; const d0 = g.P.dmg; pick(g, 0); return g.P.dmg / d0; };
-    expect(gain('common')).toBeCloseTo(1.195); expect(gain('rare')).toBeCloseTo(1.315); expect(gain('epic')).toBeCloseTo(1.48); expect(gain('legendary')).toBeCloseTo(1.75);
+    expect(gain('common')).toBeCloseTo(1.22425); expect(gain('rare')).toBeCloseTo(1.36225); expect(gain('epic')).toBeCloseTo(1.552); expect(gain('legendary')).toBeCloseTo(1.8625);   // rarity x 1.15 a rank (Phase 27)
     expect(dmgUp.d(RARITY.legendary.s)).toBe('+75% damage');
 
     // Over many level-ups every rarity turns up, Common most, Legendary least; luck shifts it up.
@@ -653,12 +653,29 @@ describe('the grudge', () => {
 
 describe('level-ups (Phase 20)', () => {
   const lvl = g => { g.P.xp = g.P.next = 1; g.P.hp = g.P.maxhp = 1e9; g.state = 'play'; step(g, 1 / 60, { mx: 0, my: 0 }); };
-  it('ranks cap at 5, six slots narrow the offers, and fillers appear when nothing is left', () => {
+  it('ranks cap at 3; every hand mixes a card you hold with one you do not', () => {
     const g = createGame({ seed: 2 });
-    for (const id of ['dmg', 'haste', 'spd', 'tough', 'magnet', 'regen']) g.picks[id] = 2;
-    g.picks.dmg = 5;
-    for (let i = 0; i < 40; i++) { lvl(g); for (const u of g.choices) { expect(u.leg || u.filler || (g.picks[u.id] && u.id !== 'dmg')).toBeTruthy(); } }
-    for (const id of ['haste', 'spd', 'tough', 'magnet', 'regen']) g.picks[id] = 5;
+    for (const id of ['dmg', 'haste', 'spd']) g.picks[id] = 1;
+    g.picks.dmg = 3;
+    for (let i = 0; i < 40; i++) {
+      lvl(g); const ids = g.choices.filter(u => !u.leg).map(u => u.id);
+      expect(ids).not.toContain('dmg');                                      // maxed
+      if (ids.length === 3) { expect(ids.some(id => g.picks[id])).toBe(true); expect(ids.some(id => !g.picks[id])).toBe(true); }
+    }
+  });
+  it('with all 8 slots full, new cards still come, and taking one seals your lowest-rank card', () => {
+    const g = createGame({ seed: 4 });
+    const ids = ['dmg', 'haste', 'spd', 'tough', 'magnet', 'regen', 'pierce', 'shots'];
+    for (const id of ids) g.picks[id] = 2;
+    g.picks.magnet = 1;
+    let newSeen = 0;
+    for (let i = 0; i < 20; i++) { lvl(g); if (g.choices.some(u => !u.leg && !u.filler && !g.picks[u.id])) newSeen++; }
+    expect(newSeen).toBeGreaterThan(10);
+    lvl(g); const k = g.choices.findIndex(u => !u.leg && !u.filler && !g.picks[u.id]); expect(k).toBeGreaterThanOrEqual(0);
+    pick(g, k);
+    expect(g.sealed.has('magnet')).toBe(true); expect(heldCount(g)).toBe(8);
+    for (let i = 0; i < 20; i++) { lvl(g); expect(g.choices.some(u => u.id === 'magnet')).toBe(false); }   // sealed: never offered again
+    for (const u of UP) if (!u.leg) g.picks[u.id] = MAX_RANK;
     lvl(g); expect(g.choices.filter(u => u.filler).length).toBeGreaterThan(0);
   });
   it('banish removes a card for the run and replaces it in place; pity forces a Rare', () => {

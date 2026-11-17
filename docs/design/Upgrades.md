@@ -45,3 +45,26 @@ All of the above, with icons, tests (58 in all) and the balance bot taught to ta
 | 3 veterans | 6:22 | 12 | 7 |
 | 3 champions | 6:28 | 18 | 12 |
 
+## Phase 27: the same cards every time
+Measured over 10 simulated 5-minute runs: the 6 slots filled by level-up 7-9, and from then on only held cards were offered, so 71% of level-ups were rank-ups of the same six. A run showed 16 of 43 cards; 27% of cards offered were new; the identical hand came up twice in a row 10 times.
+
+Changes:
+- **Every hand mixes**: one card you hold (to rank up), one you don't, one wild, shuffled. Cards in the last hand come up at about a third of the weight.
+- **8 slots, 3 ranks** (was 6 and 5), each pick worth 1.15x its rarity (`RANK_K`, `cardS` in `src/data.js`). 1.6x let champions win 20 of 20; 1.3x still 19.
+- **Sealing**: with every slot full, new cards still come. Taking one seals your lowest-rank card (`sealTarget`): it keeps its effect, stops ranking up, frees its slot, and is never offered again. The card says which it will seal. (A true swap would have to undo a card's effect, which most cards cannot.)
+- Boss: base health 14,000 (was 11,500) and +4.5% per player level (was 3%): with wider builds, a solo player who reached the boss nearly always won.
+
+After: 33 of 43 cards seen per run, 66% of offers new, no repeated hands, slots full at level-up 9-16.
+
+| Party (20 seeds) | Median | Reached boss | Wins |
+|---|---|---|---|
+| None | 3:13 | 7 | 5 |
+| 3 runts | 4:39 | 9 | 6 |
+| 3 soldiers | 6:40 | 13 | 6 |
+| 3 veterans | 6:55 | 15 | 9 |
+| 3 champions | 6:08 | 20 | 14 |
+
+Everything rises with tier; a little easier than Phase 26 overall (champions win 70%, target about half).
+
+Next ideas, not built: fusions of two max-rank cards, gamble cards (a downside for a big upside), and cards you took last run coming up less in the next.
+

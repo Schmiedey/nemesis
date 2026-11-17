@@ -57,7 +57,7 @@ Ally strength: health x(3.4 + 1.6q), damage x(0.9 + 1.5q), where q is quality; t
   - **Vaults** (2-3 ruined rooms): gold-edged floor. At 1:00 a chest appears in the middle; come within 190 and walkers burst in round it (4, plus one per 45s, up to 10). Open from the start, vaults killed bots at 0:30.
   - **Boss mark**: at 4:30 a blinking red mark on the map and minimap ("Your nemesis rises soon"): the Crypt if you are over 700 from it, otherwise open ground 900 away. The boss rises there at 5:00 and comes to you.
 - **Minimap fog** (Phase 24 step 5): the world is dark on the minimap until the camera has been there (200-unit cells, `explore`/`seenAt` in `src/sim.js`). Lairs, shrines, chests and enemies show only where you have been; the boss mark always shows.
-- Boss health also grows 3% per player level (was 2%): vault chests push levels into the 30s.
+- Boss health also grows 4.5% per player level (was 2%, then 3%): vault chests and wider builds (Phase 27) push levels high.
 - **Gems left behind:** a gem more than 900 from you flies to you. Without it parties levelled to 14 instead of 21 and the middle tiers died at about 2:15.
 - **No walking away.** New enemies spawn on an oval just off camera (530 wide, 350 tall, plus up to 70), half of them ahead of you while you move. An enemy left more than 1100 behind is moved back in ahead of you. The boss moves 1.45x beyond 250 and 1.7x beyond 450, so open ground never lets you circle it. Base swarm 1.3x (was 1.14x in the old box, where the walls pushed spawns close). Without these the bot lived the full 15:00 with no party.
 - Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's rings. Your side's shots pass over them.
@@ -76,7 +76,7 @@ Each enemy shows what it is about to do, and has an answer:
 A giant of the type that has killed you most. It moves at 150 or more (you move at 200), so you cannot just walk away. It summons its kind every 5s, fires a ring of 18 shots every 3.5s, and between rings fires aimed bursts of 3 every 1.3s. Its shots do 22. Regular enemies keep spawning during the fight at 80% of the normal rate. Every 5s it winds up for 0.85s with a tell and uses its type's move:
 - Brute and Bat: a long charge, ending in a shockwave ring. Slime: leaps onto where you stood and scatters small slimes. Archer: a wide fan of arrows. Bomber: a huge blast around itself. Wisp: blinks beside you and fires two offset rings.
 - **Enrage** below half health: 25% faster, specials every 3.2s, rings of 26, aimed bursts of 5 every 0.8s.
-- Health is 11500 x (1 + 1.3 x the square root of total party quality) x (1 + 0.02 x your level), so a stronger party and build face a tougher nemesis, but less than they gain (was 1 + 0.6 x quality: three champions faced 6x health and veterans never won). (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
+- Health is 14000 x (1 + 1.3 x the square root of total party quality) x (1 + 0.02 x your level), so a stronger party and build face a tougher nemesis, but less than they gain (was 1 + 0.6 x quality: three champions faced 6x health and veterans never won). (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
 
 ## Elites, chests and upgrades (Phase 5)
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.

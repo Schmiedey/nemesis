@@ -96,7 +96,10 @@ export const UP = [
 ];
 // The text on a card. Some upgrades mean something different for the equipped weapon (see WEAPONS[...].up).
 // Phase 20: each upgrade goes up to rank 5, and a run holds at most six different ones (Legendaries aside).
-export const MAX_RANK = 5, UP_SLOTS = 6;
+// Phase 27: 8 slots and 3 ranks (was 6 and 5), each rank 1.3x as strong, so builds go wide instead of maxing a few cards.
+export const MAX_RANK = 3, UP_SLOTS = 8, RANK_K = 1.15;   // 8 x 3 x 1.15, a little under the old 6 x 5: seeing more good cards makes builds stronger (1.6 let champions win 20 of 20, 1.3 still 19)
+// How strong one pick of a card is: its rarity, times RANK_K for ordinary cards.
+export const cardS = (u, rar) => (u.leg ? 1 : RARITY[rar].s * (u.filler || u.evo ? 1 : RANK_K));
 // Offered only when there is nothing else left to offer (everything held is maxed or banished).
 export const FILLERS = [
   { id: 'meal', n: 'Hearty Meal', ic: 'i_tough', filler: true, fixed: 'common', d: () => 'Heal 40% of your health', f: g => { g.P.hp = Math.min(g.P.maxhp, g.P.hp + g.P.maxhp * 0.4); } },

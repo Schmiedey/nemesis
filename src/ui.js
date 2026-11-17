@@ -1,6 +1,6 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
-import { pendingLevels } from './sim.js';
-import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, PAIRS, WEAPON_EVOS, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
+import { pendingLevels, sealTarget } from './sim.js';
+import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, cardS, PAIRS, WEAPON_EVOS, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
 import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot, writeSave } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
@@ -445,17 +445,17 @@ export function showLevel(g, onPick, banishing = false) {
   $('bReroll').classList.toggle('hidden', !(g.rerolls > 0)); $('bReroll').querySelector('b').textContent = g.rerolls || '';
   $('bBanish').classList.toggle('hidden', !(g.banishes > 0)); $('bBanish').querySelector('b').textContent = g.banishes || '';
   $('bBanish').classList.toggle('on', banishing); $('lvl').classList.toggle('banishing', banishing);
-  const held = UP.filter(u => !u.leg && g.picks[u.id]).length;
-  $('lvlSlots').innerHTML = `<span>UPGRADES ${held} / ${UP_SLOTS}</span>` + (held >= UP_SLOTS ? '<span>ALL SLOTS FULL: ONLY YOURS ARE OFFERED</span>' : '');
+  const held = UP.filter(u => !u.leg && g.picks[u.id] && !g.sealed.has(u.id)).length, seal = sealTarget(g);
+  $('lvlSlots').innerHTML = `<span>UPGRADES ${held} / ${UP_SLOTS}</span>` + (seal ? `<span>SLOTS FULL: A NEW CARD SEALS ${seal.n.toUpperCase()}</span>` : '');
   g.choices.forEach((u, i) => {
-    const rar = g.rar[i] || 'common', s = u.leg ? 1 : RARITY[rar].s;
+    const rar = g.rar[i] || 'common', s = cardS(u, rar);
     const have = g.picks[u.id] || 0;
     const c = document.createElement('div'); c.className = 'card r-' + rar + (u.ally ? ' ally' : '') + (have >= 3 ? ' deep' : '');
     const d = upText(u, s, WEAPONS[g.P.weapon].up);          // some upgrades mean something different per weapon
     const sparks = rar === 'legendary' || rar === 'epic' ? `<i class="sp s1">${pix('glint', 2)}</i><i class="sp s2">${pix('glint', 2)}</i><i class="sp s3">${pix('glint', 2)}</i>` : '';
     c.innerHTML = `<i class="rar">${RARITY[rar].n.toUpperCase()}</i>${sparks}${pix(u.ic || 'i_' + u.id, 4)}<b>${u.n}</b>${u.filler ? '' : `<i class="kind">${u.evo ? 'EVOLUTION' : u.leg ? 'LEGENDARY POWER' : kindOf(g, u)}</i>`}<span>${d}</span>` +
       preview(g, u, s) + (u.leg || u.filler ? '' : rankPips(have)) +
-      pairTag(g, u) + `<em>${u.evo ? 'weapon evolution' : u.leg ? 'one of a kind' : u.filler ? 'nothing left to learn' : u.ally ? 'for your allies' : have ? 'rank ' + have + ' to ' + (have + 1) : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
+      pairTag(g, u) + (seal && !have && !u.leg && !u.filler && !u.evo ? `<i class="tag">SEALS ${seal.n.toUpperCase()}: IT KEEPS ITS EFFECT, STOPS GROWING</i>` : '') + `<em>${u.evo ? 'weapon evolution' : u.leg ? 'one of a kind' : u.filler ? 'nothing left to learn' : u.ally ? 'for your allies' : have ? 'rank ' + have + ' to ' + (have + 1) : 'new'}</em><kbd class="key mouse-only">${i + 1}</kbd>`;
     c.onclick = () => onPick(i);
     el.appendChild(c);
   });
