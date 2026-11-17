@@ -51,6 +51,12 @@ Ally strength: health x(3.4 + 1.6q), damage x(0.9 + 1.5q), where q is quality; t
 - **Walls** (Phase 24 step 2): between the rock clusters stand ruins: a single wall, a corner, or a small room with two to four 84-wide doorways (about 40-60 wall pieces per world). Walls block like rocks (you, walkers, allies, enemy shots); flyers and your shots pass over. Walking enemies and allies follow a **flow field** (40-unit grid, filled outward from you every 0.25s) only when a rock or wall blocks the straight line, so open-ground fights play as before. The bot scores walls like rocks.
 - **Biomes** (Phase 24 step 3) in rings round the Crypt, about a third of the world each (400-unit cells, `biomeAt`): **Bone Fields** (dusty brown floor, bones, bleached boulders), **Sunken Halls** (cold blue stone, mossy boulders, more ruins, water pools 50-90 across), **Ember Pits** at the edges and corners (scorched floor, glowing cracks, basalt, lava pools 40-72). Rocks and ruins keep clear of pools.
 - **Water** slows walking enemies to 55%. **Lava** burns walking enemies for 3 + 8% of their health every 0.5s. Neither touches you or your nemeses: the world never steals a death, because whatever kills you has to be something that can join you. Lure the swarm through lava; keep water between you and it.
+- **Landmarks** (Phase 24 step 4, `buildWorld` places them, `landmarks` runs them):
+  - **Lairs** (4, Halls and Ember Pits, at least 700 apart): a red ring while something sleeps there. Come within 380 and a named elite of the lair's type wakes (10x health + 80, 1.3x damage); it goes home if you get more than 700 from its lair. Dying to it is a prize recruit (+0.5 quality) that keeps its name. The bot lets sleeping lairs lie.
+  - **Shrines** (4, Bone Fields and Halls): a cyan ring when ready. Step in for a power-up; then it rests 60s.
+  - **Vaults** (2-3 ruined rooms): gold-edged floor. At 1:00 a chest appears in the middle; come within 190 and walkers burst in round it (4, plus one per 45s, up to 10). Open from the start, vaults killed bots at 0:30.
+  - **Boss mark**: at 4:30 a blinking red mark on the map and minimap ("Your nemesis rises soon"): the Crypt if you are over 700 from it, otherwise open ground 900 away. The boss rises there at 5:00 and comes to you.
+- Boss health also grows 3% per player level (was 2%): vault chests push levels into the 30s.
 - **Gems left behind:** a gem more than 900 from you flies to you. Without it parties levelled to 14 instead of 21 and the middle tiers died at about 2:15.
 - **No walking away.** New enemies spawn on an oval just off camera (530 wide, 350 tall, plus up to 70), half of them ahead of you while you move. An enemy left more than 1100 behind is moved back in ahead of you. The boss moves 1.45x beyond 250 and 1.7x beyond 450, so open ground never lets you circle it. Base swarm 1.3x (was 1.14x in the old box, where the walls pushed spawns close). Without these the bot lived the full 15:00 with no party.
 - Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's rings. Your side's shots pass over them.
@@ -236,3 +242,15 @@ Known gaps (Phase 23): wins now rise with every tier (2, 4, 7, 11 of 20) and run
 Reaching the boss now rises with every tier. A solo run that reaches the boss wins it (boss health grows only with the party), which may be too generous. Levels near 29 are higher than the old 21; watch the XP curve.
 
 **With biomes, water and lava (Phase 24 step 3, 20 seeds):** none 2:34 (6 boss, 3 wins); runts 3:01 (8, 5); soldiers 3:25 (6, 4); veterans 6:11 (13, 8); champions 6:00 (12, 11). About where step 2 left it; solo slightly more generous, since pools only help you.
+
+**With landmarks (Phase 24 step 4, 20 seeds):**
+
+| Party | Median survival | Reached boss | Wins | Level |
+|---|---|---|---|---|
+| None | 2:32 | 3/20 | 3 | 15 |
+| 3 runts | 2:11 | 3/20 | 2 | 17 |
+| 3 soldiers | 3:37 | 9/20 | 7 | 24 |
+| 3 veterans with perks | 6:07 | 12/20 | 5 | 27 |
+| 3 champions with perks | 7:09 | 16/20 | 12 | 33 |
+
+Reaching the boss rises with every tier; champions win 60%. Runts no longer beat solo on time. The bot never wakes a lair on purpose, so lair fights are not in these numbers.

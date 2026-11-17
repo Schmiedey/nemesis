@@ -67,6 +67,7 @@ export function smart(g) {
         if (e.fuse > 0 && Math.hypot(x - e.x, y - e.y) < 95) sc -= 5;
         if (e.aim > 0) { const px = x - e.x, py = y - e.y; if (px * Math.cos(e.aimAng) + py * Math.sin(e.aimAng) > 0 && Math.abs(px * Math.sin(e.aimAng) - py * Math.cos(e.aimAng)) < 16) sc -= 2; }
       }
+      for (const l of g.lairs || []) if (l.state === 'sleep' && Math.hypot(x - l.x, y - l.y) < 430) sc -= 3;   // a careful player lets sleeping lairs lie
       for (const k of rocksNear(g, x, y)) { const d = gapTo(k, x, y) - P.r; if (d < 26) sc -= (26 - d) * 0.12; }
       const m = Math.min(x, y, W - x, H - y);
       if (m < 130) sc -= (130 - m) * 0.03;

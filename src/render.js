@@ -98,6 +98,9 @@ export function consumeFx(g) {
     else if (f.k === 'block') blockFx = 0.3;
     else if (f.k === 'evo') banner = { text: 'EVOLVED: ' + f.n.toUpperCase(), life: 3, c: PAL.y };
     else if (f.k === 'pair') banner = { text: 'PAIR: ' + f.n.toUpperCase(), life: 2.4, c: PAL.c };
+    else if (f.k === 'lair') banner = { text: f.name + "'s lair", life: 2.4, c: PAL.r3 };
+    else if (f.k === 'ambush') banner = { text: 'Ambush!', life: 1.6, c: PAL.o };
+    else if (f.k === 'mark') banner = { text: 'Your nemesis rises soon', life: 2.8, c: PAL.r };
     else if (f.k === 'minute') banner = { text: f.n + ':00 survived', life: 1.8, c: PAL.w };
     else if (f.k === 'gold') { booms.push({ x: f.x, y: f.y, life: 0.32, k: 1 }); for (let i = 0; i < 14; i++) glints.push({ x: f.x + rnd(-24, 24), y: f.y + rnd(-10, 20), vy: -rnd(40, 150), life: rnd(0.4, 0.9), f: Math.floor(rnd(0, 3)) }); }
     else {
@@ -218,6 +221,27 @@ function ground(world) {
     }
     if (p.kind === 'water') for (let i = 0; i < 4; i++) { const a = rn() * 6.283, d = rn() * r * 0.6; dot(x + Math.round(Math.cos(a) * d), y + Math.round(Math.sin(a) * d), PAL.ice); }
     else for (let i = 0; i < 4; i++) { const a = rn() * 6.283, d = rn() * r * 0.25; dot(x + Math.round(Math.cos(a) * d), y + Math.round(Math.sin(a) * d), PAL.y); }
+  }
+  // Landmarks on the floor. A lair: scorched ground ringed with bones, three claw marks. A shrine: a stone plinth with a rune.
+  // A vault: a square of gold-edged flagstones in the middle of its room.
+  for (const l of world.lairs) {
+    const x = Math.round(l.x / PX), y = Math.round(l.y / PX), r = 30;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const q = Math.hypot(dx, dy); if (q <= r && ((x + dx + y + dy) & 1) === 0) dot(x + dx, y + dy, PAL.k); }
+    for (let i = 0; i < 22; i++) { const a = i / 22 * 6.283 + rn() * 0.2, d = r + 1 + rn() * 3; dot(x + Math.round(Math.cos(a) * d), y + Math.round(Math.sin(a) * d), i % 3 ? PAL.g1 : PAL.g2); }
+    for (let i = -1; i <= 1; i++) for (let j = 0; j < 9; j++) dot(x + i * 4 + Math.round(j * 0.5) - 2, y - 5 + j, PAL.r2);
+  }
+  for (const o of world.shrines) {
+    const x = Math.round(o.x / PX), y = Math.round(o.y / PX);
+    c.fillStyle = PAL.k; c.fillRect(x - 7, y - 8, 14, 13);
+    c.fillStyle = PAL.g4; c.fillRect(x - 6, y - 1, 12, 5);
+    c.fillStyle = PAL.g2; c.fillRect(x - 6, y - 7, 12, 6);
+    c.fillStyle = PAL.g1; c.fillRect(x - 6, y - 7, 12, 1);
+    c.fillStyle = PAL.c2; c.fillRect(x - 1, y - 6, 2, 4); c.fillRect(x - 3, y - 5, 6, 2);   // the rune
+  }
+  for (const v of world.vaults) {
+    const x = Math.round(v.x / PX), y = Math.round(v.y / PX), h = 26;
+    for (let i = -h; i <= h; i++) { if (i & 1) continue; dot(x + i, y - h, PAL.gold2); dot(x + i, y + h, PAL.gold2); dot(x - h, y + i, PAL.gold2); dot(x + h, y + i, PAL.gold2); }
+    c.fillStyle = PAL.br3; c.fillRect(x - h + 3, y - h + 3, 2 * h - 5, 1); c.fillRect(x - h + 3, y + h - 3, 2 * h - 5, 1);
   }
   // Boulders: an uneven outline, a dark side face, and a top cut into facets that catch the light from the top-left.
   for (const k of rocks) {
@@ -416,6 +440,9 @@ function minimap(cx, g, camX, camY, H) {
   const MINI = ['#1e1a2a', '#2c2426', '#1a2234', '#2e171b'], W = g.world, cs = 400 * k;   // biome cells
   for (let y = 0; y < W.BH; y++) for (let x = 0; x < W.BW; x++) { cx.fillStyle = MINI[W.biome[y * W.BW + x]]; cx.fillRect(Math.round(x0 + x * cs), Math.round(y0 + y * cs), Math.ceil(cs), Math.ceil(Math.min(cs, h - y * cs))); }
   for (const p of W.pools) { cx.fillStyle = p.kind === 'water' ? PAL.c3 : PAL.r2; const q = Math.max(1, Math.round(p.r * k)); cx.fillRect(Math.round(x0 + p.x * k - q), Math.round(y0 + p.y * k - q), q * 2, q * 2); }
+  for (const l of g.lairs || []) if (l.state !== 'done') { cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + l.x * k) - 2, Math.round(y0 + l.y * k) - 2, 5, 5); cx.fillStyle = PAL.k; cx.fillRect(Math.round(x0 + l.x * k) - 1, Math.round(y0 + l.y * k) - 1, 3, 3); }
+  for (const o of g.shrines || []) { cx.fillStyle = g.t >= o.readyAt ? PAL.c : PAL.g4; cx.fillRect(Math.round(x0 + o.x * k) - 1, Math.round(y0 + o.y * k) - 1, 3, 3); }
+  if (g.bossMark && !g.bossAt && Math.sin(g.t * 8) > 0) { cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + g.bossMark.x * k) - 3, Math.round(y0 + g.bossMark.y * k) - 3, 7, 7); }
   cx.fillStyle = PAL.g3; for (const w of g.world.walls) cx.fillRect(Math.round(x0 + w.x * k), Math.round(y0 + w.y * k), Math.max(1, Math.round(w.w * k)), Math.max(1, Math.round(w.h * k)));
   for (const r of g.rocks) { const q = Math.max(2, Math.round(r.r * k)); cx.fillRect(Math.round(x0 + r.x * k - q), Math.round(y0 + r.y * k - q), q * 2, q * 2); }
   for (const e of g.ents) {
@@ -452,6 +479,14 @@ export function draw(cv, cx, g, hud, hx) {
   for (const f of g.fires) {                             // Flamewalker trail
     if (f.life < 0.5 && Math.sin(t * 30 + f.x) > 0) continue;
     spr(cx, 'fire', f.x, f.y, t * 9 + f.x, f.r / 16);
+  }
+  for (const l of g.lairs || []) if (l.state === 'sleep') dashRing(cx, snap(l.x), snap(l.y), 70, PAL.r2, t * 0.5, 2);   // something sleeps here
+  for (const o of g.shrines || []) if (g.t >= o.readyAt) {   // a shrine that is ready glows
+    cx.fillStyle = dither(cx, PAL.c3); cx.beginPath(); cx.arc(snap(o.x), snap(o.y), 40, 0, 7); cx.fill(); dashRing(cx, snap(o.x), snap(o.y), 40, PAL.c, t, 2);
+  }
+  if (g.bossMark && !g.bossAt) {                         // where your nemesis will rise
+    const M = g.bossMark; cx.fillStyle = dither(cx, Math.sin(t * 6) > 0 ? PAL.r : PAL.r2); cx.beginPath(); cx.arc(snap(M.x), snap(M.y), 90, 0, 7); cx.fill();
+    dashRing(cx, snap(M.x), snap(M.y), 90, PAL.r3, t * 2, 4);
   }
   if (P.charm === 'ember' && g.state !== 'dead') {       // Ember Heart aura
     cx.fillStyle = dither(cx, PAL.r2); cx.beginPath(); cx.arc(snap(P.x), snap(P.y), EMBER_R, 0, 7); cx.fill();

@@ -17,7 +17,7 @@ A world about **5 screens across** (4800x3000, nine times the area), made from t
 ### Landmarks (one or two per zone)
 - **Lairs**: a named elite that stays put on its lair, marked on the minimap. Dying to it is a prize recruit, so a lair is a choice you walk toward. This is the hook on the map.
 - **Shrines**: step in for a power-up, then they go dark for 60s.
-- **Vaults**: a chest behind a gate that opens when you clear the enemies inside.
+- **Vaults**: a chest in the middle of a ruined room. Built as an ambush instead of a gate: from 1:00 the chest is there, and walking up to it springs walkers at the doors.
 - **The boss's arena**: at 4:30 the minimap marks where your nemesis will rise. Go there to fight on open ground, or stay put and it comes to you through whatever terrain you're in.
 
 ### Getting around

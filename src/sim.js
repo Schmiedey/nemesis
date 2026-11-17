@@ -35,7 +35,7 @@ export function buildWorld(seed, layout) {
   const walls = [];
   const free = (x, y, r) => rocks.every(k => Math.hypot(k.x - x, k.y - y) > k.r + r + 34) && walls.every(k => gapTo(k, x, y) > r + 34) && pools.every(p => Math.hypot(p.x - x, p.y - y) > p.r + r + 10);   // always a path
   const apart = (a, b) => Math.hypot(Math.max(a.x - b.x - b.w, b.x - a.x - a.w, 0), Math.max(a.y - b.y - b.h, b.y - a.y - a.h, 0));
-  const BW = Math.ceil(ARENA.w / 400), BH = Math.ceil(ARENA.h / 400), biome = new Uint8Array(BW * BH), pools = [];
+  const BW = Math.ceil(ARENA.w / 400), BH = Math.ceil(ARENA.h / 400), biome = new Uint8Array(BW * BH), pools = [], rooms = [];
   for (let cy = 0; cy < ARENA.h; cy += 400) for (let cx = 0; cx < ARENA.w; cx += 400) {
     if (cx + 400 > ox - 60 && cx < ox + CRYPT.w + 60 && cy + 400 > oy - 60 && cy < oy + CRYPT.h + 60) continue;   // keep the Crypt as it is
     // Biomes in rings round the Crypt, with ragged edges: Bone Fields, then Sunken Halls, then the Ember Pits.
@@ -71,7 +71,9 @@ export function buildWorld(seed, layout) {
         side(doors[0], x0, y0, true); side(doors[2], x0, y0 + sz - TH, true); side(doors[3], x0, y0 + TH, false); side(doors[1], x0 + sz - TH, y0 + TH, false);
       }
       const inside = ruin.every(k => k.x > 60 && k.y > 60 && k.x + k.w < ARENA.w - 60 && k.y + k.h < ARENA.h - 60);
-      if (inside && ruin.every(k => rocks.every(o => gapTo(k, o.x, o.y) > o.r + 40) && walls.every(o => apart(k, o) > 40) && pools.every(p => gapTo(k, p.x, p.y) > p.r + 20))) walls.push(...ruin);
+      if (inside && ruin.every(k => rocks.every(o => gapTo(k, o.x, o.y) > o.r + 40) && walls.every(o => apart(k, o) > 40) && pools.every(p => gapTo(k, p.x, p.y) > p.r + 20))) {
+        walls.push(...ruin); if (kind >= 0.65) rooms.push({ x: Math.round(mx), y: Math.round(my), bio });
+      }
       continue;
     }
     const mx = cx + 80 + rn() * 240, my = cy + 80 + rn() * 240, n = 1 + Math.floor(rn() * 4);
@@ -81,6 +83,26 @@ export function buildWorld(seed, layout) {
       if (free(x, y, r)) rocks.push({ x, y, r });
     }
   }
+  // Landmarks. Lairs (in the Halls and the Ember Pits): a named elite sleeps there until you come near. Shrines (Bone Fields
+  // and Halls): step in for a power-up, then they rest a minute. Vaults: a chest in the middle of a ruined room that springs an ambush.
+  const spots = (bios, n, r) => {
+    const out = [], cells = [];
+    for (let i = 0; i < BW * BH; i++) if (bios.includes(biome[i])) cells.push(i);
+    for (let tries = 0; tries < 60 && out.length < n && cells.length; tries++) {
+      const c = cells.splice(Math.floor(rn() * cells.length), 1)[0], x = Math.round((c % BW) * 400 + 80 + rn() * 240), y = Math.round(Math.floor(c / BW) * 400 + 80 + rn() * 240);
+      if (x < 120 || y < 120 || x > ARENA.w - 120 || y > ARENA.h - 120 || !free(x, y, r)) continue;
+      if ([...lairs, ...shrines, ...out].some(o => Math.hypot(o.x - x, o.y - y) < 700)) continue;
+      out.push({ x, y, bio: biome[c] });
+    }
+    return out;
+  };
+  const lairs = [], shrines = [];
+  for (const o of spots([HALLS, EMBER], 4, 70)) {
+    const kinds = o.bio === EMBER ? ['brute', 'bomber', 'archer', 'brute'] : ['slime', 'archer', 'bat', 'wisp', 'brute'];
+    lairs.push({ x: o.x, y: o.y, type: kinds[Math.floor(rn() * kinds.length)], name: NAME_A[Math.floor(rn() * NAME_A.length)] + NAME_B[Math.floor(rn() * NAME_B.length)] });
+  }
+  shrines.push(...spots([BONE, HALLS], 4, 40).map(o => ({ x: o.x, y: o.y })));
+  const vaults = []; while (vaults.length < 3 && rooms.length) { const o = rooms.splice(Math.floor(rn() * rooms.length), 1)[0]; vaults.push({ x: o.x, y: o.y }); }
   const gw = Math.ceil(ARENA.w / ROCK_CELL), gh = Math.ceil(ARENA.h / ROCK_CELL), grid = Array.from({ length: gw * gh }, () => []);
   for (const k of [...rocks, ...walls]) {
     const L = k.wall ? k.x : k.x - k.r, R = k.wall ? k.x + k.w : k.x + k.r, U = k.wall ? k.y : k.y - k.r, D = k.wall ? k.y + k.h : k.y + k.r;
@@ -88,7 +110,7 @@ export function buildWorld(seed, layout) {
     const y0 = Math.max(0, Math.floor((U - ROCK_PAD) / ROCK_CELL)), y1 = Math.min(gh - 1, Math.floor((D + ROCK_PAD) / ROCK_CELL));
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y * gw + x].push(k);
   }
-  return { rocks, walls, pools, biome, BW, BH, grid, gw, gh };
+  return { rocks, walls, pools, biome, BW, BH, grid, gw, gh, lairs, shrines, vaults };
 }
 const NONE = [];
 // Obstacles are rocks (circles { x, y, r }) and walls (rectangles { x, y, w, h, wall: true }). gapTo: distance from a point to its surface (0 inside a wall).
@@ -143,6 +165,41 @@ function flowStep(F, x, y) {
   const bx = best % F.gw; return { x: bx * FC + FC / 2, y: (best - bx) / F.gw * FC + FC / 2 };
 }
 let FLOW = null;
+// Landmarks come alive on the first step (see `buildWorld`). Vaults open at 1:00 (a 0:30 ambush at level 5 was a death sentence).
+const VAULT_OPEN = 60;
+function initMarks(g) {
+  const W = g.world;
+  g.lairs = W.lairs.map(l => ({ ...l, state: 'sleep' }));
+  g.shrines = W.shrines.map(o => ({ ...o, readyAt: 0 }));
+  g.vaults = W.vaults.map(o => ({ ...o, sprung: false, open: false }));
+}
+function landmarks(g) {
+  const P = g.P;
+  for (const l of g.lairs) {
+    if (l.state === 'sleep' && !g.boss && d2(l, P) < 380 * 380) {         // it wakes: a named elite that guards its lair
+      const e = mkEnemy(g, l.type, l.x, l.y);
+      e.elite = true; e.r *= 1.5; e.hp = e.maxhp = e.hp * 10 + 80; e.dmg *= 1.3; e.lair = l; e.name = l.name;
+      l.state = 'awake'; l.e = e; g.fx.push({ k: 'lair', name: l.name }); snd(g, 'surge');
+    } else if (l.state === 'awake' && l.e.dead) l.state = 'done';
+  }
+  for (const o of g.shrines) if (g.t >= o.readyAt && d2(o, P) < 40 * 40) { o.readyAt = g.t + 60; dropPowerup(g, P.x, P.y); snd(g, 'level'); }
+  for (const v of g.vaults) if (!v.open && g.t >= VAULT_OPEN) { v.open = true; g.chests.push({ x: v.x, y: v.y, vault: true }); }
+  for (const v of g.vaults) if (v.open && !v.sprung && d2(v, P) < 190 * 190) {      // the ambush: walkers burst in through the doors
+    v.sprung = true;
+    let pool = Object.keys(T).filter(k => g.t >= T[k].unlock && !T[k].fly); if (!pool.length) pool = ['slime'];
+    const n = Math.min(10, 4 + Math.floor(g.t / 45));     // grows with the run: 4 at the start, 10 by 4:30
+    for (let i = 0; i < n; i++) { const a = i * 2 * Math.PI / n + 0.3; mkEnemy(g, pool[Math.floor(g.rand() * pool.length)], clamp(v.x + Math.cos(a) * 260, 30, ARENA.w - 30), clamp(v.y + Math.sin(a) * 260, 30, ARENA.h - 30)); }
+    g.fx.push({ k: 'ambush' }); snd(g, 'surge');
+  }
+  if (!g.bossMark && !g.bossAt && g.t >= BOSS_TIME - 30) {               // 30s warning: where your nemesis will rise
+    const C = { x: ARENA.w / 2, y: ARENA.h / 2 }; let m = d2(C, P) > 700 * 700 ? C : null;
+    for (let i = 0; i < 16 && !m; i++) {
+      const a = g.rand() * 6.283, x = P.x + Math.cos(a) * 900, y = P.y + Math.sin(a) * 900;
+      if (x > 200 && y > 200 && x < ARENA.w - 200 && y < ARENA.h - 200 && rocksNear(g, x, y).every(k => gapTo(k, x, y) > 120)) m = { x, y };
+    }
+    g.bossMark = m || C; g.fx.push({ k: 'mark' });
+  }
+}
 // Pools act on walking enemies only: water slows them, lava burns them. Neither touches you, so the world never steals a death:
 // whatever kills you has to be something that can join you. Lure the swarm through lava; fight with water between you.
 function hazard(g, e, dt) {
@@ -214,7 +271,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0, zaps: [],
     // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
     grudge: grudge && T[bossType] ? { name: String(grudge.name || ''), kills: grudge.kills | 0, powers: (grudge.powers || []).filter(k => GRUDGE_POWERS[k]).slice(0, 2) } : null,
-    chests: [], chest: false, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
+    chests: [], chest: false, hitName: null, bossMark: null, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     // The Knight always fights with a sword (CLASSES.knight.weapon); other classes use the loadout.
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
@@ -369,10 +426,10 @@ function spawnEnemy(g, ang) {
 
 // The boss is a giant version of the enemy type that has killed you most.
 function spawnBoss(g) {
-  const d = T[g.bossType], a = g.rand() * 6.28;
-  const e = mk(g, g.bossType, 'enemy', clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
+  const d = T[g.bossType], a = g.rand() * 6.28, M = g.bossMark;   // it rises where the minimap marked it
+  const e = mk(g, g.bossType, 'enemy', M ? M.x : clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), M ? M.y : clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
   e.boss = true; e.spT = 4; e.aimT = 2; e.spd = Math.max(e.spd, 150); // never slow enough to simply walk away from
-   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 1.3 * Math.sqrt(g.party.reduce((a, n) => a + n.q, 0))) * (1 + g.P.lvl * 0.02); // a stronger party faces a tougher nemesis, but by the square root so better recruits still pay off e.dmg = 30;
+   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 1.3 * Math.sqrt(g.party.reduce((a, n) => a + n.q, 0))) * (1 + g.P.lvl * 0.03); // a stronger party faces a tougher nemesis, but by the square root so better recruits still pay off e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
   if (g.grudge) { e.name = g.grudge.name; e.powers = g.grudge.powers; for (const k of e.powers) GRUDGE_POWERS[k](e); }
   g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);
@@ -502,7 +559,7 @@ function contact(g, e, foe) {
     const r = e.r + o.r + 2;
     if (d2(e, o) < r * r) {
       const hurtAt = g.P.hurtAt;
-      if (o === g.P) g.hitBy = prizeOf(e);
+      if (o === g.P) { g.hitBy = prizeOf(e); g.hitName = e.lair ? e.name : null; }
       damage(g, o, e.dmg * (e.nem ? allyCrit(g, e.pk) : 1), e.type, e.boss, e.nem); e.cd = (e.team === 'ally' ? 0.45 : 0.6) / e.haste;
       if (e.wpn === 'sword') for (const q of targetsOf(g, foe)) if (q !== o && !q.dead && d2(e, q) < (46 + q.r) ** 2) damage(g, q, e.dmg * 0.5, e.type, false, e.nem);   // took your Greatsword: it cleaves
       if (o === g.P && g.P.charm === 'thorn' && g.P.hurtAt !== hurtAt && !e.boss) { damage(g, e, g.P.dmg * 2.5, 'player'); shove(g.P, e); }   // Thorn Mail
@@ -590,7 +647,8 @@ function taunter(g, e) {
 function think(g, e, dt) {
   if (e.boss) return bossThink(g, e, dt);
   const d = T[e.type], foe = e.team === 'enemy' ? 'ally' : 'enemy', ally = e.team === 'ally', P = g.P;
-  if (!ally && d2(e, P) > RECYCLE * RECYCLE) {          // left far behind: back in, just off camera, ahead of you
+  if (e.lair && d2(P, e.lair) > 700 * 700) { moveTo(e, e.lair.x, e.lair.y, dt, 20); return; }   // a lair's elite goes home
+  if (!ally && !e.lair && d2(e, P) > RECYCLE * RECYCLE) {          // left far behind: back in, just off camera, ahead of you
     const a = aheadAngle(g, 1), r = offCam(g, a);
     e.x = clamp(P.x + Math.cos(a) * r, 20, ARENA.w - 20); e.y = clamp(P.y + Math.sin(a) * r, 20, ARENA.h - 20); e.ang = a + Math.PI;
   }
@@ -649,7 +707,7 @@ function think(g, e, dt) {
     } else if (e.aim > 0) {
       // Tell: an enemy Archer shows its aim line for half a second, then fires along it. Step off the line.
       e.aim -= dt;
-      if (e.aim <= 0) { const sb = shoot(g, e.x, e.y, e.aimAng, 300, e.dmg, 'enemy', e.type, 0, d.color); sb.prize = prizeOf(e); e.act = 1.3; }
+      if (e.aim <= 0) { const sb = shoot(g, e.x, e.y, e.aimAng, 300, e.dmg, 'enemy', e.type, 0, d.color); sb.prize = prizeOf(e); sb.pname = e.lair ? e.name : null; e.act = 1.3; }
     } else if (e.act <= 0 && dist < 400) { e.aim = 0.5; e.aimAng = Math.atan2(tg.y - e.y, tg.x - e.x); }
     e.x = clamp(e.x, -40, ARENA.w + 40); e.y = clamp(e.y, -40, ARENA.h + 40);
     return;
@@ -801,7 +859,7 @@ function explode(g, e) {
   burst(g, e.x, e.y, '#ff3b5c', 26, 260); burst(g, e.x, e.y, '#ffd23f', 14, 180); shake(g, 10); snd(g, 'boom');
   const foe = e.team === 'enemy' ? 'ally' : 'enemy';
   const reach = e.evo === 'cluster' ? 110 : 70;
-  if (e.team === 'enemy') g.hitBy = prizeOf(e);
+  if (e.team === 'enemy') { g.hitBy = prizeOf(e); g.hitName = e.lair ? e.name : null; }
   for (const o of targetsOf(g, foe)) { const r = reach + o.r; if (d2(e, o) < r * r) damage(g, o, e.dmg, 'bomber', false, e.nem); }
   // Job: a Bomber nemesis that blows itself up comes straight back without losing a life.
   if (e.team === 'ally') allyDown(g, e, e.evo === 'fuse' ? 1.5 : 3, true);
@@ -823,7 +881,7 @@ function makeRecruit(g, type, byBoss) {
     weapon: g.P.weapon, legs: Object.keys(LEG_TRAIT).filter(k => g.picks[k]),
     prize: g.hitBy || null,                              // it was an elite or a golden one: a prize recruit
     type, perks, q: recruitQuality(g.t, g.P.lvl, byBoss, g.hitBy),
-    name: NAME_A[Math.floor(g.rand() * NAME_A.length)] + NAME_B[Math.floor(g.rand() * NAME_B.length)],
+    name: g.hitName || NAME_A[Math.floor(g.rand() * NAME_A.length)] + NAME_B[Math.floor(g.rand() * NAME_B.length)],   // a lair's elite keeps its name
     title: top ? PERKS[top].title : 'the Unproven',
   };
 }
@@ -1150,6 +1208,8 @@ export function step(g, dt, input) {
   if (!g.flow) g.flow = buildFlow(g.world);
   if ((g.flowT = (g.flowT || 0) - dt) <= 0) { g.flowT = 0.25; flowFrom(g.flow, P.x, P.y); }
   FLOW = g.flow;
+  if (!g.lairs) initMarks(g);
+  landmarks(g);
   g.t += dt;
   if (g.streakT > 0 && (g.streakT -= dt) <= 0) g.streak = 0;
   if (Math.floor(g.t / 60) > g.minute) { g.minute = Math.floor(g.t / 60); g.fx.push({ k: 'minute', n: g.minute }); }
@@ -1248,7 +1308,7 @@ export function step(g, dt, input) {
       if (b.hit.has(o)) continue;
       const r = o.r + 3;
       if (d2(b, o) < r * r) {
-        if (o === P) g.hitBy = b.prize || null;
+        if (o === P) { g.hitBy = b.prize || null; g.hitName = b.pname || null; }
         damage(g, o, b.dmg, b.src, b.boss, b.nem); if (b.slowT && !o.boss && o !== g.P) { o.slowT = b.slowT; o.slowK = b.slowK; }
         if (b.burn && !o.dead) { o.fireT = 3; o.fireD = b.dmg * 0.45; } b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80); if (b.team === 'ally') snd(g, 'hit');
         if (b.chain > 0) {                              // Chain Shot: jump to another enemy close by

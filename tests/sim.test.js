@@ -214,7 +214,7 @@ describe('sim', () => {
     g.t = BOSS_TIME;
     for (let i = 0; i < 5 && !g.boss; i++) step(g, 1 / 60, still());
     g.boss.hp = 1; g.P.dmg = 1e6; g.P.hp = g.P.maxhp = 1e6;
-    for (let i = 0; i < 600 && g.state === 'play'; i++) step(g, 1 / 60, still());
+    for (let i = 0; i < 60 * 20 && (g.state === 'play' || g.state === 'lvl'); i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); }   // it rises at its mark and comes to you
     expect(g.state).toBe('won'); expect(g.loot.length).toBe(1); expect(['blaster', 'dash']).not.toContain(g.loot[0]);
     expect(createGame({ seed: 1 }).owned).toBe(null);
   });
@@ -730,5 +730,21 @@ describe('evolutions and pairs (Phase 21)', () => {
     expect(a.hp).toBeLessThan(1000);
     expect(b.wet).toBe(true);
     expect(g.P.hp).toBe(hp0);
+  });
+
+  it('landmarks: a lair wakes a named elite that guards it, a vault springs an ambush, the boss rises at its mark', () => {
+    const g = createGame({ seed: 3 });
+    step(g, 1 / 60, still());
+    expect(g.lairs.length).toBeGreaterThan(0); expect(g.chests.filter(c => c.vault).length).toBe(0);   // vaults open at 1:00
+    g.t = 60; step(g, 1 / 60, still()); expect(g.chests.filter(c => c.vault).length).toBe(g.vaults.length);
+    const l = g.lairs[0]; g.P.x = l.x + 200; g.P.y = l.y; g.P.hp = g.P.maxhp = 1e6; step(g, 1 / 60, still());
+    expect(l.state).toBe('awake'); expect(l.e.elite).toBe(true); expect(l.e.name).toBe(l.name);
+    g.P.x = 2400; g.P.y = 1500; l.e.x = l.x + 600; for (let i = 0; i < 60 * 3; i++) step(g, 1 / 60, still());
+    expect(Math.hypot(l.e.x - l.x, l.e.y - l.y)).toBeLessThan(600);                         // it went home
+    if (g.vaults.length) { const v = g.vaults[0], n = g.ents.length; g.P.x = v.x; g.P.y = v.y + 150; step(g, 1 / 60, still()); expect(v.sprung).toBe(true); expect(g.ents.length).toBeGreaterThan(n); }
+    const b = createGame({ seed: 4 }); b.t = BOSS_TIME - 30; b.P.hp = b.P.maxhp = 1e6;
+    step(b, 1 / 60, still()); expect(b.bossMark).toBeTruthy();
+    b.t = BOSS_TIME; for (let i = 0; i < 3 && !b.boss; i++) step(b, 1 / 60, still());
+    expect(Math.hypot(b.boss.x - b.bossMark.x, b.boss.y - b.bossMark.y)).toBeLessThan(40);
   });
 });
