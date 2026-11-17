@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-19 merged to main (the hook re-centred in 17-19). Public repo: https://github.com/Schmiedey/nemesis. Phases 20-22 (level-ups) on main. Classes retuned. Next: measure the party table with inherited builds and grudge powers. Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-22 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 23 (the hook pays) started: party table re-measured, boss and swarm scale less with party quality (champions win 6/10). Next: more seeds to separate the tiers, then make rank matter more than creature type (Bat gem fetching). Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -136,6 +136,13 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Cards tagged WEAPON / PASSIVE / PARTY; deeper frame from rank 3
 - [x] Build summary on the death screen, lighting what the recruit took
 - Done when: level-ups keep coming at a steady beat to the boss.
+
+## Phase 23: The hook pays
+- [x] Re-measure the party table after Phases 20-22; `--cls`, `--grudge` and `--mix` options in the balance script
+- [x] Boss health and swarm scale less with party quality (square root), so better recruits pay off
+- [ ] Each tier clearly beats the one below (needs more seeds; creature mix matters more than rank)
+- [ ] Runts add at least 20s over solo
+- Done when: a better recruit always makes the next run better.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.

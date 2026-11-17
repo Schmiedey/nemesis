@@ -12,7 +12,7 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 function run(seed, party, loadout = {}) {
-  const g = createGame({ seed, party, loadout: { weapon: loadout.weapon, ability: loadout.ability }, cls: loadout.cls });
+  const g = createGame({ seed, party, loadout: { weapon: loadout.weapon, ability: loadout.ability }, cls: loadout.cls ?? CLS, grudge: GRUDGE });
   let n = 0, firstHit = null, hp45 = null;
   while (g.state !== 'dead' && g.state !== 'won' && n++ < 900 * 60) {
     if (g.state === 'lvl') { pick(g, choose(g)); continue; }
@@ -24,6 +24,9 @@ function run(seed, party, loadout = {}) {
   return { g, firstHit: firstHit ?? g.t, hp45: hp45 ?? 0 };
 }
 
+// `--cls knight` plays the party table as a class; `--grudge storm,phoenix` gives the boss those powers (as in real runs).
+const arg = k => (process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : null);
+const CLS = arg('--cls'), GRUDGE = arg('--grudge') ? { name: 'Grudge', kills: 3, powers: arg('--grudge').split(',') } : null;
 const ROWS = (process.argv[process.argv.indexOf('--rows') + 1] || '').split(',').filter(Boolean);   // e.g. --rows champions,veterans
 function report(label, party = [], loadout = {}) {
   if (process.argv.includes('--rows') && !ROWS.some(r => label.includes(r))) return;
@@ -45,6 +48,13 @@ if (process.argv.includes('--weapons')) {
   const only = (process.argv[process.argv.indexOf('--only') + 1] || '').split(',').filter(Boolean), want = id => !only.length || only.includes(id);
   for (const w of ['blaster', 'sword', 'rang', 'flame', 'rod', 'totem']) if (want(w)) report('solo ' + w, [], { weapon: w });
   for (const a of ['shock', 'slow', 'decoy', 'rally']) if (want(a)) report('solo blaster+' + a, [], { ability: a });
+  process.exit(0);
+}
+// `node tests/balance.js --mix`: the soldier and veteran creatures swapped, to tell rank from mix.
+if (process.argv.includes('--mix')) {
+  report('bat/slime/bat at 1.7', [nem(1, 'bat', 1.7), nem(2, 'slime', 1.7), nem(3, 'bat', 1.7)]);
+  report('brute/archer/wisp at 1', [nem(1, 'brute', 1), nem(2, 'archer', 1), nem(3, 'wisp', 1)]);
+  report('brute/archer/wisp at 1.7', [nem(1, 'brute', 1.7), nem(2, 'archer', 1.7), nem(3, 'wisp', 1.7)]);
   process.exit(0);
 }
 report('no party');

@@ -81,7 +81,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
       actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: XP_START, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = 1.14 * (1 + 0.03 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
+  g.heat = 1.14 * (1 + 0.015 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
   // Shrine upgrades and class mastery.
   const P0 = g.P;
   P0.maxhp += 8 * mr('vit'); P0.hp = P0.maxhp; P0.dmg *= (1 + 0.05 * mr('might')) * (1 + 0.02 * clamp(mastery, 0, 4));
@@ -222,7 +222,7 @@ function spawnBoss(g) {
   const d = T[g.bossType], a = g.rand() * 6.28;
   const e = mk(g, g.bossType, 'enemy', clamp(g.P.x + Math.cos(a) * 520, 60, ARENA.w - 60), clamp(g.P.y + Math.sin(a) * 520, 60, ARENA.h - 60));
   e.boss = true; e.spT = 4; e.aimT = 2; e.spd = Math.max(e.spd, 150); // never slow enough to simply walk away from
-   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 0.6 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + g.P.lvl * 0.02); // a stronger party faces a tougher nemesis e.dmg = 30;
+   e.r = d.r * 2.5 + 20; e.hp = e.maxhp = BOSS_HP * (1 + 1.3 * Math.sqrt(g.party.reduce((a, n) => a + n.q, 0))) * (1 + g.P.lvl * 0.02); // a stronger party faces a tougher nemesis, but by the square root so better recruits still pay off e.dmg = 30;
   e.spd = clamp(d.spd * 0.8, 70, 115); e.summonT = 3; e.ringT = 5;
   if (g.grudge) { e.name = g.grudge.name; e.powers = g.grudge.powers; for (const k of e.powers) GRUDGE_POWERS[k](e); }
   g.boss = e; g.bossAt = g.t; shake(g, 14); snd(g, 'boss'); burst(g, e.x, e.y, d.color, 40, 300);

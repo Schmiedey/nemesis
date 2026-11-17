@@ -28,7 +28,7 @@ A giant version of the enemy type that has killed you most. Chases you, summons 
 - Enemies steer at 3 radians per second instead of snapping onto you, so a sharp turn shakes them off. Within 90 units they turn freely.
 - **Enemies hunt the player.** They only turn on a nemesis within 110 units, so allies help but do not hide you.
 - **Surge** every 20s: a wave closes in from one side (3 groups, +1 every 50s), with a red arc warning.
-- A stronger party draws a slightly bigger swarm (+3% spawns per point of total quality), on top of a base 1.14x. At most 240 enemies are alive at once.
+- A stronger party draws a slightly bigger swarm (+1.5% spawns per point of total quality; was 3%), on top of a base 1.14x. At most 240 enemies are alive at once.
 
 ## Nemesis jobs, growth and evolutions (Phase 4)
 Every nemesis has a job that works at any rank, so even a Runt changes a run (`JOB` in `src/data.js`, rules in `src/sim.js`):
@@ -63,7 +63,7 @@ Each enemy shows what it is about to do, and has an answer:
 A giant of the type that has killed you most. It moves at 150 or more (you move at 200), so you cannot just walk away. It summons its kind every 5s, fires a ring of 18 shots every 3.5s, and between rings fires aimed bursts of 3 every 1.3s. Its shots do 22. Regular enemies keep spawning during the fight at 80% of the normal rate. Every 5s it winds up for 0.85s with a tell and uses its type's move:
 - Brute and Bat: a long charge, ending in a shockwave ring. Slime: leaps onto where you stood and scatters small slimes. Archer: a wide fan of arrows. Bomber: a huge blast around itself. Wisp: blinks beside you and fires two offset rings.
 - **Enrage** below half health: 25% faster, specials every 3.2s, rings of 26, aimed bursts of 5 every 0.8s.
-- Health is 11500 x (1 + 0.6 x total party quality) x (1 + 0.02 x your level), so a stronger party and build face a tougher nemesis. (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
+- Health is 11500 x (1 + 1.3 x the square root of total party quality) x (1 + 0.02 x your level), so a stronger party and build face a tougher nemesis, but less than they gain (was 1 + 0.6 x quality: three champions faced 6x health and veterans never won). (0.05 per level was tried: a 139,000-health boss and a fight of over two minutes that champions lost.)
 
 ## Elites, chests and upgrades (Phase 5)
 - Once a minute an **elite** arrives (gold ring, 8x health). It drops a **chest**: a level-up choice whose pick is applied twice.
@@ -205,10 +205,12 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 ## Balance (10 seeds, `node tests/balance.js`)
 | Party | Median survival | Reached boss | Wins | First hit |
 |---|---|---|---|---|
-| None | 1:36 | 1/10 | 0 | 0:21 |
-| 3 runts (bat, slime, bat) | 3:41 | 1/10 | 0 | 1:03 |
-| 3 soldiers (bat, slime, bat) | 3:10 | 3/10 | 0 | 1:06 |
-| 3 veterans with perks (brute, archer, wisp) | 2:29 | 1/10 | 0 | 0:46 |
-| 3 champions with perks (brute, archer, bomber) | 6:08 | 7/10 | 2 | 3:30 |
+| None | 2:21 | 1/10 | 0 | 0:21 |
+| 3 runts (bat, slime, bat) | 2:27 | 3/10 | 1 | 1:15 |
+| 3 soldiers (bat, slime, bat) | 5:38 | 5/10 | 3 | 2:20 |
+| 3 veterans with perks (brute, archer, wisp) | 2:29 | 2/10 | 2 | 1:36 |
+| 3 champions with perks (brute, archer, bomber) | 5:54 | 8/10 | 6 | 2:49 |
 
-Known gaps (measured after rarities, the 14% swarm increase and the nemesis rework; Blaster + Dash, no class, no Shrine): any party now adds one to two minutes over solo, which was the point of the rework, but the tiers are out of order: the veteran row (brute, archer, wisp) does worse than runts and soldiers (bat, slime, bat). Which creatures you bring now matters more than their rank; Bats that fetch gems plus a Slime that draws enemies is the strongest mix. Champions reach the boss 7 of 10 but win only 2 (target about half), so the boss is now slightly too hard for them. Ten seeds is noisy (veteran range 1:29-9:28). Classes, Shrine ranks, mastery, charms and Nemesis+ are not in the table.
+Phase 23, after Phases 20-22 and the softer boss and swarm scaling (before it: soldiers 3 wins, veterans 0 of 2 at the boss, champions 4). `--mix` swaps the creatures: bat/slime/bat at 1.7 3:03 (4 boss, 2 wins); brute/archer/wisp at 1 1:59, at 1.7 2:36. `--cls` and `--grudge` run the table as a class or against a boss with grudge powers.
+
+Known gaps (Phase 23): champions are on target (6 of 10 wins) and veterans win when they reach the boss, but they rarely get there. Which creatures you bring still matters more than rank: Bats fetch gems, so a bat/slime/bat party levels faster (19-20 against 14-18) and beats brute/archer/wisp at either rank. Runts add almost nothing over solo (target +20s). Ten seeds cannot separate the tiers (ranges run 1:00-12:00, and bat/slime/bat at 1.7 measured worse than at 1), so tune rank with more seeds.
