@@ -317,7 +317,7 @@ describe('sim', () => {
     expect((1e6 - e.hp) / full).toBeCloseTo(1.3, 1);                         // half health: +30%
 
     g = createGame({ seed: 0, cls: 'warden' }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9;
-    expect(g.P.regen).toBeCloseTo(0.35);
+    expect(g.P.regen).toBeCloseTo(0.1);
     const golem = g.ents.find(x => x.type === 'golem'); golem.spd = 0; golem.tauntT = 1e9; golem.act = 1e9;   // as if it had just slammed
     e = dummy(g, 0); e.x = golem.x + 80; e.y = golem.y; e.type = 'brute'; e.r = 20; e.stun = 0; e.spd = 60; e.ang = Math.PI; e.act = 99;
     g.P.x = e.x + 300; g.P.y = e.y; g.P.fire = 1e9; g.P.fireT = 1e9;
@@ -390,7 +390,7 @@ describe('sim', () => {
 
     // Warden: roots every enemy on screen and heals
     g = fresh('warden'); g.ult = 1; g.P.hp = 10; e = dummy(g, 400); e.stun = 0; step(g, 1 / 60, ult);
-    expect(e.stun).toBeGreaterThan(2); expect(e.rootT).toBeGreaterThan(2); expect(g.P.hp).toBeGreaterThan(20);
+    expect(e.stun).toBeGreaterThan(2); expect(e.rootT).toBeGreaterThan(2); expect(g.P.hp).toBeGreaterThan(15);
 
     // Knight's shield blocks one hit, then needs time; Ranger's fifth volley is a power shot
     g = fresh('knight'); e = dummy(g, 6); e.stun = 0; e.dmg = 20; e.cd = 0;

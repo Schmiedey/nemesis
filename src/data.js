@@ -12,7 +12,7 @@ export const T = {
   imp:      { name: 'Imp',      color: '#e43b44', r: 8, hp: 30, spd: 150, dmg: 6,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', ranged: true, minion: true },
   skeleton: { name: 'Skeleton', color: '#f4f1e8', r: 8, hp: 14, spd: 150, dmg: 5,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', minion: true },
   wolf:     { name: 'Wolf',     color: '#8b8696', r: 9, hp: 46, spd: 235, dmg: 9,  unlock: Infinity, w: 0, xp: 0, shape: 'tri', minion: true },
-  drone:    { name: 'Drone',    color: '#2ce8f5', r: 6, hp: 30, spd: 280, dmg: 6,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', fly: true, minion: true },
+  drone:    { name: 'Drone',    color: '#2ce8f5', r: 6, hp: 30, spd: 280, dmg: 14,  unlock: Infinity, w: 0, xp: 0, shape: 'circle', fly: true, minion: true },
   golem:    { name: 'Golem',    color: '#8b8696', r: 16, hp: 110, spd: 120, dmg: 6, unlock: Infinity, w: 0, xp: 0, shape: 'square', minion: true },
 };
 
@@ -107,9 +107,9 @@ export const WEAPON_EVOS = {
 };
 // Pairs: hold both upgrades (any rank) and a bonus switches on for the rest of the run.
 export const PAIRS = [
-  { id: 'steam', n: 'Steam', a: 'frost', b: 'ember', d: 'Enemies both slowed and burning take 40% more damage from you' },
+  { id: 'steam', n: 'Steam', a: 'frost', b: 'ember', d: 'Enemies both slowed and burning take 20% more damage from you' },
   { id: 'thirst', n: 'Bloodthirst', a: 'leech', b: 'regen', d: 'Below half health your regeneration is doubled' },
-  { id: 'edge', n: 'Killing Edge', a: 'crit', b: 'exec', d: 'Executioner counts double, and +15% Lucky Shot chance' },
+  { id: 'edge', n: 'Killing Edge', a: 'crit', b: 'exec', d: 'Executioner counts half again' },
   { id: 'jugg', n: 'Juggernaut', a: 'tough', b: 'armor', d: '+20% max health, and heal that much' },
   { id: 'warband', n: 'Warband', a: 'rally', b: 'pack', d: 'Your nemeses and minions get Rally and Pack Tactics once more, free' },
   { id: 'engine', n: 'Arcane Engine', a: 'scholar', b: 'focus', d: 'Your ability recharges 20% faster and you gain 15% more experience' },
@@ -248,16 +248,16 @@ export const gearOf = id => WEAPONS[id] || ABILITIES[id] || CHARMS[id] || null;
 export const CLASSES = {
   knight: { n: 'Knight', sprite: 'c_knight', weapon: 'sword', d: 'Fights up close with a sword. +30 health, and you take 15% less damage. Every 10 seconds your shield blocks one hit outright.', ult: { n: 'Bulwark', d: 'For 4 seconds nothing can hurt you, and everything that comes near is cut down and thrown back.' }, minion: 'squire',
     md: 'Squire: stays close, blocks enemy shots with his shield and stuns with a shield bash.' },
-  ranger: { n: 'Ranger', sprite: 'c_ranger', d: '+10% move speed and +8% attack speed. Every 5th attack is a power shot: triple damage, and it passes through everything.', ult: { n: 'Arrow Storm', d: 'Arrows rain from the sky for 4 seconds, striking enemies all across the screen.' }, minion: 'hawk',
+  ranger: { n: 'Ranger', sprite: 'c_ranger', d: '+10% move speed. Every 7th attack is a power shot: triple damage, and it passes through everything.', ult: { n: 'Arrow Storm', d: 'Arrows rain from the sky for 4 seconds, striking enemies all across the screen.' }, minion: 'hawk',
     md: 'Hawk: cannot be hurt. Dives at the toughest enemy and marks it; marked enemies take 20% more damage.' },
-  necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 10th kill rises as a Skeleton to fight for you (up to 5). Skeletons explode when they fall.', ult: { n: 'Army of the Dead', d: 'Seven Skeletons claw out of the ground around you at once.' }, minion: 'imp',
+  necro: { n: 'Necromancer', sprite: 'c_necro', d: 'Every 9th kill rises as a Skeleton to fight for you (up to 6). Skeletons explode when they fall.', ult: { n: 'Army of the Dead', d: 'Seven Skeletons claw out of the ground around you at once.' }, minion: 'imp',
     md: 'Imp: throws fireballs that set enemies burning.' },
   // Locked classes. `lock.need(save)` returns [have, want]; unlocked for good once have >= want.
   berserker: { n: 'Berserker', sprite: 'c_berserker', d: 'The lower your health, the harder you hit: up to +60% damage.', ult: { n: 'Blood Rage', d: 'For 4 seconds you deal 25% more damage, attack twice as fast, and kills heal you a little.' }, minion: 'wolf',
     md: 'Wolf: fast and savage. Its howl sends you into a frenzy, attacking twice as fast for a moment.',
     lock: { text: 'Kill 1,000 enemies in total', need: s => [s.stats.kills, 1000] } },
   engineer: { n: 'Engineer', sprite: 'c_engineer', d: 'Power-ups drop more than twice as often, and Frenzy and Giant last half again as long.', ult: { n: 'Orbital Laser', d: 'A beam from the sky spirals around you, burning everything it crosses.' }, minion: 'drone',
-    md: 'Drone: cannot be hurt. Circles you, shooting the nearest enemy.',
+    md: 'Two Drones: cannot be hurt. They circle you shooting the nearest enemy, hit harder as your damage grows, and every few seconds shock away whatever crowds you.',
     lock: { text: 'Open 8 chests in total', need: s => [s.stats.chests, 8] } },
   warden: { n: 'Warden', sprite: 'c_warden', d: 'You slowly regenerate health.', ult: { n: 'Wrath of the Wild', d: 'Roots burst up and hold every enemy on screen for 2 seconds, and you heal a little.' }, minion: 'golem',
     md: 'Golem: a wall of stone. Slams the ground to stun everything close, and for a moment enemies turn on it instead of you.',

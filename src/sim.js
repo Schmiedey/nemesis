@@ -94,9 +94,10 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
   }
   // Class: a passive bonus and a starter minion. With no class (tests, the balance bot's baseline) nothing changes.
   if (g.cls === 'knight') { g.P.maxhp += 30; g.P.hp += 30; g.armor = 0.85; }
-  else if (g.cls === 'ranger') { g.P.spd *= 1.1; g.P.fire *= 0.92; }
-  else if (g.cls === 'warden') g.P.regen += 0.35;
+  else if (g.cls === 'ranger') { g.P.spd *= 1.1; }
+  else if (g.cls === 'warden') g.P.regen += 0.1;
   if (g.cls) { spawnMinion(g, CLASSES[g.cls].minion); g.heat *= 1.22; }
+  if (g.cls === 'engineer') spawnMinion(g, 'drone');                   // the Engineer flies two Drones
   g.soulMul *= 1 + 0.15 * g.party.filter(n => n.prize === 'gold').length;   // a golden nemesis in the party: +15% souls   // a class is a lot of extra power, so the swarm grows to match
   const b = boon && UP.find(u => u.id === boon);
   if (b) { b.f(g); g.picks[b.id] = 1; }
@@ -404,7 +405,12 @@ function minionThink(g, e, dt) {
     // Circles you and shoots the nearest enemy.
     e.orb = (e.orb || 0) + dt * 2;
     moveTo(e, P.x + Math.cos(e.orb) * 54, P.y + Math.sin(e.orb) * 40 - 16, dt);
-    if (e.act <= 0) { const tg = nearest(g, e, 'enemy', 360); if (tg) { e.act = 0.85 / e.haste; shoot(g, e.x, e.y, Math.atan2(tg.y - e.y, tg.x - e.x), 480, e.dmg, 'ally', 'player', 0, '#9fe8ff'); } }
+    // Every 3s it shocks whatever crowds you: thrown back and stunned for a moment.
+    if ((e.zapT = (e.zapT === undefined ? 1.5 + g.ents.indexOf(e) % 2 * 1.5 : e.zapT) - dt) <= 0) {
+      const near = g.ents.filter(o => o.team === 'enemy' && !o.dead && !o.boss && d2(o, P) < 90 * 90);
+      if (near.length) { e.zapT = 3; g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 90 }); snd(g, 'thud'); for (const o of near) { shove(P, o); o.stun = Math.max(o.stun || 0, 0.6); } } else e.zapT = 0.3;
+    }
+    if (e.act <= 0) { const tg = nearest(g, e, 'enemy', 360); if (tg) { e.act = 0.65 / e.haste; shoot(g, e.x, e.y, Math.atan2(tg.y - e.y, tg.x - e.x), 480, Math.max(e.dmg, g.P.dmg * 0.8), 'ally', 'player', 0, '#9fe8ff'); } }   // grows with your damage
     return true;
   }
   if (e.type === 'golem') {
@@ -567,8 +573,8 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   if (src === 'player' && g.cls === 'berserker') amt *= 1 + 0.6 * (1 - g.P.hp / g.P.maxhp);   // Berserker: hurt means angry
   if (src === 'player' && o.team === 'enemy') {
     const P = g.P;
-    if (P.exec && o.hp < o.maxhp * 0.34) amt *= 1 + P.exec * (g.pairs.edge ? 2 : 1);            // Executioner (Killing Edge: double)
-    if (g.pairs.steam && o.slowT > 0 && o.fireT > 0) amt *= 1.4;                                // Steam
+    if (P.exec && o.hp < o.maxhp * 0.34) amt *= 1 + P.exec * (g.pairs.edge ? 1.5 : 1);          // Executioner (Killing Edge: half again)
+    if (g.pairs.steam && o.slowT > 0 && o.fireT > 0) amt *= 1.2;                                // Steam
     if (P.frost && !o.boss) { o.slowT = Math.max(o.slowT || 0, 1.2 + 0.6 * P.frost); o.slowK = 0.65; }   // Frostbite
     if (P.ember) { o.fireT = 3; o.fireD = Math.max(o.fireD || 0, amt * 0.2 * P.ember / 6); }   // Wildfire: a share of the hit, over 6 ticks
   }
@@ -585,7 +591,7 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
 // A Skeleton that falls explodes: bones everywhere, damage to every enemy close by.
 function boneBlast(g, e) {
   burst(g, e.x, e.y, '#f4f1e8', 26, 260); g.fx.push({ k: 'nova', x: e.x, y: e.y, r: 56 });
-  for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, e) < (56 + o.r) ** 2) damage(g, o, g.P.dmg * 0.5, 'player');
+  for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, e) < (56 + o.r) ** 2) damage(g, o, g.P.dmg * 0.65, 'player');
 }
 
 function allyDown(g, e, delay, free = false) {
@@ -624,7 +630,7 @@ function kill(g, e) {
     // Ultimate charge: every kill fills it; each use makes the next one cost a little more.
     if (g.cls && g.ultT <= 0) g.ult = Math.min(1, g.ult + (e.elite ? 5 : 1) / (50 + 12 * Math.min(6, g.ultN)));
     if (g.cls === 'berserker' && g.ultT > 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 0.3);   // a little back per kill; a full heal every ultimate made the class unkillable
-    if (g.cls === 'necro' && ++g.raiseC >= 10 && g.ents.filter(x => x.type === 'skeleton' && !x.dead).length < 5) { g.raiseC = 0; spawnMinion(g, 'skeleton', e.x, e.y); }
+    if (g.cls === 'necro' && ++g.raiseC >= 9 && g.ents.filter(x => x.type === 'skeleton' && !x.dead).length < 6) { g.raiseC = 0; spawnMinion(g, 'skeleton', e.x, e.y); }
     if (g.P.leech && (g.leechC += g.P.leech) >= 10) { g.leechC -= 10; g.P.hp = Math.min(g.P.maxhp, g.P.hp + 1); }   // Leech
     if (g.P.charm === 'fang' && g.kills % 25 === 0) g.P.hp = Math.min(g.P.maxhp, g.P.hp + 5);
     // Power-ups: always from an elite, rarely from anything else.
@@ -702,7 +708,7 @@ const EVO_F = {
 export const evoCard = w => { const ev = WEAPON_EVOS[w]; return ev && { id: ev.id, n: ev.n, ic: 'i_' + w, evo: true, fixed: 'legendary', d: () => ev.d, f: g => { g.P.evo = ev.id; EVO_F[ev.id](g.P); g.fx.push({ k: 'evo', n: ev.n }); snd(g, 'legendary'); } }; };
 export const evoReady = g => { const ev = WEAPON_EVOS[g.P.weapon]; return !!ev && !g.P.evo && (g.picks[ev.need] || 0) >= MAX_RANK; };
 const PAIR_F = {
-  steam: () => {}, thirst: () => {}, edge: g => { g.P.crit += 1; },
+  steam: () => {}, thirst: () => {}, edge: () => {},
   jugg: g => { const v = Math.round(g.P.maxhp * 0.2); g.P.maxhp += v; g.P.hp = Math.min(g.P.maxhp, g.P.hp + v); },
   warband: g => { for (const id of ['rally', 'pack']) UP.find(u => u.id === id).f(g, 1); },
   engine: g => { g.P.cdMul *= 0.8; g.xpMul *= 1.15; },
@@ -812,7 +818,7 @@ function fireWeapon(g, dt) {
       const tg = nearest(g, P, 'enemy', 520);
       if (tg) {
         P.fireT = P.fire; const a = Math.atan2(tg.y - P.y, tg.x - P.x); snd(g, 'shoot');
-        const power = g.cls === 'ranger' && ++g.shotN % 5 === 0;      // the Ranger's every fifth volley is a power shot
+        const power = g.cls === 'ranger' && ++g.shotN % 7 === 0;      // the Ranger's every seventh volley is a power shot
         if (power) snd(g, 'bolt');
         for (let i = 0; i < P.multi; i++) {
           const crit = power || (P.crit > 0 && g.rand() < 0.15 * P.crit);
@@ -901,7 +907,7 @@ function useUlt(g) {
   else if (c === 'berserker') g.frenzyT = Math.max(g.frenzyT, 4);
   else if (c === 'engineer') g.laser = { a: g.rand() * 6.28, x: P.x, y: P.y };
   else if (c === 'warden') {
-    P.hp = Math.min(P.maxhp, P.hp + P.maxhp * 0.12); g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 520 });
+    P.hp = Math.min(P.maxhp, P.hp + P.maxhp * 0.06); g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 520 });
     for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, P) < 540 * 540) { damage(g, o, P.dmg * 2, 'player'); if (!o.boss && !o.dead) { o.stun = Math.max(o.stun || 0, 2.2); o.rootT = 2.2; } }
   }
 }
