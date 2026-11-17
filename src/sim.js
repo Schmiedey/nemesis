@@ -1,9 +1,10 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
 import { MAX_RANK, UP_SLOTS, FILLERS, EVO_TIME, WEAPON_EVOS, PAIRS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
 
-export const ARENA = { w: 1600, h: 1000 };
+export const ARENA = { w: 4800, h: 3000 };   // about five screens across
 export const VIEW = { w: 960, h: 600 };
-// The maps: three fixed layouts of rocks, one picked per run from the seed. Circles: { x, y, r }.
+// The Crypt: three fixed layouts of rocks at the middle of the world, one picked per run from the seed. Circles: { x, y, r },
+// laid out on a 1600x1000 stamp that `buildWorld` centres. The rest of the world is scattered with rock clusters from the seed.
 // Rocks block walkers and enemy bullets (your side's shots pass over). Flyers (Bat, Wisp) and the boss ignore them.
 export const LAYOUTS = [
   { name: 'Pillars', rocks: [
@@ -23,9 +24,40 @@ export const LAYOUTS = [
 ];
 // How strong a nemesis's job is: runt 0.76, soldier 1, veteran 1.28, champion 1.72. Minions without a rank count as soldiers.
 export const jobK = e => 0.6 + 0.4 * Math.min(e && e.nem ? e.nem.q : 1, 3);
+export const CRYPT = { w: 1600, h: 1000 };
+const ROCK_CELL = 160, ROCK_PAD = 60;   // the rock grid: each cell lists the rocks within ROCK_PAD of it
+export function buildWorld(seed, layout) {
+  const ox = (ARENA.w - CRYPT.w) / 2, oy = (ARENA.h - CRYPT.h) / 2;
+  const rocks = LAYOUTS[layout].rocks.map(k => ({ x: k.x + ox, y: k.y + oy, r: k.r }));
+  let s = (seed * 7919 + 13) % 2147483647 || 1; const rn = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const free = (x, y, r) => rocks.every(k => Math.hypot(k.x - x, k.y - y) > k.r + r + 34);   // always a path between rocks
+  for (let cy = 0; cy < ARENA.h; cy += 400) for (let cx = 0; cx < ARENA.w; cx += 400) {
+    if (cx + 400 > ox - 60 && cx < ox + CRYPT.w + 60 && cy + 400 > oy - 60 && cy < oy + CRYPT.h + 60) continue;   // keep the Crypt as it is
+    if (rn() < 0.25) continue;
+    const mx = cx + 80 + rn() * 240, my = cy + 80 + rn() * 240, n = 1 + Math.floor(rn() * 4);
+    for (let i = 0; i < n; i++) {
+      const r = Math.round(20 + rn() * 28), a = rn() * 6.283, d = i ? 40 + rn() * 50 : 0;
+      const x = Math.round(Math.min(ARENA.w - 60, Math.max(60, mx + Math.cos(a) * d))), y = Math.round(Math.min(ARENA.h - 60, Math.max(60, my + Math.sin(a) * d)));
+      if (free(x, y, r)) rocks.push({ x, y, r });
+    }
+  }
+  const gw = Math.ceil(ARENA.w / ROCK_CELL), gh = Math.ceil(ARENA.h / ROCK_CELL), grid = Array.from({ length: gw * gh }, () => []);
+  for (const k of rocks) {
+    const x0 = Math.max(0, Math.floor((k.x - k.r - ROCK_PAD) / ROCK_CELL)), x1 = Math.min(gw - 1, Math.floor((k.x + k.r + ROCK_PAD) / ROCK_CELL));
+    const y0 = Math.max(0, Math.floor((k.y - k.r - ROCK_PAD) / ROCK_CELL)), y1 = Math.min(gh - 1, Math.floor((k.y + k.r + ROCK_PAD) / ROCK_CELL));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y * gw + x].push(k);
+  }
+  return { rocks, grid, gw, gh };
+}
+const NONE = [];
+// The rocks that could touch something of radius up to ROCK_PAD at (x, y).
+export function rocksNear(g, x, y) {
+  const W = g.world, cx = Math.floor(x / ROCK_CELL), cy = Math.floor(y / ROCK_CELL);
+  return cx < 0 || cy < 0 || cx >= W.gw || cy >= W.gh ? NONE : W.grid[cy * W.gw + cx];
+}
 // Push a circle body out of any rock it overlaps.
 function unstick(g, o) {
-  for (const k of g.rocks) {
+  for (const k of rocksNear(g, o.x, o.y)) {
     const dx = o.x - k.x, dy = o.y - k.y, r = k.r + o.r, dd = dx * dx + dy * dy;
     if (dd < r * r) { const l = Math.sqrt(dd) || 0.01; o.x = k.x + dx / l * r; o.y = k.y + dy / l * r; }
   }
@@ -63,7 +95,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     state: 'play', t: 0, kills: 0, spawnT: 0.2, surgeT: 20, allyBuff: 1, allyHaste: 1, secondWind: false,
     ents: [], bullets: [], gems: [], respawnQ: [], fallen: [], fx: [], choices: [], picks: {},
     killer: null, recruit: null, boss: null, bossAt: 0,
-    layout: LAYOUTS[layout % LAYOUTS.length].name, rocks: LAYOUTS[layout % LAYOUTS.length].rocks,
+    layout: LAYOUTS[layout % LAYOUTS.length].name, world: buildWorld(seed, layout % LAYOUTS.length), get rocks() { return this.world.rocks; },
     // Things the run keeps count of, for the HUD, missions and the end screen.
     streak: 0, streakT: 0, bestStreak: 0, killsBy: {}, elites: 0, acts: 0, epics: 0, bonusSouls: 0, minute: 0,
     rar: [], luck: 1 + 0.12 * mr('luck'), soulMul: 1, storm: false, stormT: 0, phoenix: false, twin: false, leechC: 0,
@@ -83,7 +115,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
       actT: 0, dashT: 0, fx: 1, fy: 0, trailT: 0, totemT: 0, shield: 0, cdMul: 1, frost: 0, ember: 0, exec: 0, dodge: 0, leech: 0, charm: CHARMS[loadout.charm] ? loadout.charm : null, lvl: 1, xp: 0, next: XP_START, inv: 0, flash: 0 },
   };
   // A stronger party draws a bigger swarm, so the opening is never a walkover.
-  g.heat = 1.14 * (1 + 0.015 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
+  g.heat = 1.3 * (1 + 0.015 * g.party.reduce((a, n) => a + n.q, 0)) * (1 + 0.14 * tr);   // 1.14: the swarm grew when rarities made upgrades stronger
   // Shrine upgrades and class mastery.
   const P0 = g.P;
   P0.maxhp += 8 * mr('vit'); P0.hp = P0.maxhp; P0.dmg *= (1 + 0.05 * mr('might')) * (1 + 0.02 * clamp(mastery, 0, 4));
@@ -203,6 +235,15 @@ function spawnElite(g) {
   snd(g, 'surge');
 }
 
+// In the open world you could walk away from everything, so the swarm comes from where you are heading:
+// half of new spawns (`share`) land ahead of you while you move, and stragglers left far behind are moved back in ahead.
+const RECYCLE = 1100;
+// Just off camera: an oval round the screen (wider than tall), so enemies from above and below arrive as soon as those from the sides.
+const offCam = (g, a) => 1 / Math.hypot(Math.cos(a) / 530, Math.sin(a) / 350) + rr(g, 0, 70);
+function aheadAngle(g, share) {
+  const P = g.P;
+  return P.mv && g.rand() < share ? Math.atan2(P.fy, P.fx) + rr(g, -1, 1) : g.rand() * 6.28;
+}
 const MAX_ENEMIES = 240;   // past this the swarm stops growing: it protects the frame rate and adds nothing to the fight
 function spawnEnemy(g, ang) {
   if (g.ents.length >= MAX_ENEMIES) return;
@@ -210,7 +251,7 @@ function spawnEnemy(g, ang) {
   let r = g.rand() * pool.reduce((a, k) => a + T[k].w, 0), type = pool[0];
   for (const k of pool) { r -= T[k].w; if (r <= 0) { type = k; break; } }
   // Spawn on a ring just outside the camera, kept inside the arena.
-  const a = ang ?? g.rand() * 6.28, dist = rr(g, 600, 680);
+  const a = ang ?? aheadAngle(g, 0.5), dist = offCam(g, a);
   const x = clamp(g.P.x + Math.cos(a) * dist, -30, ARENA.w + 30);
   const y = clamp(g.P.y + Math.sin(a) * dist, -30, ARENA.h + 30);
   const n = type === 'bat' ? 4 + Math.floor(g.t / 100) : type === 'slime' && g.t > 90 ? 2 : 1;
@@ -320,7 +361,7 @@ function moveTo(e, x, y, dt, stop = 0) {
     const diff = Math.atan2(Math.sin(want - e.ang), Math.cos(want - e.ang));
     e.ang += clamp(diff, -TURN * dt, TURN * dt);
   } else e.ang = want;
-  const spd = e.spd * (e.slowT > 0 ? e.slowK : 1);
+  const spd = e.spd * (e.slowT > 0 ? e.slowK : 1) * (e.boss && e.team === 'enemy' ? (l > 450 ? 1.7 : l > 250 ? 1.45 : 1) : 1);   // the boss closes in: open ground must not let you circle it forever
   e.x += Math.cos(e.ang) * spd * dt; e.y += Math.sin(e.ang) * spd * dt;
 }
 
@@ -438,6 +479,10 @@ function taunter(g, e) {
 function think(g, e, dt) {
   if (e.boss) return bossThink(g, e, dt);
   const d = T[e.type], foe = e.team === 'enemy' ? 'ally' : 'enemy', ally = e.team === 'ally', P = g.P;
+  if (!ally && d2(e, P) > RECYCLE * RECYCLE) {          // left far behind: back in, just off camera, ahead of you
+    const a = aheadAngle(g, 1), r = offCam(g, a);
+    e.x = clamp(P.x + Math.cos(a) * r, 20, ARENA.w - 20); e.y = clamp(P.y + Math.sin(a) * r, 20, ARENA.h - 20); e.ang = a + Math.PI;
+  }
   e.cd -= dt; e.flash -= dt; e.act -= dt;
   if (e.slowT > 0) e.slowT -= dt;
   if (e.rootT > 0) e.rootT -= dt;
@@ -504,7 +549,7 @@ function think(g, e, dt) {
     if (e.wind > 0) { e.wind -= dt; if (e.wind <= 0) e.dash = 0.55; return; }
     if (e.dash > 0) {
       e.dash -= dt; e.x += Math.cos(e.ang) * e.spd * 4.2 * dt; e.y += Math.sin(e.ang) * e.spd * 4.2 * dt;
-      for (const k of g.rocks) if (d2(e, k) < (k.r + e.r) ** 2) { e.dash = 0; e.stun = 1.5; burst(g, e.x, e.y, '#8a8aa0', 10, 160); shake(g, 5); snd(g, 'thud'); break; }
+      for (const k of rocksNear(g, e.x, e.y)) if (d2(e, k) < (k.r + e.r) ** 2) { e.dash = 0; e.stun = 1.5; burst(g, e.x, e.y, '#8a8aa0', 10, 160); shake(g, 5); snd(g, 'thud'); break; }
       contact(g, e, foe);
       if (e.dash <= 0) e.act = 3 + g.rand() * 2;
       return;
@@ -995,7 +1040,7 @@ export function step(g, dt, input) {
   if (g.streakT > 0 && (g.streakT -= dt) <= 0) g.streak = 0;
   if (Math.floor(g.t / 60) > g.minute) { g.minute = Math.floor(g.t / 60); g.fx.push({ k: 'minute', n: g.minute }); }
   const ml = Math.hypot(input.mx, input.my) || 1, moving = input.mx !== 0 || input.my !== 0;
-  if (moving) { P.fx = input.mx / ml; P.fy = input.my / ml; }
+  P.mv = moving; if (moving) { P.fx = input.mx / ml; P.fy = input.my / ml; }
   const x0 = P.x, y0 = P.y;
   if (P.dashT > 0) {                                   // Dash: a burst along your facing that cuts what it passes
     P.dashT -= dt; P.inv = Math.max(P.inv, 0.1); P.x += P.fx * 900 * dt; P.y += P.fy * 900 * dt;
@@ -1082,7 +1127,7 @@ export function step(g, dt, input) {
     b.x += b.vx * bd; b.y += b.vy * bd; b.life -= bd;
     // Job: a Wisp nemesis burns up enemy shots that come near it.
     if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && (w.type === 'wisp' || w.type === 'squire') && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : w.type === 'squire' ? 30 * 30 : (24 * jobK(w)) ** 2)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
-    if (b.life > 0 && b.team === 'enemy') for (const k of g.rocks) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
+    if (b.life > 0 && b.team === 'enemy') for (const k of rocksNear(g, b.x, b.y)) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
     if (b.x < -50 || b.y < -50 || b.x > ARENA.w + 50 || b.y > ARENA.h + 50) b.life = 0;
     if (b.life <= 0) continue;
     for (const o of targetsOf(g, b.team === 'ally' ? 'enemy' : 'ally')) {

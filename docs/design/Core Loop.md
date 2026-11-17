@@ -28,7 +28,7 @@ A giant version of the enemy type that has killed you most. Chases you, summons 
 - Enemies steer at 3 radians per second instead of snapping onto you, so a sharp turn shakes them off. Within 90 units they turn freely.
 - **Enemies hunt the player.** They only turn on a nemesis within 110 units, so allies help but do not hide you.
 - **Surge** every 20s: a wave closes in from one side (3 groups, +1 every 50s), with a red arc warning.
-- A stronger party draws a slightly bigger swarm (+1.5% spawns per point of total quality; was 3%), on top of a base 1.14x. At most 240 enemies are alive at once.
+- A stronger party draws a slightly bigger swarm (+1.5% spawns per point of total quality; was 3%), on top of a base 1.3x. At most 240 enemies are alive at once.
 
 ## Nemesis jobs, growth and evolutions (Phase 4)
 Every nemesis has a job that works at any rank, so even a Runt changes a run (`JOB` in `src/data.js`, rules in `src/sim.js`):
@@ -47,6 +47,8 @@ Ally strength: health x(3.4 + 1.6q), damage x(0.9 + 1.5q), where q is quality; t
 
 ## Maps
 - Three fixed layouts, one picked per run from the seed (`LAYOUTS` in `src/sim.js`): **Pillars** (four pillars round the centre, clusters in corners), **Corridors** (two broken walls), **Ring** (a ring of rocks with four gaps).
+- **The world** (Phase 24) is 4800x3000, about five screens across. The run's Crypt layout (Pillars, Corridors or Ring) sits in the middle as it always did; the rest is scattered with rock clusters from the seed (`buildWorld` in `src/sim.js`, about 70 rocks, always a 34-unit path between them). Rocks sit in a 160-unit grid (`rocksNear`) so collision only checks nearby ones.
+- **No walking away.** New enemies spawn on an oval just off camera (530 wide, 350 tall, plus up to 70), half of them ahead of you while you move. An enemy left more than 1100 behind is moved back in ahead of you. The boss moves 1.45x beyond 250 and 1.7x beyond 450, so open ground never lets you circle it. Base swarm 1.3x (was 1.14x in the old box, where the walls pushed spawns close). Without these the bot lived the full 15:00 with no party.
 - Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's rings. Your side's shots pass over them.
 - Bats and Wisps fly over rocks (`fly: true` in the enemy table). The boss ignores them.
 - A minimap in the bottom-left shows rocks, enemies (red), elites and chests (gold), allies (green), the boss and the camera view.
@@ -214,3 +216,5 @@ Tuned by simulation against a bot that plays like a skilled person (`smart` in `
 Phase 23. Boss health and swarm now scale by the square root of party quality (before: veterans 0 wins, champions 4 of 10). Ally jobs grow with rank (`jobK` in `src/sim.js`: 0.6 + 0.4 x quality, so runt 0.76, champion 1.72): Bat gem reach, Slime pull radius, Archer slow time, Brute knockback and stun, Wisp shot-burning radius. Before jobs scaled, veterans reached the boss 6 of 20 and won 5. Options: `--seeds N`, `--cls`, `--grudge storm,phoenix`, `--mix` (creatures swapped between ranks).
 
 Known gaps (Phase 23): wins now rise with every tier (2, 4, 7, 11 of 20) and runts add 32s over solo. Survival is bimodal (ranges 1:20-12:00), so medians jump; read boss and wins first. Open: bat/slime/bat at rank 1.7 does worse than at rank 1 (2:30, 5 boss against 5:38, 10 boss); at 2:00 both are level 13 with the same health, so the gap opens later. Not yet run with a class or grudge powers.
+
+**Open world (Phase 24 step 1, 20 seeds):** none 4:26 (6 boss, 0 wins); runts 3:31 (6, 2); soldiers 3:30 (6, 2); veterans 2:57 (4, 2); champions 6:18 (15, 9). Champions are on target, but solo now outlasts small parties (on time, not wins), and soldiers and veterans are harder than in the old box. Left untuned on purpose: walls and the flow field (step 2) will move it all again. Re-tune after step 2.

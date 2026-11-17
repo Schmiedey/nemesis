@@ -1,5 +1,5 @@
 // Bots for simulated runs. Used by tests and by `node tests/balance.js`.
-import { createGame, step, pick, ARENA } from '../src/sim.js';
+import { createGame, step, pick, ARENA, rocksNear } from '../src/sim.js';
 
 export const still = () => ({ mx: 0, my: 0 });
 
@@ -67,7 +67,7 @@ export function smart(g) {
         if (e.fuse > 0 && Math.hypot(x - e.x, y - e.y) < 95) sc -= 5;
         if (e.aim > 0) { const px = x - e.x, py = y - e.y; if (px * Math.cos(e.aimAng) + py * Math.sin(e.aimAng) > 0 && Math.abs(px * Math.sin(e.aimAng) - py * Math.cos(e.aimAng)) < 16) sc -= 2; }
       }
-      for (const k of g.rocks) { const d = Math.hypot(x - k.x, y - k.y) - k.r - P.r; if (d < 26) sc -= (26 - d) * 0.12; }
+      for (const k of rocksNear(g, x, y)) { const d = Math.hypot(x - k.x, y - k.y) - k.r - P.r; if (d < 26) sc -= (26 - d) * 0.12; }
       const m = Math.min(x, y, W - x, H - y);
       if (m < 130) sc -= (130 - m) * 0.03;
     }

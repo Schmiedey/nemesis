@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-22 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 23 (the hook pays) done: boss and swarm scale by the square root of party quality; ally jobs grow with rank; wins rise with every tier. Next: Phase 24, a real map (plan in `docs/design/Map.md`). Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-23 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24 (a real map) step 1 done: 4800x3000 seeded world, rock grid, spawns ahead of you and a boss you can't circle. Party balance in the open world not yet re-tuned (solo outlasts small parties); do it after step 2 (walls and flow field). Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -146,7 +146,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 - Done when: a better recruit always makes the next run better.
 
 ## Phase 24: A real map (plan: `docs/design/Map.md`)
-- [ ] Bigger seeded world (4800x3000) with a rock grid and chunked floor
+- [x] Bigger seeded world (4800x3000) with a rock grid; one baked floor canvas was fast enough (60 fps); spawns ahead, stragglers recycled, boss catch-up
+- [ ] Re-tune the party table for the open world (after walls)
 - [ ] Rectangle walls and a flow field for walking enemies; bot paths round walls
 - [ ] Three biomes in rings round the Crypt
 - [ ] Landmarks: lairs (prize elites you walk to), shrines, vaults, the boss mark
