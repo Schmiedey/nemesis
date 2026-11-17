@@ -1,7 +1,7 @@
 // HTML overlays: title, roster (party draft), death, win, level-up, pause.
 import { pendingLevels } from './sim.js';
 import { T, PERKS, JOB, EVOS, FEATS, WEAPONS, ABILITIES, CHARMS, CLASSES, META, MASTERY, MAX_TIER, MISSIONS, RARITY, RARITIES, MAX_RANK, UP_SLOTS, UP_STAT, PAIRS, WEAPON_EVOS, WEAPON_TRAIT, LEG_TRAIT, UP, upText, masteryLevel, gearOf, upName, evoOf, rankName } from './data.js';
-import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot } from './save.js';
+import { canEvolve, boonsOf, today, metaCost, completion, nextGoals, slotSummaries, currentSlot, writeSave } from './save.js';
 import { ATLAS, ATLAS_SIZE } from './atlas.js';
 import { PARTY_SIZE } from './save.js';
 import { fmt } from './render.js';
@@ -87,11 +87,12 @@ export function showStart(save) {
   $('hubPlate').innerHTML = `<h3>${cls.n.toUpperCase()}</h3>${stars(masteryLevel(save.mastery[save.cls] || 0))}` +
     `<div class="gearrow">${[lo.weapon, lo.ability, lo.charm].filter(Boolean).map(id => `<span class="gi" title="${gearOf(id).n}">${pix('i_' + id, 2)}</span>`).join('')}</div>`;
   $('hubB1').innerHTML = $('hubB2').innerHTML = pix('i_skull', 2);
-  $('hubSouls').innerHTML = pix('i_soul', 2) + save.souls;
+  $('hubSouls').innerHTML = pix('i_soul', 2) + save.souls; $('hubSouls').classList.toggle('hidden', !save.runs);   // nothing to spend before the first run
   $('bSaves').textContent = 'SAVE ' + currentSlot();
   const g = nextGoals(save)[0];
   $('hubGoal').innerHTML = g ? `<span>NEXT: ${g.text.toUpperCase()}</span><b>${Math.floor(g.have / g.want * 100)}%</b>${bar2(0, g.have, g.want)}` : '';
   const d = save.daily.date === today() ? save.daily : null;
+  $('bDaily').classList.toggle('hidden', save.runs < UNLOCK.daily);
   $('bDaily').querySelector('b').textContent = d ? (d.won ? 'WON ' : '') + fmt(d.best) : 'NOT PLAYED';
   $('bHard').classList.toggle('hidden', !save.tierMax); $('bHard').classList.toggle('lit', save.tier > 0);
   $('bHard').querySelector('b').textContent = save.tier ? `TIER ${save.tier} OF ${save.tierMax}` : 'OFF';
@@ -99,7 +100,12 @@ export function showStart(save) {
 }
 
 // The tab bar: which tab is lit, and a badge where something is waiting.
+// New players meet the game a piece at a time. The first run is just the hook: play, die, see who joined you.
+// Each entry is the number of runs played before it appears. Saves that have played 3 or more runs see everything.
+export const UNLOCK = { bHome: 0, bClass: 1, bRoster: 1, bShrine: 2, bMissions: 2, bFeats: 3, daily: 3, banish: 3, pairs: 3 };
+export const progress = { runs: 99 };   // set from the save whenever the tab bar is drawn; full until then
 export function showTabs(save, mode) {
+  progress.runs = save.runs;
   const t = $('tabs'), menus = ['start', 'classes', 'loadout', 'roster', 'shrine', 'missions', 'feats', 'saves'];
   t.classList.toggle('hidden', !menus.includes(mode));
   if (!menus.includes(mode)) return;
@@ -115,6 +121,16 @@ export function showTabs(save, mode) {
   badge('bRoster', save.nemeses.some(canEvolve));                                                                            // a Champion ready to evolve
   badge('bClass', save.classes.length > seen.classes || save.gear.owned.length > seen.gear);                                   // a new class or new gear
   badge('bMissions', save.missions.filter(m => m.have / m.n >= 0.75).length || 0);                                             // missions nearly done
+  // Tabs appear as you play; a tab you have not opened yet says NEW.
+  const open = id => save.runs >= (UNLOCK[id] || 0);
+  if (!save.seen.tabs) save.seen.tabs = [...t.children].map(b => b.id).filter(open);
+  let changed = false;
+  for (const b of t.children) {
+    b.classList.toggle('hidden', !open(b.id));
+    if (b.dataset.m.split(' ').includes(mode) && !save.seen.tabs.includes(b.id)) { save.seen.tabs.push(b.id); changed = true; }
+    if (open(b.id) && !save.seen.tabs.includes(b.id)) badge(b.id, 'NEW');
+  }
+  if (changed) writeSave(save);
 }
 
 // Saves: three slots. Switch to one, start a fresh one, or delete one.
@@ -274,6 +290,7 @@ export function showLoadout(save, onEquip) {
   col($('loWeapons'), WEAPONS, save.gear.loadout.weapon, fixed);
   col($('loAbilities'), ABILITIES, save.gear.loadout.ability);
   col($('loCharms'), CHARMS, save.gear.loadout.charm);
+  $('loCharms').parentElement.classList.toggle('hidden', !save.gear.owned.some(id => CHARMS[id]));   // no charm column until you find one
   show('loadout');
 }
 
@@ -457,6 +474,7 @@ function buildRow(g, r) {
 const kindOf = (g, u) => u.ally || u.minion ? 'PARTY' : (WEAPONS[g.P.weapon].up || {})[u.id] || ['shots', 'pierce', 'haste', 'dmg', 'crit', 'chain'].includes(u.id) ? 'WEAPON' : 'PASSIVE';
 // A card that would complete a pair, or feeds your weapon's evolution, says so.
 function pairTag(g, u) {
+  if (progress.runs < UNLOCK.pairs) return '';           // recipes and pairs wait until the cards themselves are familiar
   const ev = WEAPON_EVOS[g.P.weapon];
   if (ev && ev.need === u.id && !g.P.evo) return `<i class="tag evo">EVOLVES YOUR ${WEAPONS[g.P.weapon].n.toUpperCase()} AT RANK ${MAX_RANK}</i>`;
   for (const p of PAIRS) { const other = p.a === u.id ? p.b : p.b === u.id ? p.a : null; if (other && !g.pairs[p.id]) return `<i class="tag${g.picks[other] && !g.picks[u.id] ? ' on' : ''}">${g.picks[other] && !g.picks[u.id] ? 'COMPLETES ' + p.n.toUpperCase() : 'PAIRS WITH ' + upName(other).toUpperCase()}</i>`; }

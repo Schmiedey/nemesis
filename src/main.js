@@ -69,6 +69,7 @@ function begin(k = 'normal') {
     bossType: bossTypeFor(save), grudge: grudgeFor(save), tier: kind === 'hard' ? save.tier : 0, boon: save.boon, meta: save.meta, mastery: masteryLevel(save.mastery[save.cls] || 0),
     loadout: save.gear.loadout, owned: save.gear.owned, cls: save.cls,
   });
+  if (save.runs < ui.UNLOCK.banish) g.banishes = 0;      // new players meet banishing once they know the cards
   for (const k in keys) keys[k] = false;                 // a new run never starts with a direction already held
   mode = 'play'; audio.sfx('start');
   if (qStep > 0) applyQuality(qStep - 1);   // a new run tries one step sharper again

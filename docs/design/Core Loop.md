@@ -255,3 +255,14 @@ Reaching the boss now rises with every tier. A solo run that reaches the boss wi
 | 3 champions with perks | 7:09 | 16/20 | 12 | 33 |
 
 Reaching the boss rises with every tier; champions win 60%. Runts no longer beat solo on time. The bot never wakes a lair on purpose, so lair fights are not in these numbers.
+
+## First runs (Phase 25)
+New players meet the game a piece at a time (`UNLOCK` in `src/ui.js`, counted in runs played):
+- **Run 1:** the hub is the scene, your hero and PLAY, with one tab (Home). No souls counter, no daily, no banish, no pair or evolution hints on cards.
+- **After 1 run:** Hero and Roster appear: you have a recruit now, and the roster is where the hook lives.
+- **After 2 runs:** Shrine and Missions.
+- **After 3 runs:** Feats, the daily run, Banish, and the PAIRS WITH / COMPLETES / EVOLVES tags on cards.
+- Nemesis+ already waits for a first win; the charm column waits until you own a charm.
+- A tab that has just appeared carries a NEW badge until you open it (`save.seen.tabs`). Saves that had played before see nothing new except those badges never appearing.
+The systems themselves still run from the start (pairs switch on, evolutions are offered); only what is shown waits.
+

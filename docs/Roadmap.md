@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-24 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24 (a real map) done: 4800x3000 seeded world round the Crypt, ruins with flow-field pathing, three biomes with water and lava, landmarks (lairs, shrines, vaults, boss mark), minimap fog. Next: hide systems for new players; rename, itch.io upload. Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-25 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24: a real map. Phase 25: new players meet the game a piece at a time (tabs, daily, banish, pairs unlock over the first three runs). Next: rename, itch.io upload, clip. Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -153,6 +153,12 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Landmarks: lairs (named elites you walk to; the recruit keeps the name), shrines, vaults (ambush, open at 1:00), the boss mark
 - [x] Minimap fog (200-unit cells; the boss mark always shows)
 - Done when: a run is a trip somewhere, and where you die is a choice.
+
+## Phase 25: A gentle first run
+- [x] Run 1 is just the hook: the hub shows PLAY and one tab; no souls, daily, banish or pair hints
+- [x] After run 1: Hero and Roster (you have a recruit now). After run 2: Shrine and Missions. After run 3: Feats, Daily, Banish, PAIRS WITH / evolution hints (`UNLOCK` in `src/ui.js`)
+- [x] A tab that has just appeared says NEW until opened (`save.seen.tabs`); the charm column shows once you own a charm
+- Done when: a stranger's first minute has one button and one idea.
 
 ## Usage rules
 - New session per phase; start by reading only this file and `CLAUDE.md`.
