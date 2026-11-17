@@ -720,11 +720,12 @@ describe('evolutions and pairs (Phase 21)', () => {
     const g = createGame({ seed: 3 });
     const lava = g.world.pools.find(p => p.kind === 'lava'), water = g.world.pools.find(p => p.kind === 'water');
     expect(lava && water).toBeTruthy();
-    for (let i = 0; i < 60 * 12; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
-    const [a, b] = g.ents.filter(o => o.team === 'enemy' && !o.dead && !T[o.type].fly);
+    const walkers = () => g.ents.filter(o => o.team === 'enemy' && !o.dead && !T[o.type].fly);
+    for (let i = 0; i < 60 * 40 && walkers().length < 2; i++) { if (g.state === 'lvl') pick(g, Math.max(0, g.choices.findIndex(u => u.id === 'tough'))); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    const [a, b] = walkers();
     expect(a && b).toBeTruthy();
     for (const o of g.ents) if (o !== a && o !== b && o.team === 'enemy') o.dead = true;
-    g.P.x = lava.x; g.P.y = lava.y; g.P.dmg = 0; a.x = lava.x + 10; a.y = lava.y; a.hp = a.maxhp = 1000;
+    g.P.x = lava.x; g.P.y = lava.y; g.P.dmg = 0; a.x = lava.x + 10; a.y = lava.y; a.hp = a.maxhp = 1000; a.dmg = 0; b.dmg = 0; g.P.inv = 0;
     b.x = water.x; b.y = water.y; b.slowT = 0;
     const hp0 = g.P.hp; step(g, 1 / 60, still()); step(g, 1 / 60, still());
     expect(a.hp).toBeLessThan(1000);
@@ -754,5 +755,47 @@ describe('evolutions and pairs (Phase 21)', () => {
     expect(seenAt(g, g.P.x, g.P.y)).toBe(true); expect(seenAt(g, 100, 100)).toBe(false);
     g.P.x = 300; g.P.y = 300; g.flowT = 0; step(g, 1 / 60, still());
     expect(seenAt(g, 100, 100)).toBe(true); expect(seenAt(g, ARENA.w - 100, ARENA.h - 100)).toBe(false);
+  });
+});
+
+describe('cards that change how you play (Phase 26)', () => {
+  const calm = (opts = {}) => { const g = createGame({ seed: 0, ...opts }); g.spawnT = 1e9; g.surgeT = 1e9; g.eliteT = 1e9; g.ents = g.ents.filter(e => e.team !== 'enemy'); g.P.hp = g.P.maxhp = 1e6; return g; };
+  const foe = (g, dx, dy = 0, hp = 1e6) => { const e = { type: 'slime', team: 'enemy', x: g.P.x + dx, y: g.P.y + dy, r: 13, hp, maxhp: hp, dmg: 0, spd: 0, cd: 9, act: 99, flash: 0, ang: 0, haste: 1, dead: false, small: false, stun: 1e9 }; g.ents.push(e); return e; };
+  const card = (g, id, s = 1) => { UP.find(u => u.id === id).f(g, s); g.picks[id] = (g.picks[id] || 0) + 1; };
+  const run = (g, sec, input = still()) => { for (let i = 0; i < 60 * sec; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, typeof input === 'function' ? input(i) : input); } };
+
+  it('there are twelve new cards, each with its own icon', () => {
+    for (const id of ['seek', 'blast', 'over', 'static', 'still', 'glass', 'adren', 'moment', 'mines', 'surge', 'mirror', 'well']) expect(UP.find(u => u.id === id)).toBeTruthy();
+  });
+  it('Glass Cannon trades health for damage', () => {
+    const g = calm(); g.P.maxhp = g.P.hp = 100; const d0 = g.P.dmg; card(g, 'glass');
+    expect(g.P.dmg).toBeGreaterThan(d0 * 1.4); expect(g.P.maxhp).toBe(88);
+  });
+  it('Minefield drops mines that blow up enemies walking over them', () => {
+    const g = calm(); g.P.weapon = 'none'; card(g, 'mines'); run(g, 3);
+    expect(g.mines.length).toBeGreaterThan(0);
+    const m = g.mines[0], e = foe(g, 0, 0, 1e6); e.x = m.x; e.y = m.y; run(g, 0.1);
+    expect(e.hp).toBeLessThan(1e6);
+  });
+  it('Ability Surge blasts what is near you when you use the ability', () => {
+    const g = calm(); g.P.weapon = 'none'; card(g, 'surge'); const e = foe(g, 60); g.P.actT = 0;
+    step(g, 1 / 60, { mx: 0, my: 0, act: true }); expect(e.hp).toBeLessThan(1e6);
+  });
+  it('Mirror Ward sends an enemy shot back', () => {
+    const g = calm(); g.P.weapon = 'none'; card(g, 'mirror'); run(g, 0.1);
+    const hp0 = g.P.hp; g.bullets.push({ x: g.P.x + 30, y: g.P.y, vx: -300, vy: 0, dmg: 10, team: 'enemy', src: 'archer', pierce: 0, color: '#fff', life: 2, hit: new Set() });
+    run(g, 0.2); expect(g.P.hp).toBe(hp0); expect(g.bullets.some(b => b.team === 'ally' && b.vx > 0)).toBe(true);
+  });
+  it('Stand Fast speeds up attacks only while you stand still', () => {
+    const g = calm(); card(g, 'still', 2); foe(g, 200); run(g, 1); const shots0 = g.bullets.length;
+    expect(shots0).toBeGreaterThan(0); expect(g.P.stillT).toBeGreaterThan(0.5);
+    run(g, 0.2, { mx: 1, my: 0 }); expect(g.P.stillT).toBe(0);
+  });
+  it('a nemesis ranks up from its own kills, gains a trait, and keeps it when it returns', () => {
+    const nem = { id: 1, type: 'brute', q: 1, perks: {}, name: 'Gru', title: '' };
+    const g = calm({ party: [nem] }); const n = g.party[0], ally = g.ents.find(e => e.nem === n);
+    n.kills = 24; const v = foe(g, 400, 0, 1); ally.x = v.x - 20; ally.y = v.y;
+    for (let i = 0; i < 120 && !v.dead; i++) step(g, 1 / 60, still());
+    expect(v.dead).toBe(true); expect(n.kills).toBe(25); expect(n.runUps.length).toBe(1);
   });
 });

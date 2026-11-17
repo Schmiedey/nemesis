@@ -2,6 +2,7 @@
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
 import { T, UP, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
+import { NEM_UPS } from './data.js';
 import { biomeAt, seenAt, FOG, FOG_W, FOG_H, BONE, HALLS, EMBER, ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, ZAP_T, ZAP_R, recruitQuality } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
@@ -100,6 +101,7 @@ export function consumeFx(g) {
     else if (f.k === 'pair') banner = { text: 'PAIR: ' + f.n.toUpperCase(), life: 2.4, c: PAL.c };
     else if (f.k === 'lair') banner = { text: f.name + "'s lair", life: 2.4, c: PAL.r3 };
     else if (f.k === 'ambush') banner = { text: 'Ambush!', life: 1.6, c: PAL.o };
+    else if (f.k === 'nemUp') banner = { text: f.name + ': ' + NEM_UPS[f.id].n, life: 2.2, c: PAL.mint };
     else if (f.k === 'mark') banner = { text: 'Your nemesis rises soon', life: 2.8, c: PAL.r };
     else if (f.k === 'minute') banner = { text: f.n + ':00 survived', life: 1.8, c: PAL.w };
     else if (f.k === 'gold') { booms.push({ x: f.x, y: f.y, life: 0.32, k: 1 }); for (let i = 0; i < 14; i++) glints.push({ x: f.x + rnd(-24, 24), y: f.y + rnd(-10, 20), vy: -rnd(40, 150), life: rnd(0.4, 0.9), f: Math.floor(rnd(0, 3)) }); }
@@ -488,6 +490,17 @@ export function draw(cv, cx, g, hud, hx) {
   for (const o of g.shrines || []) if (g.t >= o.readyAt) {   // a shrine that is ready glows
     cx.fillStyle = dither(cx, PAL.c3); cx.beginPath(); cx.arc(snap(o.x), snap(o.y), 40, 0, 7); cx.fill(); dashRing(cx, snap(o.x), snap(o.y), 40, PAL.c, t, 2);
   }
+  for (const m of g.mines || []) {                       // Minefield: armed mines blink
+    const on = m.arm <= 0 && Math.sin(t * 10 + m.x) > 0;
+    cx.fillStyle = PAL.k; cx.fillRect(snap(m.x) - 6, snap(m.y) - 4, 12, 8); cx.fillStyle = PAL.g3; cx.fillRect(snap(m.x) - 4, snap(m.y) - 4, 8, 6);
+    cx.fillStyle = on ? PAL.r : PAL.r2; cx.fillRect(snap(m.x) - 2, snap(m.y) - 2, 4, 2);
+  }
+  for (const w of g.wells || []) {                       // Gravity Well: a closing vortex
+    const r = 40 + 160 * Math.max(0, w.t / 1.4);
+    cx.fillStyle = dither(cx, PAL.v2); cx.beginPath(); cx.arc(snap(w.x), snap(w.y), Math.max(4, r * 0.5), 0, 7); cx.fill();
+    dashRing(cx, snap(w.x), snap(w.y), r, PAL.v, -t * 4, 2);
+  }
+  if (P.mirror && P.wardT <= 0 && g.state !== 'dead') dashRing(cx, snap(P.x), snap(P.y), P.r + 9, PAL.ice, t * 2, 2);   // Mirror Ward is ready
   if (g.bossMark && !g.bossAt) {                         // where your nemesis will rise
     const M = g.bossMark; cx.fillStyle = dither(cx, Math.sin(t * 6) > 0 ? PAL.r : PAL.r2); cx.beginPath(); cx.arc(snap(M.x), snap(M.y), 90, 0, 7); cx.fill();
     dashRing(cx, snap(M.x), snap(M.y), 90, PAL.r3, t * 2, 4);
@@ -696,6 +709,7 @@ export function draw(cv, cx, g, hud, hx) {
     if (up) { const hp = mine.reduce((s, e) => s + e.hp, 0) / mine.reduce((s, e) => s + e.maxhp, 0); bar(cx, W - 150, y + 22, 84, 4, hp, PAL.mint, PAL.gr2); }
     else if (q) label(cx, 'BACK IN ' + Math.max(1, Math.ceil(q.at - t)), W - 150, y + 29, PAL.y, `10px ${TITLE}`);
     cx.textAlign = 'right'; icon(cx, 'i_skull', W - 48, y + 8, 0.75); label(cx, n.kills || 0, W - 20, y + 16, PAL.w, `12px ${TITLE}`);
+    (n.runUps || []).forEach((id, j) => { cx.fillStyle = PAL.k; cx.fillRect(W - 62 + j * 8, y + 24, 6, 6); cx.fillStyle = PAL.mint; cx.fillRect(W - 61 + j * 8, y + 25, 4, 4); });   // ranks earned this run
   });
 
   // When you are close to death: who would join you if you fell now. Dying is a choice of recruit.

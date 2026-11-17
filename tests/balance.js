@@ -3,7 +3,7 @@ import { createGame, step, pick } from '../src/sim.js';
 import { smart } from './bot.js';
 
 const nem = (id, type, q, perks = {}) => ({ id, type, q, perks, name: 'N' + id, title: '' });
-const PREF = ['dmg', 'haste', 'shots', 'chain', 'pierce', 'blade', 'crit', 'ember', 'exec', 'tough', 'armor', 'nova', 'regen', 'dodge', 'frost', 'leech', 'scholar', 'rally', 'guard', 'bond', 'pack', 'wind', 'focus', 'spd', 'magnet', 'harvest'];
+const PREF = ['dmg', 'haste', 'shots', 'blast', 'chain', 'pierce', 'over', 'blade', 'mines', 'crit', 'seek', 'ember', 'well', 'exec', 'tough', 'still', 'armor', 'moment', 'nova', 'static', 'mirror', 'adren', 'surge', 'glass', 'regen', 'dodge', 'frost', 'leech', 'scholar', 'rally', 'guard', 'bond', 'pack', 'wind', 'focus', 'spd', 'magnet', 'harvest'];
 // The bot picks like a person: a favourite upgrade first, but a much rarer card wins over a slightly better kind.
 const RV = { common: 0, rare: 3, epic: 7, legendary: 14 };
 const rank = (g, i) => { const p = PREF.indexOf(g.choices[i].id); return (p < 0 ? PREF.length : p) - RV[g.rar[i] || 'common'] - (g.choices[i].leg ? 6 : 0); };

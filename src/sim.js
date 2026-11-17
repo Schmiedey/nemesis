@@ -1,5 +1,5 @@
 // Pure game simulation: no DOM, no Math.random. Same seed + same inputs = same run.
-import { MAX_RANK, UP_SLOTS, FILLERS, EVO_TIME, WEAPON_EVOS, PAIRS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES } from './data.js';
+import { MAX_RANK, UP_SLOTS, FILLERS, EVO_TIME, WEAPON_EVOS, PAIRS, T, UP, PERKS, LEG_TRAIT, BOSS_TIME, WEAPONS, ABILITIES, CHARMS, POWERUPS, ALL_GEAR, CLASSES, MAX_TIER, RARITY, RARITIES, NEM_RANKS, NEM_UPS } from './data.js';
 
 export const ARENA = { w: 4800, h: 3000 };   // about five screens across
 export const VIEW = { w: 960, h: 600 };
@@ -280,7 +280,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
     owned: owned ? new Set(owned) : null, loot: [], rangs: [], fires: [], totems: [], decoy: null, slowT: 0, zaps: [],
     // grudge: { name, kills, powers } — the boss is the thing that has been killing you, and it learned from you
     grudge: grudge && T[bossType] ? { name: String(grudge.name || ''), kills: grudge.kills | 0, powers: (grudge.powers || []).filter(k => GRUDGE_POWERS[k]).slice(0, 2) } : null,
-    chests: [], chest: false, hitName: null, bossMark: null, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
+    chests: [], chest: false, hitName: null, bossMark: null, mines: [], wells: [], chainD: 0, opened: 0, hard: tr > 0, eliteT: 60, allyRegen: 0, allyArmor: 1, novaT: 0, vacT: 0,
     // The Knight always fights with a sword (CLASSES.knight.weapon); other classes use the loadout.
     P: { isP: true, x: ARENA.w / 2, y: ARENA.h / 2, r: 11, hp: 100, maxhp: 100, spd: 200, fire: 0.42, fireT: 0,
       dmg: 10, multi: 1, pierce: 0, magnet: 80, regen: 0, blades: 0, chain: 0, nova: 0, crit: 0,
@@ -296,7 +296,7 @@ export function createGame({ seed = 1, party = [], bossType = 'brute', layout = 
   for (const nem of g.party) {
     const lives = nem.type === 'bomber' ? BOMBER_LIVES : ALLY_LIVES;
     const n = (nem.evo === 'brood' ? 5 : nem.evo === 'storm' ? 2 : T[nem.type].pack || 1) + ((nem.legs || []).includes('twin') ? 1 : 0);
-    nem.kills = 0;
+    nem.kills = 0; nem.runUps = [];
     for (let i = 0; i < n; i++) spawnAlly(g, nem, lives);
   }
   // Class: a passive bonus and a starter minion. With no class (tests, the balance bot's baseline) nothing changes.
@@ -395,6 +395,7 @@ function spawnAlly(g, nem, lives) {
   e.haste = (1 + 0.2 * (pk.haste || 0)) * g.allyHaste * (nem.evo === 'ward' ? 1.5 : 1);
   e.evo = nem.evo || null;
   e.wpn = nem.weapon || null; e.legs = nem.legs || [];   // what it took from you when it killed you
+  for (const id of nem.runUps || []) nemTrait(e, id);     // ranks it earned earlier this run
   burst(g, e.x, e.y, '#7dffb0', 8);
   return e;
 }
@@ -656,6 +657,7 @@ function taunter(g, e) {
 function think(g, e, dt) {
   if (e.boss) return bossThink(g, e, dt);
   const d = T[e.type], foe = e.team === 'enemy' ? 'ally' : 'enemy', ally = e.team === 'ally', P = g.P;
+  if (ally && e.mend) e.hp = Math.min(e.maxhp, e.hp + e.maxhp * 0.02 * dt);   // Mending
   if (e.lair && d2(P, e.lair) > 700 * 700) { moveTo(e, e.lair.x, e.lair.y, dt, 20); return; }   // a lair's elite goes home
   if (!ally && !e.lair && d2(e, P) > RECYCLE * RECYCLE) {          // left far behind: back in, just off camera, ahead of you
     const a = aheadAngle(g, 1), r = offCam(g, a);
@@ -798,6 +800,7 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   if (src === 'player' && g.cls === 'berserker') amt *= 1 + 0.6 * (1 - g.P.hp / g.P.maxhp);   // Berserker: hurt means angry
   if (src === 'player' && o.team === 'enemy') {
     const P = g.P;
+    if (P.mom) amt *= 1 + P.mom * Math.min(10, g.t - (P.hurtAt || 0));                     // Momentum
     if (P.exec && o.hp < o.maxhp * 0.34) amt *= 1 + P.exec * (g.pairs.edge ? 1.5 : 1);          // Executioner (Killing Edge: half again)
     if (g.pairs.steam && o.slowT > 0 && o.fireT > 0) amt *= 1.2;                                // Steam
     if (P.frost && !o.boss) { o.slowT = Math.max(o.slowT || 0, 1.2 + 0.6 * P.frost); o.slowK = 0.65; }   // Frostbite
@@ -807,9 +810,37 @@ function damage(g, o, amt, src, byBoss = false, by = null) {
   o.hp -= amt; o.flash = 0.08;
   if (o.team === 'enemy' && amt >= 1) g.fx.push({ k: 'num', x: o.x, y: o.y - o.r, v: amt });
   if (o.hp <= 0 && !o.dead) {
-    if (by && o.team === 'enemy') by.kills = (by.kills || 0) + 1; // credited to the nemesis; turns into XP after the run
+    if (by && o.team === 'enemy') { by.kills = (by.kills || 0) + 1; nemKill(g, by, o); }   // credited to the nemesis; turns into XP after the run
+    const spill = -o.hp;
     kill(g, o);
+    if (src === 'player' && o.team === 'enemy' && g.P.over && spill > 1 && g.chainD <= 3) {   // Overkill: the rest goes on to the next one
+      let nx = null, nd = 170 * 170;
+      for (const q of g.ents) if (q.team === 'enemy' && !q.dead && q !== o) { const dq = d2(o, q); if (dq < nd) { nd = dq; nx = q; } }
+      if (nx) { g.chainD++; g.fx.push({ k: 'bolt', pts: [{ x: o.x, y: o.y }, { x: nx.x, y: nx.y }] }); damage(g, nx, spill * Math.min(1.5, g.P.over), 'player'); g.chainD--; }
+    }
   }
+}
+
+// ---------- Phase 26: nemeses rank up mid-run from their own kills ----------
+function nemTrait(e, id) {
+  if (id === 'fury') e.haste *= 1.25;
+  else if (id === 'giant') { e.maxhp *= 1.4; e.hp *= 1.4; e.r *= 1.2; }
+  else if (id === 'keen') e.dmg *= 1.3;
+  else if (id === 'swift') e.spd *= 1.25;
+  else if (id === 'mend') e.mend = true;
+}
+function nemKill(g, nem, victim) {
+  const mine = g.ents.filter(e => e.nem === nem && !e.dead);
+  const ups = nem.runUps || [];
+  if (ups.includes('thirst')) for (const e of mine) e.hp = Math.min(e.maxhp, e.hp + e.maxhp * 0.05);
+  if (ups.includes('volatile') && mine.length) boom(g, victim.x, victim.y, 60, mine[0].dmg * 1.2, '#7dffb0');
+  if (!NEM_RANKS.includes(nem.kills)) return;
+  const left = Object.keys(NEM_UPS).filter(k => !ups.includes(k));
+  if (!left.length) return;
+  const id = left[Math.floor(g.rand() * left.length)];
+  nem.runUps = [...ups, id];
+  for (const e of mine) { nemTrait(e, id); burst(g, e.x, e.y, '#7dffb0', 16, 220); }
+  g.fx.push({ k: 'nemUp', name: nem.name, id }); snd(g, 'level');
 }
 
 // An ally that falls comes back while it has lives left, then is gone for the run.
@@ -842,6 +873,7 @@ function kill(g, e) {
   if (T[e.type].split && !e.small) for (let i = 0; i < (e.evo === 'mother' ? 4 : 2); i++) {
     mk(g, 'slime', e.team, e.x + rr(g, -8, 8), e.y + rr(g, -8, 8), { small: true, hpMul: e.hpMul, dmgMul: e.dmgMul });
   }
+  if (e.team === 'enemy' && g.P.blast && !e.boss && g.rand() < Math.min(0.6, g.P.blast)) boom(g, e.x, e.y, 70, g.P.dmg * 1.2 + e.maxhp * 0.15);   // Corpse Blast
   if (e.team === 'enemy') {
     // Kill streak: kills in quick succession build a count; it lapses after 2.5 seconds without one.
     g.streak++; g.streakT = 2.5; if (g.streak > g.bestStreak) g.bestStreak = g.streak;
@@ -1098,6 +1130,52 @@ function dropPowerup(g, x, y) {
   g.pickups.push({ x: clamp(x, 20, ARENA.w - 20), y: clamp(y, 20, ARENA.h - 20), k: kinds[Math.floor(g.rand() * kinds.length)], life: PICKUP_LIFE });
 }
 // A blast around the player: damage, knockback, stun.
+// ---------- Phase 26: cards that change how you play ----------
+// Stand Fast and Adrenaline make the weapon's timer run faster.
+function atkMul(g) {
+  const P = g.P;
+  return 1 + (P.still && P.stillT >= 0.5 ? P.still : 0) + (P.adren && P.hp < P.maxhp / 2 ? P.adren : 0);
+}
+// A burst at (x, y): damage and a shove to every enemy within r.
+function boom(g, x, y, r, dmg, col = '#ff8a3d') {
+  g.fx.push({ k: 'nova', x, y, r }); burst(g, x, y, col, 12, 200);
+  if (g.chainD > 3) return;                             // explosions can set off explosions, but not forever
+  g.chainD++;
+  for (const o of g.ents) if (o.team === 'enemy' && !o.dead && d2(o, { x, y }) < (r + o.r) ** 2) { damage(g, o, dmg, 'player'); if (!o.boss) o.stun = Math.max(o.stun || 0, 0.25); }
+  g.chainD--;
+}
+function playerMods(g, dt) {
+  const P = g.P;
+  P.stillT = P.moved < 0.5 ? (P.stillT || 0) + dt : 0;
+  if (P.stat) {                                          // Static Step: a spark every 140 units walked
+    P.walk = (P.walk || 0) + P.moved;
+    while (P.walk >= 140) {
+      P.walk -= 140;
+      let tg = nearest(g, P, 'enemy', 260); const pts = [{ x: P.x, y: P.y }], hit = new Set(); let n = 1 + Math.floor(P.stat);
+      while (tg && n-- > 0) { hit.add(tg); pts.push({ x: tg.x, y: tg.y }); damage(g, tg, P.dmg * P.stat, 'player'); let nx = null, nd = 160 * 160; for (const q of g.ents) if (q.team === 'enemy' && !q.dead && !hit.has(q)) { const dq = d2(tg, q); if (dq < nd) { nd = dq; nx = q; } } tg = nx; }
+      if (pts.length > 1) { g.fx.push({ k: 'bolt', pts }); snd(g, 'bolt'); }
+    }
+  }
+  if (P.mines) {                                         // Minefield
+    if ((P.mineT = (P.mineT ?? 1) - dt) <= 0) { P.mineT = 2.4; g.mines.push({ x: P.x, y: P.y, arm: 0.6 }); if (g.mines.length > 6 + 2 * P.mines) g.mines.shift(); }
+    for (const m of g.mines) {
+      if ((m.arm -= dt) > 0 || m.gone) continue;
+      for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !T[o.type].fly && d2(o, m) < (o.r + 14) ** 2) { m.gone = true; boom(g, m.x, m.y, 85, P.dmg * 2 * P.mines); snd(g, 'thud'); break; }
+    }
+    g.mines = g.mines.filter(m => !m.gone);
+  }
+  if (P.well && (P.wellT = (P.wellT ?? 3) - dt) <= 0) {   // Gravity Well
+    P.wellT = 7; const tg = nearest(g, P, 'enemy', 420);
+    if (tg) g.wells.push({ x: tg.x, y: tg.y, t: 1.4 }); else P.wellT = 1;
+  }
+  for (const w of g.wells) {
+    w.t -= dt;
+    for (const o of g.ents) if (o.team === 'enemy' && !o.dead && !o.boss) { const dx = w.x - o.x, dy = w.y - o.y, l = Math.hypot(dx, dy); if (l < 200 && l > 6) { o.x += dx / l * 230 * dt; o.y += dy / l * 230 * dt; } }
+    if (w.t <= 0) boom(g, w.x, w.y, 110, P.dmg * 2.5 * P.well, '#b06cff');
+  }
+  g.wells = g.wells.filter(w => w.t > 0);
+  if (P.mirror) P.wardT = (P.wardT ?? 0) - dt;
+}
 function blast(g, r, mult) {
   const P = g.P;
   g.fx.push({ k: 'nova', x: P.x, y: P.y, r }); shake(g, 8);
@@ -1159,6 +1237,7 @@ function ultStep(g, dt) {
 function useAbility(g) {
   const P = g.P, a = P.ability;
   P.actT = P.actMax = ABILITIES[a].cd * P.cdMul; g.acts++; g.fx.push({ k: 'act', id: a });
+  if (P.surge) boom(g, P.x, P.y, 150, P.dmg * 2 * P.surge, '#fee761');   // Ability Surge
   if (a === 'dash') { P.dashT = 0.18; P.inv = Math.max(P.inv, 0.3); burst(g, P.x, P.y, '#fff', 8, 160); snd(g, 'dash'); }
   else if (a === 'shock') {
     g.fx.push({ k: 'nova', x: P.x, y: P.y, r: 170 }); shake(g, 8); snd(g, 'ring');
@@ -1228,7 +1307,7 @@ export function step(g, dt, input) {
   if (P.dashT > 0) {                                   // Dash: a burst along your facing that cuts what it passes
     P.dashT -= dt; P.inv = Math.max(P.inv, 0.1); P.x += P.fx * 900 * dt; P.y += P.fy * 900 * dt;
     for (const o of g.ents) if (o.team === 'enemy' && !o.dead && (o.dashT || 0) <= g.t && d2(o, P) < (o.r + 22) ** 2) { o.dashT = g.t + 0.4; damage(g, o, hitDmg(g, P.dmg * 2), 'player'); }
-  } else { P.x += input.mx / ml * P.spd * dt; P.y += input.my / ml * P.spd * dt; }
+  } else { const sp = P.spd * (P.adren && P.hp < P.maxhp / 2 ? 1 + P.adren / 2 : 1); P.x += input.mx / ml * sp * dt; P.y += input.my / ml * sp * dt; }
   P.moved = Math.hypot(P.x - x0, P.y - y0);
   P.actT -= dt; g.slowT -= dt;
   if (input.act && P.actT <= 0) useAbility(g);
@@ -1240,8 +1319,9 @@ export function step(g, dt, input) {
   P.inv -= dt; P.flash -= dt; P.hp = Math.min(P.maxhp, P.hp + P.regen * (g.pairs.thirst && P.hp < P.maxhp / 2 ? 2 : 1) * dt);
   const wdt = g.frenzyT > 0 ? dt * 2 : dt;              // Frenzy: every weapon timer runs twice as fast
   g.frenzyT -= dt;
-  P.fireT -= wdt;
+  P.fireT -= wdt * atkMul(g);
   fireWeapon(g, wdt);
+  playerMods(g, dt);
   if (g.storm && (g.stormT -= dt) <= 0) {                // Thunderstorm: a bolt from the sky every second
     g.stormT = 1;
     const near = g.ents.filter(o => o.team === 'enemy' && !o.dead && d2(o, P) < 440 * 440);
@@ -1307,6 +1387,10 @@ export function step(g, dt, input) {
 
   for (const b of g.bullets) {
     const bd = b.team === 'enemy' ? edt : dt;
+    if (P.seek && b.src === 'player' && b.team === 'ally') {   // Seeker Rounds: turn toward the nearest enemy
+      const tg = nearest(g, b, 'enemy', 300);
+      if (tg) { const sp = Math.hypot(b.vx, b.vy), a = Math.atan2(b.vy, b.vx), want = Math.atan2(tg.y - b.y, tg.x - b.x), d = Math.atan2(Math.sin(want - a), Math.cos(want - a)), na = a + clamp(d, -P.seek * bd, P.seek * bd); b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp; }
+    }
     b.x += b.vx * bd; b.y += b.vy * bd; b.life -= bd;
     // Job: a Wisp nemesis burns up enemy shots that come near it.
     if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && (w.type === 'wisp' || w.type === 'squire') && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : w.type === 'squire' ? 30 * 30 : (24 * jobK(w)) ** 2)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
@@ -1317,6 +1401,10 @@ export function step(g, dt, input) {
       if (b.hit.has(o)) continue;
       const r = o.r + 3;
       if (d2(b, o) < r * r) {
+        if (o === P && P.mirror && P.wardT <= 0) {      // Mirror Ward: back where it came from, three times as hard
+          P.wardT = Math.max(2, 8 / P.mirror); b.team = 'ally'; b.src = 'player'; b.boss = false; b.vx = -b.vx; b.vy = -b.vy; b.dmg = Math.max(b.dmg * 3, P.dmg * 2); b.hit = new Set(); b.life = 1.6; b.color = '#c0f4ff';
+          burst(g, P.x, P.y, '#c0f4ff', 10, 160); snd(g, 'thud'); break;
+        }
         if (o === P) { g.hitBy = b.prize || null; g.hitName = b.pname || null; }
         damage(g, o, b.dmg, b.src, b.boss, b.nem); if (b.slowT && !o.boss && o !== g.P) { o.slowT = b.slowT; o.slowK = b.slowK; }
         if (b.burn && !o.dead) { o.fireT = 3; o.fireD = b.dmg * 0.45; } b.hit.add(o); burst(g, b.x, b.y, b.color, 3, 80); if (b.team === 'ally') snd(g, 'hit');

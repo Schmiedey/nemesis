@@ -72,6 +72,21 @@ export const UP = [
   { id: 'dodge', n: 'Evasion', ic: 'i_dash', d: s => `${pc(1 - 0.92 ** s)} chance to avoid a hit completely`, f: (g, s = 1) => g.P.dodge = 1 - (1 - g.P.dodge) * 0.92 ** s },
   { id: 'harvest', n: 'Soul Harvest', ic: 'i_soul', d: s => `+${pc(0.2 * s)} souls from this run`, f: (g, s = 1) => g.soulMul *= 1 + 0.2 * s },
   { id: 'leech', n: 'Leech', ic: 'i_fang', d: s => `Heal 1 health every ${Math.max(2, Math.round(10 / s))} kills`, f: (g, s = 1) => g.P.leech += s },
+  // Phase 26: cards that change how you play, not just a number. Each ranks up like any other card.
+  { id: 'seek', n: 'Seeker Rounds', d: s => `Your shots home in on enemies (turn +${Math.round(170 * s)}° a second)`, f: (g, s = 1) => g.P.seek = (g.P.seek || 0) + 3 * s },
+  { id: 'blast', n: 'Corpse Blast', d: s => `Kills have a ${pc(Math.min(0.6, 0.12 * s))} chance to explode`, f: (g, s = 1) => g.P.blast = (g.P.blast || 0) + 0.12 * s },
+  { id: 'over', n: 'Overkill', d: s => `${pc(0.5 * s)} of the damage past a kill carries into the nearest enemy`, f: (g, s = 1) => g.P.over = (g.P.over || 0) + 0.5 * s },
+  { id: 'static', n: 'Static Step', d: s => `Every few steps a spark hits nearby enemies for ${pc(s)} damage`, f: (g, s = 1) => g.P.stat = (g.P.stat || 0) + s },
+  { id: 'still', n: 'Stand Fast', d: s => `Stand still for half a second: +${pc(0.4 * s)} attack speed`, f: (g, s = 1) => g.P.still = (g.P.still || 0) + 0.4 * s },
+  { id: 'glass', n: 'Glass Cannon', d: s => `+${pc(0.45 * s)} damage, but -${pc(0.12 * s)} max health`, f: (g, s = 1) => {
+    const P = g.P; P.dmg *= 1 + 0.45 * s; P.maxhp = Math.max(30, Math.round(P.maxhp * (1 - 0.12 * s))); P.hp = Math.min(P.hp, P.maxhp);
+  } },
+  { id: 'adren', n: 'Adrenaline', d: s => `Below half health: +${pc(0.3 * s)} attack speed and +${pc(0.15 * s)} move speed`, f: (g, s = 1) => g.P.adren = (g.P.adren || 0) + 0.3 * s },
+  { id: 'moment', n: 'Momentum', d: s => `+${pc(0.03 * s)} damage for each second since you were last hit (up to 10)`, f: (g, s = 1) => g.P.mom = (g.P.mom || 0) + 0.03 * s },
+  { id: 'mines', n: 'Minefield', d: s => `Drop a mine every 2.4s; it blasts for ${pc(2 * s)} damage`, f: (g, s = 1) => g.P.mines = (g.P.mines || 0) + s },
+  { id: 'surge', n: 'Ability Surge', d: s => `Using your ability also blasts everything near you for ${pc(2 * s)} damage`, f: (g, s = 1) => g.P.surge = (g.P.surge || 0) + s },
+  { id: 'mirror', n: 'Mirror Ward', d: s => `Every ${Math.max(2, Math.round(8 / s))}s a ward sends the next enemy shot back, three times as hard`, f: (g, s = 1) => g.P.mirror = (g.P.mirror || 0) + s },
+  { id: 'well', n: 'Gravity Well', d: s => `Every 7s a vortex pulls a crowd together, then bursts for ${pc(2.5 * s)} damage`, f: (g, s = 1) => g.P.well = (g.P.well || 0) + s },
   // Legendary only: one-of-a-kind powers. They can be offered once each per run.
   { id: 'storm', n: 'Thunderstorm', ic: 'i_rod', leg: true, d: () => 'Lightning strikes a random enemy every second', f: g => g.storm = true },
   { id: 'phoenix', n: 'Phoenix', ic: 'i_hour', leg: true, d: () => 'The next time you would die, you rise at half health with a shockwave', f: g => g.phoenix = true },
@@ -200,13 +215,13 @@ export const upName = id => (UP.find(u => u.id === id) || {}).n || id;
 export const WEAPONS = {
   blaster: { n: 'Blaster', i: '➤', d: 'Fires shots at the nearest enemy.' },
   sword: { n: 'Greatsword', i: '⚔', d: 'Sweeps a wide arc, throwing back everything in reach.',
-    up: { shots: 'Sweep behind you too, then all around', pierce: 'Longer reach' } },
+    up: { shots: 'Sweep behind you too, then all around', pierce: 'Longer reach' }, no: ['seek'] },
   rang: { n: 'Boomerang', i: '☽', d: 'Flies out and returns, cutting both ways. Catch it to throw sooner.',
-    up: { shots: '+1 boomerang', pierce: 'Larger blade' } },
+    up: { shots: '+1 boomerang', pierce: 'Larger blade' }, no: ['seek'] },
   flame: { n: 'Flamewalker', i: '♨', d: 'You leave a burning trail where you walk.',
-    up: { shots: 'Wider trail', pierce: 'Fire lasts longer' }, no: ['chain'] },
+    up: { shots: 'Wider trail', pierce: 'Fire lasts longer' }, no: ['chain', 'seek'] },
   rod: { n: 'Storm Rod', i: 'ϟ', d: 'Lightning strikes the nearest enemy and arcs to others.',
-    up: { shots: '+2 arcs', pierce: 'Arcs jump further' } },
+    up: { shots: '+2 arcs', pierce: 'Arcs jump further' }, no: ['seek'] },
   totem: { n: 'Totem', i: '♜', d: 'Drops totems that shoot on their own.',
     up: { shots: '+1 totem', pierce: 'Totems last longer' } },
 };
@@ -314,3 +329,17 @@ export const MISSIONS = [
   { id: 'slay', stat: 'slay', sum: true, n: [1, 2], pay: 60, text: n => n > 1 ? `Slay your nemesis ${n} times` : 'Slay your nemesis' },
   { id: 'epic', stat: 'epics', sum: true, n: [2, 4], pay: 35, text: n => `Pick ${n} Epic or Legendary upgrades` },
 ];
+
+// Phase 26: a nemesis ranks up mid-run from its own kills (NEM_RANKS) and takes one of these, picked for it. No pause, no card:
+// a banner names it and the party panel shows a pip. They last for the run.
+export const NEM_RANKS = [25, 60, 120];   // was 15/40/80: parties got too strong (runts reached the boss 11 of 20)
+export const NEM_UPS = {
+  fury: { n: 'Fury', d: 'Attacks 25% faster' },
+  giant: { n: 'Giant', d: 'Grows, with 40% more health' },
+  keen: { n: 'Keen', d: 'Hits 30% harder' },
+  swift: { n: 'Swift', d: 'Moves 25% faster' },
+  thirst: { n: 'Bloodthirst', d: 'Heals 5% of its health with every kill' },
+  volatile: { n: 'Volatile', d: 'Its kills explode' },
+  mend: { n: 'Mending', d: 'Heals 2% of its health a second' },
+};
+
