@@ -2,7 +2,7 @@
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
 import { T, UP, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
-import { biomeAt, BONE, HALLS, EMBER, ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, ZAP_T, ZAP_R, recruitQuality } from './sim.js';
+import { biomeAt, seenAt, FOG, FOG_W, FOG_H, BONE, HALLS, EMBER, ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, ZAP_T, ZAP_R, recruitQuality } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -440,17 +440,21 @@ function minimap(cx, g, camX, camY, H) {
   const MINI = ['#1e1a2a', '#2c2426', '#1a2234', '#2e171b'], W = g.world, cs = 400 * k;   // biome cells
   for (let y = 0; y < W.BH; y++) for (let x = 0; x < W.BW; x++) { cx.fillStyle = MINI[W.biome[y * W.BW + x]]; cx.fillRect(Math.round(x0 + x * cs), Math.round(y0 + y * cs), Math.ceil(cs), Math.ceil(Math.min(cs, h - y * cs))); }
   for (const p of W.pools) { cx.fillStyle = p.kind === 'water' ? PAL.c3 : PAL.r2; const q = Math.max(1, Math.round(p.r * k)); cx.fillRect(Math.round(x0 + p.x * k - q), Math.round(y0 + p.y * k - q), q * 2, q * 2); }
-  for (const l of g.lairs || []) if (l.state !== 'done') { cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + l.x * k) - 2, Math.round(y0 + l.y * k) - 2, 5, 5); cx.fillStyle = PAL.k; cx.fillRect(Math.round(x0 + l.x * k) - 1, Math.round(y0 + l.y * k) - 1, 3, 3); }
-  for (const o of g.shrines || []) { cx.fillStyle = g.t >= o.readyAt ? PAL.c : PAL.g4; cx.fillRect(Math.round(x0 + o.x * k) - 1, Math.round(y0 + o.y * k) - 1, 3, 3); }
-  if (g.bossMark && !g.bossAt && Math.sin(g.t * 8) > 0) { cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + g.bossMark.x * k) - 3, Math.round(y0 + g.bossMark.y * k) - 3, 7, 7); }
+  for (const l of g.lairs || []) if (l.state !== 'done' && seenAt(g, l.x, l.y)) { cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + l.x * k) - 2, Math.round(y0 + l.y * k) - 2, 5, 5); cx.fillStyle = PAL.k; cx.fillRect(Math.round(x0 + l.x * k) - 1, Math.round(y0 + l.y * k) - 1, 3, 3); }
+  for (const o of g.shrines || []) if (seenAt(g, o.x, o.y)) { cx.fillStyle = g.t >= o.readyAt ? PAL.c : PAL.g4; cx.fillRect(Math.round(x0 + o.x * k) - 1, Math.round(y0 + o.y * k) - 1, 3, 3); }
   cx.fillStyle = PAL.g3; for (const w of g.world.walls) cx.fillRect(Math.round(x0 + w.x * k), Math.round(y0 + w.y * k), Math.max(1, Math.round(w.w * k)), Math.max(1, Math.round(w.h * k)));
   for (const r of g.rocks) { const q = Math.max(2, Math.round(r.r * k)); cx.fillRect(Math.round(x0 + r.x * k - q), Math.round(y0 + r.y * k - q), q * 2, q * 2); }
+  if (g.seen) {                                          // fog over what you have not seen yet
+    cx.fillStyle = '#0e0a16'; const fs = FOG * k;
+    for (let y = 0; y < FOG_H; y++) for (let x = 0; x < FOG_W; x++) if (!g.seen[y * FOG_W + x]) cx.fillRect(Math.floor(x0 + x * fs), Math.floor(y0 + y * fs), Math.ceil(fs) + 1, Math.ceil(Math.min(fs, h - y * fs)));
+  }
+  if (g.bossMark && !g.bossAt && Math.sin(g.t * 8) > 0) { cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + g.bossMark.x * k) - 3, Math.round(y0 + g.bossMark.y * k) - 3, 7, 7); }   // always shown
   for (const e of g.ents) {
-    if (e.boss) continue;
+    if (e.boss || !seenAt(g, e.x, e.y)) continue;
     const q = e.elite ? 3 : 2;
     cx.fillStyle = e.team === 'ally' ? PAL.mint : e.elite ? PAL.y : PAL.r; cx.fillRect(Math.round(x0 + e.x * k - q / 2), Math.round(y0 + e.y * k - q / 2), q, q);
   }
-  cx.fillStyle = PAL.y; for (const c of g.chests) cx.fillRect(Math.round(x0 + c.x * k) - 2, Math.round(y0 + c.y * k) - 2, 4, 4);
+  cx.fillStyle = PAL.y; for (const c of g.chests) if (seenAt(g, c.x, c.y)) cx.fillRect(Math.round(x0 + c.x * k) - 2, Math.round(y0 + c.y * k) - 2, 4, 4);
   for (const u of g.pickups) { cx.fillStyle = POWERUPS[u.k].c; cx.fillRect(Math.round(x0 + u.x * k) - 2, Math.round(y0 + u.y * k) - 2, 4, 4); }
   if (g.boss) { const p = Math.sin(g.t * 6) > 0 ? 8 : 6; cx.fillStyle = PAL.w; cx.fillRect(Math.round(x0 + g.boss.x * k - p / 2) - 1, Math.round(y0 + g.boss.y * k - p / 2) - 1, p + 2, p + 2); cx.fillStyle = PAL.r; cx.fillRect(Math.round(x0 + g.boss.x * k - p / 2), Math.round(y0 + g.boss.y * k - p / 2), p, p); }
   cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 1; cx.strokeRect(Math.round(x0 + camX * k) + .5, Math.round(y0 + camY * k) + .5, Math.round(VIEW.w * k), Math.round(VIEW.h * k));

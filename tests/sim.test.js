@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA, rocksNear, gapTo } from '../src/sim.js';
+import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA, rocksNear, gapTo, seenAt } from '../src/sim.js';
 import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
 import { grudgeFor, feedGrudge, sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
@@ -746,5 +746,13 @@ describe('evolutions and pairs (Phase 21)', () => {
     step(b, 1 / 60, still()); expect(b.bossMark).toBeTruthy();
     b.t = BOSS_TIME; for (let i = 0; i < 3 && !b.boss; i++) step(b, 1 / 60, still());
     expect(Math.hypot(b.boss.x - b.bossMark.x, b.boss.y - b.bossMark.y)).toBeLessThan(40);
+  });
+
+  it('the minimap fog lifts where you have been, and only there', () => {
+    const g = createGame({ seed: 1 });
+    step(g, 1 / 60, still());
+    expect(seenAt(g, g.P.x, g.P.y)).toBe(true); expect(seenAt(g, 100, 100)).toBe(false);
+    g.P.x = 300; g.P.y = 300; g.flowT = 0; step(g, 1 / 60, still());
+    expect(seenAt(g, 100, 100)).toBe(true); expect(seenAt(g, ARENA.w - 100, ARENA.h - 100)).toBe(false);
   });
 });

@@ -165,6 +165,15 @@ function flowStep(F, x, y) {
   const bx = best % F.gw; return { x: bx * FC + FC / 2, y: (best - bx) / F.gw * FC + FC / 2 };
 }
 let FLOW = null;
+// What you have seen, for the minimap's fog: 200-unit cells, filled in wherever the camera has been.
+export const FOG = 200, FOG_W = Math.ceil(ARENA.w / FOG), FOG_H = Math.ceil(ARENA.h / FOG);
+function explore(g) {
+  const P = g.P, seen = g.seen || (g.seen = new Uint8Array(FOG_W * FOG_H));
+  const x0 = Math.max(0, Math.floor((P.x - VIEW.w / 2 - 60) / FOG)), x1 = Math.min(FOG_W - 1, Math.floor((P.x + VIEW.w / 2 + 60) / FOG));
+  const y0 = Math.max(0, Math.floor((P.y - VIEW.h / 2 - 60) / FOG)), y1 = Math.min(FOG_H - 1, Math.floor((P.y + VIEW.h / 2 + 60) / FOG));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) seen[y * FOG_W + x] = 1;
+}
+export const seenAt = (g, x, y) => !g.seen || g.seen[Math.min(FOG_H - 1, Math.max(0, Math.floor(y / FOG))) * FOG_W + Math.min(FOG_W - 1, Math.max(0, Math.floor(x / FOG)))] === 1;
 // Landmarks come alive on the first step (see `buildWorld`). Vaults open at 1:00 (a 0:30 ambush at level 5 was a death sentence).
 const VAULT_OPEN = 60;
 function initMarks(g) {
@@ -1206,7 +1215,7 @@ export function step(g, dt, input) {
   if (g.state !== 'play') return;
   const P = g.P;
   if (!g.flow) g.flow = buildFlow(g.world);
-  if ((g.flowT = (g.flowT || 0) - dt) <= 0) { g.flowT = 0.25; flowFrom(g.flow, P.x, P.y); }
+  if ((g.flowT = (g.flowT || 0) - dt) <= 0) { g.flowT = 0.25; flowFrom(g.flow, P.x, P.y); explore(g); }
   FLOW = g.flow;
   if (!g.lairs) initMarks(g);
   landmarks(g);

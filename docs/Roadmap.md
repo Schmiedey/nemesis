@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-23 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24 (a real map) steps 1-4 done: seeded world, ruins with flow-field pathing, three biomes, landmarks (lairs with named elites, shrines, vaults that open at 1:00, the boss mark). Landmarks not yet looked at in the browser. Next: step 5, minimap fog. Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-24 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24 (a real map) done: 4800x3000 seeded world round the Crypt, ruins with flow-field pathing, three biomes with water and lava, landmarks (lairs, shrines, vaults, boss mark), minimap fog. Next: hide systems for new players; rename, itch.io upload. Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -151,7 +151,7 @@ One phase per session. Each ends with a commit and an updated status line here.
 - [x] Rectangle walls (ruins: wall, corner, room with doorways) and a flow field for walkers; bot avoids walls; test that an enemy gets round a wall
 - [x] Three biomes in rings round the Crypt; water slows and lava burns walking enemies (never you)
 - [x] Landmarks: lairs (named elites you walk to; the recruit keeps the name), shrines, vaults (ambush, open at 1:00), the boss mark
-- [ ] Minimap fog
+- [x] Minimap fog (200-unit cells; the boss mark always shows)
 - Done when: a run is a trip somewhere, and where you die is a choice.
 
 ## Usage rules
