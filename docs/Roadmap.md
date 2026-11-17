@@ -2,7 +2,7 @@
 
 One phase per session. Each ends with a commit and an updated status line here.
 
-**Status:** Phases 1-23 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24 (a real map) step 1 done: 4800x3000 seeded world, rock grid, spawns ahead of you and a boss you can't circle. Party balance in the open world not yet re-tuned (solo outlasts small parties); do it after step 2 (walls and flow field). Music on hold (`MUSIC_ON` in `src/audio.js`).
+**Status:** Phases 1-23 on main. Public repo: https://github.com/Schmiedey/nemesis. Phase 24 (a real map) steps 1-2 done: 4800x3000 seeded world with ruins (walls, corners, rooms), flow-field pathing, gems that follow you; reaching the boss rises with every party tier. Walls not yet looked at in the browser. Next: step 3, biomes. Music on hold (`MUSIC_ON` in `src/audio.js`).
 
 ## Phase 1: Make it a real game
 - [x] git, Vite, code split into modules, fixed arena, safe saves, simulated test runs
@@ -147,8 +147,8 @@ One phase per session. Each ends with a commit and an updated status line here.
 
 ## Phase 24: A real map (plan: `docs/design/Map.md`)
 - [x] Bigger seeded world (4800x3000) with a rock grid; one baked floor canvas was fast enough (60 fps); spawns ahead, stragglers recycled, boss catch-up
-- [ ] Re-tune the party table for the open world (after walls)
-- [ ] Rectangle walls and a flow field for walking enemies; bot paths round walls
+- [x] Re-tune the party table for the open world: gems left 900 behind fly to you
+- [x] Rectangle walls (ruins: wall, corner, room with doorways) and a flow field for walkers; bot avoids walls; test that an enemy gets round a wall
 - [ ] Three biomes in rings round the Crypt
 - [ ] Landmarks: lairs (prize elites you walk to), shrines, vaults, the boss mark
 - [ ] Minimap fog

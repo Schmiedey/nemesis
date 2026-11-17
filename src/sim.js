@@ -30,10 +30,34 @@ export function buildWorld(seed, layout) {
   const ox = (ARENA.w - CRYPT.w) / 2, oy = (ARENA.h - CRYPT.h) / 2;
   const rocks = LAYOUTS[layout].rocks.map(k => ({ x: k.x + ox, y: k.y + oy, r: k.r }));
   let s = (seed * 7919 + 13) % 2147483647 || 1; const rn = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  const free = (x, y, r) => rocks.every(k => Math.hypot(k.x - x, k.y - y) > k.r + r + 34);   // always a path between rocks
+  const walls = [];
+  const free = (x, y, r) => rocks.every(k => Math.hypot(k.x - x, k.y - y) > k.r + r + 34) && walls.every(k => gapTo(k, x, y) > r + 34);   // always a path
+  const apart = (a, b) => Math.hypot(Math.max(a.x - b.x - b.w, b.x - a.x - a.w, 0), Math.max(a.y - b.y - b.h, b.y - a.y - a.h, 0));
   for (let cy = 0; cy < ARENA.h; cy += 400) for (let cx = 0; cx < ARENA.w; cx += 400) {
     if (cx + 400 > ox - 60 && cx < ox + CRYPT.w + 60 && cy + 400 > oy - 60 && cy < oy + CRYPT.h + 60) continue;   // keep the Crypt as it is
-    if (rn() < 0.25) continue;
+    const roll = rn();
+    if (roll < 0.25) continue;
+    if (roll < 0.55) {                                   // a ruin: a wall, a corner, or a room with doorways
+      const mx = cx + 200 + (rn() - 0.5) * 60, my = cy + 200 + (rn() - 0.5) * 60, TH = 22, DOOR = 84, kind = rn(), ruin = [];
+      const seg = (x, y, w, h) => { if (w > 8 && h > 8) ruin.push({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), wall: true }); };
+      if (kind < 0.35) { const len = 170 + rn() * 150; if (rn() < 0.5) seg(mx - len / 2, my - TH / 2, len, TH); else seg(mx - TH / 2, my - len / 2, TH, len); }
+      else if (kind < 0.65) {
+        const a = 140 + rn() * 110, b = 140 + rn() * 110, sx = rn() < 0.5 ? 1 : -1, sy = rn() < 0.5 ? 1 : -1;
+        seg(sx > 0 ? mx : mx - a, my, a, TH); seg(mx, sy > 0 ? my + TH : my - b, TH, b);
+      } else {
+        const sz = 210 + rn() * 80, x0 = mx - sz / 2, y0 = my - sz / 2, half = (sz - DOOR) / 2, inner = sz - 2 * TH, ih = (inner - DOOR) / 2;
+        const doors = [0, 1, 2, 3].map(() => rn() < 0.6); if (doors.filter(Boolean).length < 2) { doors[0] = true; doors[2] = true; }
+        const side = (door, hx, hy, horiz) => {
+          const len = horiz ? sz : inner, part = horiz ? half : ih;
+          if (!door) return horiz ? seg(hx, hy, len, TH) : seg(hx, hy, TH, len);
+          if (horiz) { seg(hx, hy, part, TH); seg(hx + len - part, hy, part, TH); } else { seg(hx, hy, TH, part); seg(hx, hy + len - part, TH, part); }
+        };
+        side(doors[0], x0, y0, true); side(doors[2], x0, y0 + sz - TH, true); side(doors[3], x0, y0 + TH, false); side(doors[1], x0 + sz - TH, y0 + TH, false);
+      }
+      const inside = ruin.every(k => k.x > 60 && k.y > 60 && k.x + k.w < ARENA.w - 60 && k.y + k.h < ARENA.h - 60);
+      if (inside && ruin.every(k => rocks.every(o => gapTo(k, o.x, o.y) > o.r + 40) && walls.every(o => apart(k, o) > 40))) walls.push(...ruin);
+      continue;
+    }
     const mx = cx + 80 + rn() * 240, my = cy + 80 + rn() * 240, n = 1 + Math.floor(rn() * 4);
     for (let i = 0; i < n; i++) {
       const r = Math.round(20 + rn() * 28), a = rn() * 6.283, d = i ? 40 + rn() * 50 : 0;
@@ -42,22 +66,78 @@ export function buildWorld(seed, layout) {
     }
   }
   const gw = Math.ceil(ARENA.w / ROCK_CELL), gh = Math.ceil(ARENA.h / ROCK_CELL), grid = Array.from({ length: gw * gh }, () => []);
-  for (const k of rocks) {
-    const x0 = Math.max(0, Math.floor((k.x - k.r - ROCK_PAD) / ROCK_CELL)), x1 = Math.min(gw - 1, Math.floor((k.x + k.r + ROCK_PAD) / ROCK_CELL));
-    const y0 = Math.max(0, Math.floor((k.y - k.r - ROCK_PAD) / ROCK_CELL)), y1 = Math.min(gh - 1, Math.floor((k.y + k.r + ROCK_PAD) / ROCK_CELL));
+  for (const k of [...rocks, ...walls]) {
+    const L = k.wall ? k.x : k.x - k.r, R = k.wall ? k.x + k.w : k.x + k.r, U = k.wall ? k.y : k.y - k.r, D = k.wall ? k.y + k.h : k.y + k.r;
+    const x0 = Math.max(0, Math.floor((L - ROCK_PAD) / ROCK_CELL)), x1 = Math.min(gw - 1, Math.floor((R + ROCK_PAD) / ROCK_CELL));
+    const y0 = Math.max(0, Math.floor((U - ROCK_PAD) / ROCK_CELL)), y1 = Math.min(gh - 1, Math.floor((D + ROCK_PAD) / ROCK_CELL));
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y * gw + x].push(k);
   }
-  return { rocks, grid, gw, gh };
+  return { rocks, walls, grid, gw, gh };
 }
 const NONE = [];
-// The rocks that could touch something of radius up to ROCK_PAD at (x, y).
-export function rocksNear(g, x, y) {
-  const W = g.world, cx = Math.floor(x / ROCK_CELL), cy = Math.floor(y / ROCK_CELL);
-  return cx < 0 || cy < 0 || cx >= W.gw || cy >= W.gh ? NONE : W.grid[cy * W.gw + cx];
+// Obstacles are rocks (circles { x, y, r }) and walls (rectangles { x, y, w, h, wall: true }). gapTo: distance from a point to its surface (0 inside a wall).
+export const gapTo = (k, x, y) => k.wall ? Math.hypot(Math.max(k.x - x, 0, x - k.x - k.w), Math.max(k.y - y, 0, y - k.y - k.h)) : Math.hypot(x - k.x, y - k.y) - k.r;
+const obsNear = (W, x, y) => { const cx = Math.floor(x / ROCK_CELL), cy = Math.floor(y / ROCK_CELL); return cx < 0 || cy < 0 || cx >= W.gw || cy >= W.gh ? NONE : W.grid[cy * W.gw + cx]; };
+// The rocks and walls that could touch something of radius up to ROCK_PAD at (x, y).
+export const rocksNear = (g, x, y) => obsNear(g.world, x, y);
+
+// The flow field: a 40-unit grid filled outward from the player every 0.25s, so walkers go round walls instead of into them.
+// Walkers only follow it when a wall or rock stands between them and where they are going.
+const FC = 40;
+function buildFlow(W) {
+  const gw = Math.ceil(ARENA.w / FC), gh = Math.ceil(ARENA.h / FC), block = new Uint8Array(gw * gh);
+  for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++) {
+    const x = cx * FC + FC / 2, y = cy * FC + FC / 2;
+    for (const k of obsNear(W, x, y)) if (gapTo(k, x, y) < 16) { block[cy * gw + cx] = 1; break; }
+  }
+  return { gw, gh, block, d: new Int32Array(gw * gh).fill(-1), q: new Int32Array(gw * gh), sx: -9999, sy: -9999 };
 }
+const cellOf = (F, x, y) => Math.min(F.gh - 1, Math.max(0, Math.floor(y / FC))) * F.gw + Math.min(F.gw - 1, Math.max(0, Math.floor(x / FC)));
+function flowFrom(F, x, y) {
+  const { gw, gh, block, d, q } = F; d.fill(-1);
+  let h = 0, t = 0; const c0 = cellOf(F, x, y); d[c0] = 0; q[t++] = c0;
+  while (h < t) {
+    const c = q[h++], cx = c % gw, cy = (c - cx) / gw, nd = d[c] + 1;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = cx + dx, ny = cy + dy; if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+      const n = ny * gw + nx; if (d[n] >= 0 || block[n]) continue;
+      if (dx && dy && (block[cy * gw + nx] || block[ny * gw + cx])) continue;   // no cutting corners
+      d[n] = nd; q[t++] = n;
+    }
+  }
+  F.sx = x; F.sy = y;
+}
+// Is the way from (x0, y0) to (x1, y1) free of blocked cells? Checked every half cell.
+function clearLine(F, x0, y0, x1, y1) {
+  const l = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(l / (FC / 2));
+  for (let i = 1; i < n; i++) if (F.block[cellOf(F, x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n)]) return false;
+  return true;
+}
+// The middle of the next cell on the way to the player, or null when already there or out of reach.
+function flowStep(F, x, y) {
+  const c = cellOf(F, x, y), dc = F.d[c]; if (dc <= 0) return null;
+  const cx = c % F.gw, cy = (c - cx) / F.gw; let best = -1, bd = dc;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const nx = cx + dx, ny = cy + dy; if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= F.gw || ny >= F.gh) continue;
+    const n = ny * F.gw + nx; if (F.d[n] < 0 || F.d[n] >= bd) continue;
+    if (dx && dy && (F.block[cy * F.gw + nx] || F.block[ny * F.gw + cx])) continue;
+    bd = F.d[n]; best = n;
+  }
+  if (best < 0) return null;
+  const bx = best % F.gw; return { x: bx * FC + FC / 2, y: (best - bx) / F.gw * FC + FC / 2 };
+}
+let FLOW = null;   // the field for the step being run (moveTo has no game handle)
 // Push a circle body out of any rock it overlaps.
 function unstick(g, o) {
   for (const k of rocksNear(g, o.x, o.y)) {
+    if (k.wall) {
+      const nx = clamp(o.x, k.x, k.x + k.w), ny = clamp(o.y, k.y, k.y + k.h), dx = o.x - nx, dy = o.y - ny, dd = dx * dx + dy * dy;
+      if (dd >= o.r * o.r) continue;
+      if (dd > 0.0001) { const l = Math.sqrt(dd); o.x = nx + dx / l * o.r; o.y = ny + dy / l * o.r; continue; }
+      const L = o.x - k.x, R = k.x + k.w - o.x, U = o.y - k.y, D = k.y + k.h - o.y, m = Math.min(L, R, U, D);   // centre inside: out the shortest way
+      if (m === L) o.x = k.x - o.r; else if (m === R) o.x = k.x + k.w + o.r; else if (m === U) o.y = k.y - o.r; else o.y = k.y + k.h + o.r;
+      continue;
+    }
     const dx = o.x - k.x, dy = o.y - k.y, r = k.r + o.r, dd = dx * dx + dy * dy;
     if (dd < r * r) { const l = Math.sqrt(dd) || 0.01; o.x = k.x + dx / l * r; o.y = k.y + dy / l * r; }
   }
@@ -353,6 +433,10 @@ function nearest(g, o, team, maxd = 1e9) {
 
 const TURN = 3; // enemy turn rate, radians per second
 function moveTo(e, x, y, dt, stop = 0) {
+  if (FLOW && !e.boss && !e.isP && !(T[e.type] && T[e.type].fly) && (x - FLOW.sx) ** 2 + (y - FLOW.sy) ** 2 < 200 * 200
+      && (x - e.x) ** 2 + (y - e.y) ** 2 > 60 * 60 && !clearLine(FLOW, e.x, e.y, x, y)) {
+    const w = flowStep(FLOW, e.x, e.y); if (w) { x = w.x; y = w.y; stop = 0; }
+  }
   const dx = x - e.x, dy = y - e.y, l = Math.hypot(dx, dy);
   if (l <= stop || l <= 0.1) return;
   const want = Math.atan2(dy, dx);
@@ -549,7 +633,7 @@ function think(g, e, dt) {
     if (e.wind > 0) { e.wind -= dt; if (e.wind <= 0) e.dash = 0.55; return; }
     if (e.dash > 0) {
       e.dash -= dt; e.x += Math.cos(e.ang) * e.spd * 4.2 * dt; e.y += Math.sin(e.ang) * e.spd * 4.2 * dt;
-      for (const k of rocksNear(g, e.x, e.y)) if (d2(e, k) < (k.r + e.r) ** 2) { e.dash = 0; e.stun = 1.5; burst(g, e.x, e.y, '#8a8aa0', 10, 160); shake(g, 5); snd(g, 'thud'); break; }
+      for (const k of rocksNear(g, e.x, e.y)) if (gapTo(k, e.x, e.y) < e.r) { e.dash = 0; e.stun = 1.5; burst(g, e.x, e.y, '#8a8aa0', 10, 160); shake(g, 5); snd(g, 'thud'); break; }
       contact(g, e, foe);
       if (e.dash <= 0) e.act = 3 + g.rand() * 2;
       return;
@@ -1036,6 +1120,9 @@ export function step(g, dt, input) {
   g.fx.length = 0;
   if (g.state !== 'play') return;
   const P = g.P;
+  if (!g.flow) g.flow = buildFlow(g.world);
+  if ((g.flowT = (g.flowT || 0) - dt) <= 0) { g.flowT = 0.25; flowFrom(g.flow, P.x, P.y); }
+  FLOW = g.flow;
   g.t += dt;
   if (g.streakT > 0 && (g.streakT -= dt) <= 0) g.streak = 0;
   if (Math.floor(g.t / 60) > g.minute) { g.minute = Math.floor(g.t / 60); g.fx.push({ k: 'minute', n: g.minute }); }
@@ -1127,7 +1214,7 @@ export function step(g, dt, input) {
     b.x += b.vx * bd; b.y += b.vy * bd; b.life -= bd;
     // Job: a Wisp nemesis burns up enemy shots that come near it.
     if (b.team === 'enemy' && !b.boss) for (const w of ents) if (w.team === 'ally' && (w.type === 'wisp' || w.type === 'squire') && !w.dead && d2(b, w) < (w.evo === 'ward' ? 44 * 44 : w.type === 'squire' ? 30 * 30 : (24 * jobK(w)) ** 2)) { b.life = 0; burst(g, b.x, b.y, '#4cd9ff', 3, 80); break; }
-    if (b.life > 0 && b.team === 'enemy') for (const k of rocksNear(g, b.x, b.y)) if ((b.x - k.x) ** 2 + (b.y - k.y) ** 2 < k.r * k.r) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
+    if (b.life > 0 && b.team === 'enemy') for (const k of rocksNear(g, b.x, b.y)) if (gapTo(k, b.x, b.y) <= 0) { b.life = 0; burst(g, b.x, b.y, '#8a8aa0', 2, 60); break; }
     if (b.x < -50 || b.y < -50 || b.x > ARENA.w + 50 || b.y > ARENA.h + 50) b.life = 0;
     if (b.life <= 0) continue;
     for (const o of targetsOf(g, b.team === 'ally' ? 'enemy' : 'ally')) {
@@ -1151,6 +1238,7 @@ export function step(g, dt, input) {
 
   for (const gem of g.gems) {
     const dd = Math.sqrt(d2(gem, P)) || 0.01;
+    if (dd > 900) gem.pull = true;                       // left far behind in the open world: it comes after you
     if (dd < P.magnet || gem.pull) { gem.x += (P.x - gem.x) / dd * 420 * dt; gem.y += (P.y - gem.y) / dd * 420 * dt; }
     if (dd < P.r + 6) { gem.got = true; P.xp += gem.v * g.xpMul; snd(g, 'gem'); g.fx.push({ k: 'gem', x: gem.x, y: gem.y, big: gem.v >= 5 });
       if (P.charm === 'lode') { const tg = nearest(g, P, 'enemy', 420); if (tg) shoot(g, P.x, P.y, Math.atan2(tg.y - P.y, tg.x - P.x), 560, P.dmg * 0.6, 'ally', 'player', 0, '#7dffb0'); }

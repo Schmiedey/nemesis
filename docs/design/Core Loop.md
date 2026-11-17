@@ -48,6 +48,8 @@ Ally strength: health x(3.4 + 1.6q), damage x(0.9 + 1.5q), where q is quality; t
 ## Maps
 - Three fixed layouts, one picked per run from the seed (`LAYOUTS` in `src/sim.js`): **Pillars** (four pillars round the centre, clusters in corners), **Corridors** (two broken walls), **Ring** (a ring of rocks with four gaps).
 - **The world** (Phase 24) is 4800x3000, about five screens across. The run's Crypt layout (Pillars, Corridors or Ring) sits in the middle as it always did; the rest is scattered with rock clusters from the seed (`buildWorld` in `src/sim.js`, about 70 rocks, always a 34-unit path between them). Rocks sit in a 160-unit grid (`rocksNear`) so collision only checks nearby ones.
+- **Walls** (Phase 24 step 2): between the rock clusters stand ruins: a single wall, a corner, or a small room with two to four 84-wide doorways (about 40-60 wall pieces per world). Walls block like rocks (you, walkers, allies, enemy shots); flyers and your shots pass over. Walking enemies and allies follow a **flow field** (40-unit grid, filled outward from you every 0.25s) only when a rock or wall blocks the straight line, so open-ground fights play as before. The bot scores walls like rocks.
+- **Gems left behind:** a gem more than 900 from you flies to you. Without it parties levelled to 14 instead of 21 and the middle tiers died at about 2:15.
 - **No walking away.** New enemies spawn on an oval just off camera (530 wide, 350 tall, plus up to 70), half of them ahead of you while you move. An enemy left more than 1100 behind is moved back in ahead of you. The boss moves 1.45x beyond 250 and 1.7x beyond 450, so open ground never lets you circle it. Base swarm 1.3x (was 1.14x in the old box, where the walls pushed spawns close). Without these the bot lived the full 15:00 with no party.
 - Rocks block the player, walking enemies, allies and enemy bullets, so they are cover from Archers and the boss's rings. Your side's shots pass over them.
 - Bats and Wisps fly over rocks (`fly: true` in the enemy table). The boss ignores them.
@@ -218,3 +220,15 @@ Phase 23. Boss health and swarm now scale by the square root of party quality (b
 Known gaps (Phase 23): wins now rise with every tier (2, 4, 7, 11 of 20) and runts add 32s over solo. Survival is bimodal (ranges 1:20-12:00), so medians jump; read boss and wins first. Open: bat/slime/bat at rank 1.7 does worse than at rank 1 (2:30, 5 boss against 5:38, 10 boss); at 2:00 both are level 13 with the same health, so the gap opens later. Not yet run with a class or grudge powers.
 
 **Open world (Phase 24 step 1, 20 seeds):** none 4:26 (6 boss, 0 wins); runts 3:31 (6, 2); soldiers 3:30 (6, 2); veterans 2:57 (4, 2); champions 6:18 (15, 9). Champions are on target, but solo now outlasts small parties (on time, not wins), and soldiers and veterans are harder than in the old box. Left untuned on purpose: walls and the flow field (step 2) will move it all again. Re-tune after step 2.
+
+**With walls and the gem pull (Phase 24 step 2, 20 seeds):**
+
+| Party | Median survival | Reached boss | Wins | Level |
+|---|---|---|---|---|
+| None | 2:12 | 3/20 | 3 | 14 |
+| 3 runts | 2:28 | 5/20 | 5 | 20 |
+| 3 soldiers | 3:09 | 7/20 | 4 | 21 |
+| 3 veterans with perks | 6:45 | 13/20 | 7 | 29 |
+| 3 champions with perks | 5:54 | 14/20 | 11 | 29 |
+
+Reaching the boss now rises with every tier. A solo run that reaches the boss wins it (boss health grows only with the party), which may be too generous. Levels near 29 are higher than the old 21; watch the XP curve.

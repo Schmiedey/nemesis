@@ -163,9 +163,9 @@ function light() {
 
 // The floor, walls and rocks never change, so they are painted once per map, in art pixels.
 let groundCv = null, groundFor = null;
-function ground(rocks) {
-  if (groundCv && groundFor === rocks) return groundCv;
-  groundFor = rocks;
+function ground(world) {
+  if (groundCv && groundFor === world) return groundCv;
+  groundFor = world; const rocks = world.rocks;
   const W = ARENA.w / PX, H = ARENA.h / PX;
   groundCv = document.createElement('canvas'); groundCv.width = W; groundCv.height = H;
   const c = groundCv.getContext('2d');
@@ -208,6 +208,19 @@ function ground(rocks) {
       return tone[Math.max(0, Math.min(3, Math.round((lit + 1) * 1.4)))];
     });
     if (rn() < 0.45) for (let i = 0; i < 5; i++) dot(x - Math.floor(rn() * r * 0.5), y - up - Math.floor(rn() * r * 0.4), i % 2 ? PAL.gr2 : PAL.gr3);   // moss
+  }
+  // Ruined walls: a raised top of cut stone, a front face of bricks below it, a hard outline and a shadow.
+  for (const k of world.walls) {
+    const x = Math.round(k.x / PX), y = Math.round(k.y / PX), w = Math.round(k.w / PX), h = Math.round(k.h / PX), up = 5;
+    c.fillStyle = PAL.k; c.fillRect(x + 1, y + h, w, 2);                              // shadow
+    c.fillRect(x - 1, y - up - 1, w + 2, h + up + 2);                                  // outline
+    c.fillStyle = PAL.g4; c.fillRect(x, y + h - up, w, up);                            // front face
+    c.fillStyle = PAL.g5; for (let i = (y & 1) * 3; i < w; i += 6) c.fillRect(x + i, y + h - up, 1, up);   // bricks
+    c.fillRect(x, y + h - up + 2, w, 1);
+    c.fillStyle = PAL.g3; c.fillRect(x, y - up, w, h);                                 // top
+    c.fillStyle = PAL.g2; c.fillRect(x, y - up, w, 1);                                 // lit edge
+    c.fillStyle = PAL.g4; for (let ty = y - up + 4; ty < y + h - up - 1; ty += 5) for (let tx = x + ((ty >> 2) & 1) * 3 + 2; tx < x + w - 1; tx += 7) dot(tx, ty, PAL.g4);   // worn stone
+    if (rn() < 0.5) for (let i = 0; i < 4; i++) dot(x + Math.floor(rn() * w), y - up + Math.floor(rn() * Math.max(1, h)), i % 2 ? PAL.gr2 : PAL.gr3);   // moss
   }
   c.fillStyle = PAL.br3; c.fillRect(0, 0, W, 4); c.fillRect(0, H - 4, W, 4); c.fillRect(0, 0, 4, H); c.fillRect(W - 4, 0, 4, H);   // wall
   c.fillStyle = PAL.r2; c.fillRect(4, 4, W - 8, 1); c.fillRect(4, H - 5, W - 8, 1); c.fillRect(4, 4, 1, H - 8); c.fillRect(W - 5, 4, 1, H - 8);
@@ -361,7 +374,8 @@ function label(cx, text, x, y, col, font) {
 function minimap(cx, g, camX, camY, H) {
   const w = 160, h = w * ARENA.h / ARENA.w, x0 = 16, y0 = H - h - 16, k = w / ARENA.w;
   panel(cx, x0 - 2, y0 - 2, w + 4, h + 4, 'rgba(18,14,26,.9)');
-  cx.fillStyle = PAL.g3; for (const r of g.rocks) { const q = Math.max(2, Math.round(r.r * k)); cx.fillRect(Math.round(x0 + r.x * k - q), Math.round(y0 + r.y * k - q), q * 2, q * 2); }
+  cx.fillStyle = PAL.g3; for (const w of g.world.walls) cx.fillRect(Math.round(x0 + w.x * k), Math.round(y0 + w.y * k), Math.max(1, Math.round(w.w * k)), Math.max(1, Math.round(w.h * k)));
+  for (const r of g.rocks) { const q = Math.max(2, Math.round(r.r * k)); cx.fillRect(Math.round(x0 + r.x * k - q), Math.round(y0 + r.y * k - q), q * 2, q * 2); }
   for (const e of g.ents) {
     if (e.boss) continue;
     const q = e.elite ? 3 : 2;
@@ -386,7 +400,7 @@ export function draw(cv, cx, g, hud, hx) {
   cx.save();
   cx.setTransform(sc, 0, 0, sc, snap(rnd(-shakeAmt, shakeAmt)) * sc, snap(rnd(-shakeAmt, shakeAmt)) * sc);
   cx.translate(-camX, -camY);
-  cx.drawImage(ground(g.rocks), camX / PX, camY / PX, VIEW.w / PX, VIEW.h / PX, camX, camY, VIEW.w, VIEW.h);
+  cx.drawImage(ground(g.world), camX / PX, camY / PX, VIEW.w / PX, VIEW.h / PX, camX, camY, VIEW.w, VIEW.h);
   cx.drawImage(light(), P.x - LIGHT_R, P.y - LIGHT_R, LIGHT_R * 2, LIGHT_R * 2);
 
   for (const z of g.zaps) {                              // the boss's lightning: marked, then it falls

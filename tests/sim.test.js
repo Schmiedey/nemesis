@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA } from '../src/sim.js';
+import { createGame, step, pick, reroll, banish, evoReady, recruitQuality, ARENA, rocksNear, gapTo } from '../src/sim.js';
 import { T, BOSS_TIME, UP, RARITY } from '../src/data.js';
 import { grudgeFor, feedGrudge, sanitize, loadSave, writeSave, resetSave, setSlot, currentSlot, slotSummaries, addRecruit, bossTypeFor, growParty, evolve, checkFeats, boonsOf, today, dailySeed, addGear, equip, soulsFor, progress, buyMeta, metaCost, unlockClasses, completion, nextGoals, dealMissions } from '../src/save.js';
 import { simulate, still } from './bot.js';
@@ -691,5 +691,28 @@ describe('evolutions and pairs (Phase 21)', () => {
     pick(g, 0); expect(g.pairs.jugg).toBe(true); expect(g.P.maxhp).toBeCloseTo(hp0 * 1.2, 0);
     expect(g.pairs.steam).toBeFalsy();
   });
-});
 
+  it('the world has walls, and nothing starts inside one', () => {
+    for (const seed of [1, 2, 3]) {
+      const g = createGame({ seed });
+      expect(g.world.walls.length).toBeGreaterThan(10);
+      for (const k of rocksNear(g, g.P.x, g.P.y)) expect(gapTo(k, g.P.x, g.P.y)).toBeGreaterThan(g.P.r);
+    }
+  });
+
+  it('a walking enemy finds its way round a wall to you', () => {
+    const g = createGame({ seed: 2 });
+    const wall = g.world.walls.filter(k => k.w >= 170 && k.h < 40).sort((a, b) => b.w - a.w)[0];
+    expect(wall).toBeTruthy();
+    const cx = wall.x + wall.w / 2;
+    for (let i = 0; i < 60 * 12; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    const e = g.ents.find(o => o.team === 'enemy' && !o.dead && !T[o.type].fly && !T[o.type].ranged);
+    expect(e).toBeTruthy();
+    g.P.x = cx; g.P.y = wall.y + wall.h + 90; g.P.dmg = 0; g.flowT = 0;
+    e.x = cx; e.y = wall.y - 60; e.ang = Math.PI / 2;
+    for (const o of g.ents) if (o !== e && o.team === 'enemy') o.dead = true;
+    let best = 1e9;
+    for (let i = 0; i < 60 * 10 && !e.dead; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; best = Math.min(best, Math.hypot(e.x - g.P.x, e.y - g.P.y)); }
+    expect(best).toBeLessThan(60);   // through the wall it would stay over 110 away
+  });
+});
