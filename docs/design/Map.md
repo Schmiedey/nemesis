@@ -11,7 +11,7 @@ A world about **5 screens across** (4800x3000, nine times the area), made from t
 - Each other zone gets a **biome**, picked by the seed and kept in rings around the Crypt, so difficulty and look change as you head out:
   - **Bone Fields** (near): open ground, bone piles as low cover.
   - **Sunken Halls** (middle): broken walls and doorways, shallow water that slows walking enemies (not you).
-  - **Ember Pits** (far): narrow paths between lava you can't cross, more elites.
+  - **Ember Pits** (far): lava pools that burn walking enemies but never you (built this way so the world never steals a death). More elites: not yet.
 - The edge of the world is a cliff or wall drawn in the biome's style, not an invisible line.
 
 ### Landmarks (one or two per zone)

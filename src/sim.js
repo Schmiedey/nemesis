@@ -25,19 +25,35 @@ export const LAYOUTS = [
 // How strong a nemesis's job is: runt 0.76, soldier 1, veteran 1.28, champion 1.72. Minions without a rank count as soldiers.
 export const jobK = e => 0.6 + 0.4 * Math.min(e && e.nem ? e.nem.q : 1, 3);
 export const CRYPT = { w: 1600, h: 1000 };
+export const CRYPT_B = 0, BONE = 1, HALLS = 2, EMBER = 3;   // biomes
+export const biomeAt = (W, x, y) => W.biome[Math.min(W.BH - 1, Math.max(0, Math.floor(y / 400))) * W.BW + Math.min(W.BW - 1, Math.max(0, Math.floor(x / 400)))];
 const ROCK_CELL = 160, ROCK_PAD = 60;   // the rock grid: each cell lists the rocks within ROCK_PAD of it
 export function buildWorld(seed, layout) {
   const ox = (ARENA.w - CRYPT.w) / 2, oy = (ARENA.h - CRYPT.h) / 2;
   const rocks = LAYOUTS[layout].rocks.map(k => ({ x: k.x + ox, y: k.y + oy, r: k.r }));
   let s = (seed * 7919 + 13) % 2147483647 || 1; const rn = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const walls = [];
-  const free = (x, y, r) => rocks.every(k => Math.hypot(k.x - x, k.y - y) > k.r + r + 34) && walls.every(k => gapTo(k, x, y) > r + 34);   // always a path
+  const free = (x, y, r) => rocks.every(k => Math.hypot(k.x - x, k.y - y) > k.r + r + 34) && walls.every(k => gapTo(k, x, y) > r + 34) && pools.every(p => Math.hypot(p.x - x, p.y - y) > p.r + r + 10);   // always a path
   const apart = (a, b) => Math.hypot(Math.max(a.x - b.x - b.w, b.x - a.x - a.w, 0), Math.max(a.y - b.y - b.h, b.y - a.y - a.h, 0));
+  const BW = Math.ceil(ARENA.w / 400), BH = Math.ceil(ARENA.h / 400), biome = new Uint8Array(BW * BH), pools = [];
   for (let cy = 0; cy < ARENA.h; cy += 400) for (let cx = 0; cx < ARENA.w; cx += 400) {
     if (cx + 400 > ox - 60 && cx < ox + CRYPT.w + 60 && cy + 400 > oy - 60 && cy < oy + CRYPT.h + 60) continue;   // keep the Crypt as it is
-    const roll = rn();
+    // Biomes in rings round the Crypt, with ragged edges: Bone Fields, then Sunken Halls, then the Ember Pits.
+    const ring = Math.hypot((cx + 200 - ARENA.w / 2) / (ARENA.w / 2), (cy + 200 - ARENA.h / 2) / (ARENA.h / 2)) + (rn() - 0.5) * 0.08;
+    const bio = ring < 0.84 ? BONE : ring < 1.03 ? HALLS : EMBER;   // about a third each
+    biome[(cy / 400) * BW + cx / 400] = bio;
+    const pool = (kind, r0, r1) => {                     // water or lava, kept clear of walls and rocks
+      for (let i = 0; i < 4; i++) {
+        const r = Math.round(r0 + rn() * (r1 - r0)), x = Math.round(cx + r + rn() * (400 - 2 * r)), y = Math.round(cy + r + rn() * (400 - 2 * r));
+        if (x < 80 || y < 80 || x > ARENA.w - 80 || y > ARENA.h - 80) continue;
+        if (rocks.every(k => gapTo(k, x, y) > r + 12) && walls.every(k => gapTo(k, x, y) > r + 12)) { pools.push({ x, y, r, kind }); return; }
+      }
+    };
+    const roll = rn(), ruins = bio === HALLS ? 0.7 : bio === BONE ? 0.45 : 0.4;
+    if (bio === HALLS && rn() < 0.6) pool('water', 50, 90);
+    if (bio === EMBER && rn() < 0.75) pool('lava', 40, 72);
     if (roll < 0.25) continue;
-    if (roll < 0.55) {                                   // a ruin: a wall, a corner, or a room with doorways
+    if (roll < ruins) {                                   // a ruin: a wall, a corner, or a room with doorways
       const mx = cx + 200 + (rn() - 0.5) * 60, my = cy + 200 + (rn() - 0.5) * 60, TH = 22, DOOR = 84, kind = rn(), ruin = [];
       const seg = (x, y, w, h) => { if (w > 8 && h > 8) ruin.push({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), wall: true }); };
       if (kind < 0.35) { const len = 170 + rn() * 150; if (rn() < 0.5) seg(mx - len / 2, my - TH / 2, len, TH); else seg(mx - TH / 2, my - len / 2, TH, len); }
@@ -55,7 +71,7 @@ export function buildWorld(seed, layout) {
         side(doors[0], x0, y0, true); side(doors[2], x0, y0 + sz - TH, true); side(doors[3], x0, y0 + TH, false); side(doors[1], x0 + sz - TH, y0 + TH, false);
       }
       const inside = ruin.every(k => k.x > 60 && k.y > 60 && k.x + k.w < ARENA.w - 60 && k.y + k.h < ARENA.h - 60);
-      if (inside && ruin.every(k => rocks.every(o => gapTo(k, o.x, o.y) > o.r + 40) && walls.every(o => apart(k, o) > 40))) walls.push(...ruin);
+      if (inside && ruin.every(k => rocks.every(o => gapTo(k, o.x, o.y) > o.r + 40) && walls.every(o => apart(k, o) > 40) && pools.every(p => gapTo(k, p.x, p.y) > p.r + 20))) walls.push(...ruin);
       continue;
     }
     const mx = cx + 80 + rn() * 240, my = cy + 80 + rn() * 240, n = 1 + Math.floor(rn() * 4);
@@ -72,7 +88,7 @@ export function buildWorld(seed, layout) {
     const y0 = Math.max(0, Math.floor((U - ROCK_PAD) / ROCK_CELL)), y1 = Math.min(gh - 1, Math.floor((D + ROCK_PAD) / ROCK_CELL));
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[y * gw + x].push(k);
   }
-  return { rocks, walls, grid, gw, gh };
+  return { rocks, walls, pools, biome, BW, BH, grid, gw, gh };
 }
 const NONE = [];
 // Obstacles are rocks (circles { x, y, r }) and walls (rectangles { x, y, w, h, wall: true }). gapTo: distance from a point to its surface (0 inside a wall).
@@ -126,7 +142,18 @@ function flowStep(F, x, y) {
   if (best < 0) return null;
   const bx = best % F.gw; return { x: bx * FC + FC / 2, y: (best - bx) / F.gw * FC + FC / 2 };
 }
-let FLOW = null;   // the field for the step being run (moveTo has no game handle)
+let FLOW = null;
+// Pools act on walking enemies only: water slows them, lava burns them. Neither touches you, so the world never steals a death:
+// whatever kills you has to be something that can join you. Lure the swarm through lava; fight with water between you.
+function hazard(g, e, dt) {
+  e.wet = false;
+  if (e.team !== 'enemy') return;
+  for (const p of g.world.pools) {
+    const dx = e.x - p.x, dy = e.y - p.y; if (dx * dx + dy * dy > p.r * p.r) continue;
+    if (p.kind === 'water') e.wet = true;
+    else if ((e.lavaT = (e.lavaT || 0) - dt) <= 0) { e.lavaT = 0.5; damage(g, e, 3 + e.maxhp * 0.08, 'lava'); }
+  }
+}   // the field for the step being run (moveTo has no game handle)
 // Push a circle body out of any rock it overlaps.
 function unstick(g, o) {
   for (const k of rocksNear(g, o.x, o.y)) {
@@ -445,7 +472,7 @@ function moveTo(e, x, y, dt, stop = 0) {
     const diff = Math.atan2(Math.sin(want - e.ang), Math.cos(want - e.ang));
     e.ang += clamp(diff, -TURN * dt, TURN * dt);
   } else e.ang = want;
-  const spd = e.spd * (e.slowT > 0 ? e.slowK : 1) * (e.boss && e.team === 'enemy' ? (l > 450 ? 1.7 : l > 250 ? 1.45 : 1) : 1);   // the boss closes in: open ground must not let you circle it forever
+  const spd = e.spd * (e.slowT > 0 ? e.slowK : 1) * (e.wet ? 0.55 : 1) * (e.boss && e.team === 'enemy' ? (l > 450 ? 1.7 : l > 250 ? 1.45 : 1) : 1);   // the boss closes in: open ground must not let you circle it forever
   e.x += Math.cos(e.ang) * spd * dt; e.y += Math.sin(e.ang) * spd * dt;
 }
 
@@ -1207,7 +1234,7 @@ export function step(g, dt, input) {
     }
   }
 
-  for (const e of ents) if (!e.dead && !e.boss && !T[e.type].fly) unstick(g, e);
+  for (const e of ents) if (!e.dead && !e.boss && !T[e.type].fly) { unstick(g, e); hazard(g, e, dt); }
 
   for (const b of g.bullets) {
     const bd = b.team === 'enemy' ? edt : dt;

@@ -2,7 +2,7 @@
 // The world is painted on a 480x300 canvas (one art pixel = 2 game units) and stretched with hard edges, so every
 // sprite sits on the same pixel grid. The HUD is painted on a second, sharp canvas on top, in the pixel fonts.
 import { T, UP, BOSS_TIME, ABILITIES, POWERUPS, RARITIES, CLASSES, gearOf } from './data.js';
-import { ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, ZAP_T, ZAP_R, recruitQuality } from './sim.js';
+import { biomeAt, BONE, HALLS, EMBER, ARENA, VIEW, BOSS_BLAST, BLADE_R, EMBER_R, ZAP_T, ZAP_R, recruitQuality } from './sim.js';
 import { ATLAS, PAL } from './atlas.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -171,13 +171,30 @@ function ground(world) {
   const c = groundCv.getContext('2d');
   let seed = 11; const rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const dot = (x, y, col) => { c.fillStyle = col; c.fillRect(x, y, 1, 1); };
-  const tones = ['#221e30', '#262234', '#2a2639'];
+  // Floor per biome (kept dark so creatures read): the Crypt's violet flagstones, the Bone Fields' dusty brown,
+  // the Sunken Halls' cold blue, the Ember Pits' scorched red. Edges are ragged: each tile looks up its biome a little off-centre.
+  const FLOORS = [
+    { tones: ['#221e30', '#262234', '#2a2639'], seam: '#1c1828' },
+    { tones: ['#2a2224', '#2e2527', '#322a2a'], seam: '#211a1c' },
+    { tones: ['#1c2232', '#1f2637', '#22293b'], seam: '#161b28' },
+    { tones: ['#241418', '#28161a', '#2c191c'], seam: '#1a0e12' },
+  ];
   for (let ty = 0; ty < H; ty += 16) for (let tx = 0; tx < W; tx += 16) {            // flagstones
-    c.fillStyle = tones[Math.floor(rn() * 3)]; c.fillRect(tx, ty, 16, 16);
-    c.fillStyle = '#1c1828'; c.fillRect(tx, ty, 16, 1); c.fillRect(tx, ty, 1, 16);
+    const b = biomeAt(world, (tx + 8) * PX + (rn() - 0.5) * 140, (ty + 8) * PX + (rn() - 0.5) * 140), F = FLOORS[b];
+    c.fillStyle = F.tones[Math.floor(rn() * 3)]; c.fillRect(tx, ty, 16, 16);
+    c.fillStyle = F.seam; c.fillRect(tx, ty, 16, 1); c.fillRect(tx, ty, 1, 16);
     c.fillStyle = 'rgba(255,255,255,.03)'; c.fillRect(tx + 1, ty + 1, 15, 1);
     const r = rn();
-    if (r < 0.10) { let x = tx + 3 + Math.floor(rn() * 8), y = ty + 3; for (let i = 0; i < 6; i++) { dot(x, y, PAL.k); x += rn() < 0.5 ? 1 : 0; y++; } }   // crack
+    if (b === BONE && r < 0.12) {                                                      // a bone: shaft and two knuckles
+      const x = tx + 3 + Math.floor(rn() * 8), y = ty + 4 + Math.floor(rn() * 8), v = rn() < 0.5;
+      for (let i = 0; i < 4; i++) dot(x + (v ? 0 : i), y + (v ? i : 0), PAL.g2);
+      dot(x - (v ? 1 : 0), y - (v ? 0 : 1), PAL.g1); dot(x + (v ? 1 : 0), y + (v ? 0 : 1), PAL.g1);
+      dot(x + (v ? -1 : 3), y + (v ? 3 : -1), PAL.g1); dot(x + (v ? 1 : 3), y + (v ? 3 : 1), PAL.g1);
+    } else if (b === EMBER && r < 0.14) {                                              // a glowing crack
+      let x = tx + 3 + Math.floor(rn() * 8), y = ty + 3; for (let i = 0; i < 7; i++) { dot(x, y, i % 3 ? PAL.r2 : PAL.o); x += rn() < 0.5 ? 1 : -1; y++; }
+    } else if (b === EMBER && r < 0.22) for (let i = 0; i < 3; i++) dot(tx + 2 + Math.floor(rn() * 12), ty + 2 + Math.floor(rn() * 12), PAL.g4);   // ash
+    else if (b === HALLS && r < 0.14) { const x = tx + 3 + Math.floor(rn() * 9), y = ty + 4 + Math.floor(rn() * 8); for (let i = 0; i < 4; i++) dot(x + i, y + (i & 1), PAL.c3); }   // a damp streak
+    else if (r < 0.10) { let x = tx + 3 + Math.floor(rn() * 8), y = ty + 3; for (let i = 0; i < 6; i++) { dot(x, y, PAL.k); x += rn() < 0.5 ? 1 : 0; y++; } }   // crack
     else if (r < 0.17) for (let i = 0; i < 3; i++) dot(tx + 2 + Math.floor(rn() * 12), ty + 2 + Math.floor(rn() * 12), PAL.g4);                              // pebbles
     else if (r < 0.21) { const x = tx + 3 + Math.floor(rn() * 9), y = ty + 4 + Math.floor(rn() * 8); dot(x, y, PAL.gr3); dot(x + 1, y, PAL.gr3); dot(x, y - 1, PAL.gr2); dot(x + 2, y + 1, PAL.gr3); }   // moss
   }
@@ -185,6 +202,23 @@ function ground(world) {
   const disc = (cx, cy, r, shade) => {
     for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) { const q = x * x + y * y; if (q <= r * r + r * 0.6) dot(cx + x, cy + y, shade(x, y, q)); }
   };
+  // Pools. Water is see-through, so it is a checkerboard over the floor with a hard rim; lava is solid and hot in the middle.
+  for (const p of world.pools) {
+    const x = Math.round(p.x / PX), y = Math.round(p.y / PX), r = Math.round(p.r / PX), wob = rn() * 6.283;
+    const rim = a => r * (0.93 + 0.04 * Math.sin(a * 2 + wob) + 0.03 * Math.sin(a * 5 - wob));
+    for (let dy = -r - 1; dy <= r + 1; dy++) for (let dx = -r - 1; dx <= r + 1; dx++) {
+      const q = Math.hypot(dx, dy), e = rim(Math.atan2(dy, dx)); if (q > e + 1) continue;
+      if (p.kind === 'water') {
+        if (q > e) dot(x + dx, y + dy, PAL.c3);
+        else if (q > e - 1) dot(x + dx, y + dy, PAL.c2);
+        else if (((x + dx + y + dy) & 1) === 0) dot(x + dx, y + dy, q > e - 3 ? PAL.c2 : PAL.c3);
+      } else {
+        dot(x + dx, y + dy, q > e ? PAL.k : q > e - 1.5 ? PAL.br3 : q > e * 0.6 ? (((x + dx + y + dy) & 1) ? PAL.r2 : PAL.r) : q > e * 0.3 ? PAL.o : PAL.o2);
+      }
+    }
+    if (p.kind === 'water') for (let i = 0; i < 4; i++) { const a = rn() * 6.283, d = rn() * r * 0.6; dot(x + Math.round(Math.cos(a) * d), y + Math.round(Math.sin(a) * d), PAL.ice); }
+    else for (let i = 0; i < 4; i++) { const a = rn() * 6.283, d = rn() * r * 0.25; dot(x + Math.round(Math.cos(a) * d), y + Math.round(Math.sin(a) * d), PAL.y); }
+  }
   // Boulders: an uneven outline, a dark side face, and a top cut into facets that catch the light from the top-left.
   for (const k of rocks) {
     const x = Math.round(k.x / PX), y = Math.round(k.y / PX), r = Math.round(k.r / PX), up = Math.max(2, Math.round(r * 0.3));
@@ -196,18 +230,23 @@ function ground(world) {
         const q = Math.hypot(dx, dy), a = Math.atan2(dy, dx); if (q <= edge(a) + grow) dot(x + dx + ox, y + dy + oy, shade(dx, dy, q, a));
       }
     };
-    const tone = [PAL.g3, '#6f6a7d', PAL.g2, PAL.g1];
+    // Stone by biome: grey granite, bleached bone-white, the same grey but mossier in the Halls, black basalt in the Ember Pits.
+    const b = biomeAt(world, k.x, k.y);
+    const S = b === BONE ? { tone: [PAL.g2, '#a9a497', PAL.g1, PAL.w], cap: [PAL.w, PAL.g1], seam: PAL.g2, side: [PAL.g3, PAL.g4], moss: 0.1 }
+      : b === EMBER ? { tone: [PAL.k, PAL.g5, PAL.g4, PAL.g3], cap: [PAL.g3, PAL.g4], seam: PAL.k, side: [PAL.k, '#120c18'], moss: 0 }
+      : { tone: [PAL.g3, '#6f6a7d', PAL.g2, PAL.g1], cap: [PAL.g1, PAL.g2], seam: PAL.g3, side: [PAL.g4, PAL.g5], moss: b === HALLS ? 0.9 : 0.45 };
     c.globalAlpha = 0.45; blob(2, 3, 0, () => '#0c0816'); c.globalAlpha = 1;             // shadow
-    blob(0, 0, 1, () => PAL.k); blob(0, 0, 0, (dx) => (dx > r * 0.3 ? PAL.g5 : PAL.g4));  // side face
+    blob(0, 0, 1, () => PAL.k); blob(0, 0, 0, (dx) => (dx > r * 0.3 ? S.side[1] : S.side[0]));  // side face
     blob(0, -up, 1, () => PAL.k);
     blob(0, -up, 0, (dx, dy, q, a) => {
-      if (q < r * 0.42) return -(dx + dy) > r * 0.12 ? PAL.g1 : PAL.g2;                 // flat cap
+      if (q < r * 0.42) return -(dx + dy) > r * 0.12 ? S.cap[0] : S.cap[1];             // flat cap
       const u = sector(a), i = Math.floor(u), mid = a0 + (i + 0.5) * 6.283 / n;
-      if (u - i < 0.07 * n / 6.283 * 6 / Math.max(3, q)) return PAL.g3;                 // seam between facets
+      if (u - i < 0.07 * n / 6.283 * 6 / Math.max(3, q)) return S.seam;                 // seam between facets
       const lit = -(Math.cos(mid) + Math.sin(mid)) / 1.414;
-      return tone[Math.max(0, Math.min(3, Math.round((lit + 1) * 1.4)))];
+      return S.tone[Math.max(0, Math.min(3, Math.round((lit + 1) * 1.4)))];
     });
-    if (rn() < 0.45) for (let i = 0; i < 5; i++) dot(x - Math.floor(rn() * r * 0.5), y - up - Math.floor(rn() * r * 0.4), i % 2 ? PAL.gr2 : PAL.gr3);   // moss
+    if (b === EMBER) for (let i = 0; i < 4; i++) dot(x - r + 2 + Math.floor(rn() * r * 1.6), y - up + Math.floor(rn() * r * 0.6), i % 2 ? PAL.r2 : PAL.o);   // embers in the cracks
+    if (rn() < S.moss) for (let i = 0; i < 5; i++) dot(x - Math.floor(rn() * r * 0.5), y - up - Math.floor(rn() * r * 0.4), i % 2 ? PAL.gr2 : PAL.gr3);   // moss
   }
   // Ruined walls: a raised top of cut stone, a front face of bricks below it, a hard outline and a shadow.
   for (const k of world.walls) {
@@ -374,6 +413,9 @@ function label(cx, text, x, y, col, font) {
 function minimap(cx, g, camX, camY, H) {
   const w = 160, h = w * ARENA.h / ARENA.w, x0 = 16, y0 = H - h - 16, k = w / ARENA.w;
   panel(cx, x0 - 2, y0 - 2, w + 4, h + 4, 'rgba(18,14,26,.9)');
+  const MINI = ['#1e1a2a', '#2c2426', '#1a2234', '#2e171b'], W = g.world, cs = 400 * k;   // biome cells
+  for (let y = 0; y < W.BH; y++) for (let x = 0; x < W.BW; x++) { cx.fillStyle = MINI[W.biome[y * W.BW + x]]; cx.fillRect(Math.round(x0 + x * cs), Math.round(y0 + y * cs), Math.ceil(cs), Math.ceil(Math.min(cs, h - y * cs))); }
+  for (const p of W.pools) { cx.fillStyle = p.kind === 'water' ? PAL.c3 : PAL.r2; const q = Math.max(1, Math.round(p.r * k)); cx.fillRect(Math.round(x0 + p.x * k - q), Math.round(y0 + p.y * k - q), q * 2, q * 2); }
   cx.fillStyle = PAL.g3; for (const w of g.world.walls) cx.fillRect(Math.round(x0 + w.x * k), Math.round(y0 + w.y * k), Math.max(1, Math.round(w.w * k)), Math.max(1, Math.round(w.h * k)));
   for (const r of g.rocks) { const q = Math.max(2, Math.round(r.r * k)); cx.fillRect(Math.round(x0 + r.x * k - q), Math.round(y0 + r.y * k - q), q * 2, q * 2); }
   for (const e of g.ents) {

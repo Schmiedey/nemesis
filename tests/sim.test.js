@@ -715,4 +715,20 @@ describe('evolutions and pairs (Phase 21)', () => {
     for (let i = 0; i < 60 * 10 && !e.dead; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; best = Math.min(best, Math.hypot(e.x - g.P.x, e.y - g.P.y)); }
     expect(best).toBeLessThan(60);   // through the wall it would stay over 110 away
   });
+
+  it('lava burns walking enemies but never you; water slows them', () => {
+    const g = createGame({ seed: 3 });
+    const lava = g.world.pools.find(p => p.kind === 'lava'), water = g.world.pools.find(p => p.kind === 'water');
+    expect(lava && water).toBeTruthy();
+    for (let i = 0; i < 60 * 12; i++) { if (g.state === 'lvl') pick(g, 0); else step(g, 1 / 60, still()); g.P.hp = g.P.maxhp; }
+    const [a, b] = g.ents.filter(o => o.team === 'enemy' && !o.dead && !T[o.type].fly);
+    expect(a && b).toBeTruthy();
+    for (const o of g.ents) if (o !== a && o !== b && o.team === 'enemy') o.dead = true;
+    g.P.x = lava.x; g.P.y = lava.y; g.P.dmg = 0; a.x = lava.x + 10; a.y = lava.y; a.hp = a.maxhp = 1000;
+    b.x = water.x; b.y = water.y; b.slowT = 0;
+    const hp0 = g.P.hp; step(g, 1 / 60, still()); step(g, 1 / 60, still());
+    expect(a.hp).toBeLessThan(1000);
+    expect(b.wet).toBe(true);
+    expect(g.P.hp).toBe(hp0);
+  });
 });
